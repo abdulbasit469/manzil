@@ -1,0 +1,90 @@
+name,city,province,type,source
+Quaid-i-Azam University,Islamabad,ICT,Public,HEC
+University of the Punjab,Lahore,Punjab,Public,HEC
+University of Karachi,Karachi,Sindh,Public,HEC
+National University of Sciences & Technology (NUST),Islamabad,ICT,Public,HEC
+Lahore University of Management Sciences (LUMS),Lahore,Punjab,Private,HEC
+Aga Khan University,Karachi,Sindh,Private,HEC
+"University of Engineering & Technology, Lahore (UET Lahore)",Lahore,Punjab,Public,HEC
+COMSATS University Islamabad,Islamabad,ICT,Public,HEC
+Institute of Business Administration (IBA),Karachi,Sindh,Public/Autonomous,HEC
+"University of Agriculture, Faisalabad (UAF)",Faisalabad,Punjab,Public,HEC
+Government College University Lahore (GCU),Lahore,Punjab,Public,HEC
+Air University,Islamabad,ICT,Public,HEC
+Bahria University,Islamabad,ICT,Public/Private Sector,HEC
+National University of Modern Languages (NUML),Islamabad,ICT,Public,HEC
+Allama Iqbal Open University (AIOU),Islamabad,ICT,Public,HEC
+University of Peshawar,Peshawar,Khyber Pakhtunkhwa,Public,HEC
+University of Sindh,Jamshoro,Sindh,Public,HEC
+Bahauddin Zakariya University (BZU),Multan,Punjab,Public,HEC
+University of Engineering & Technology Peshawar (UET Peshawar),Peshawar,Khyber Pakhtunkhwa,Public,HEC
+Abasyn University,Peshawar,Khyber Pakhtunkhwa,Private,HEC
+Institute of Space Technology (IST),Islamabad,ICT,Public,HEC
+Ziauddin University,Karachi,Sindh,Private,HEC
+Shaheed Benazir Bhutto University,Shaheed Benazirabad,Sindh,Public,HEC
+University of Veterinary and Animal Sciences (UVAS),Lahore,Punjab,Public,HEC
+Dow University of Health Sciences,Karachi,Sindh,Public,HEC
+Khyber Medical University,Peshawar,Khyber Pakhtunkhwa,Public,HEC
+University of Malakand,Chakdara,Khyber Pakhtunkhwa,Public,HEC
+University of Azad Jammu & Kashmir,Muzaffarabad,AJK,Public,HEC
+"Federal Urdu University of Arts, Science & Technology",Islamabad,ICT,Public,HEC
+The Islamia University of Bahawalpur,Bahawalpur,Punjab,Public,HEC
+University of Balochistan,Quetta,Balochistan,Public,HEC
+Karachi Institute of Economics & Technology (KIET),Karachi,Sindh,Private,HEC
+University of Haripur (UOH),Haripur,Khyber Pakhtunkhwa,Public,HEC
+Liaquat University of Medical & Health Sciences,Jamshoro,Sindh,Public,HEC
+University of Sargodha,Sargodha,Punjab,Public,HEC
+University of Central Punjab (UCP),Lahore,Punjab,Private,HEC
+University of Education (Various campuses),Lahore,Punjab,Public,HEC
+"University of Karachi, Institute of Business Administration (IBA Karachi)",Karachi,Sindh,Public/Autonomous,HEC
+Punjab University College of Information Technology (PUCIT),Lahore,Punjab,Public,HEC
+National Textile University,Faisalabad,Punjab,Public,HEC
+University of Lahore (UOL),Lahore,Punjab,Private,HEC
+University of Health Sciences (UHS),Lahore,Punjab,Public,HEC
+AIOU - Allama Iqbal Open University (duplicate-check),Islamabad,ICT,Public,HEC
+Institute of Business & Management (IoBM),Karachi,Sindh,Private,HEC
+Iqra University,Karachi,Sindh,Private,HEC
+FAST National University of Computer and Emerging Sciences (FAST-NU),Islamabad,ICT,Private,HEC
+University of Swat,Swat,Khyber Pakhtunkhwa,Public,HEC
+University of Kohat,Kohat,Khyber Pakhtunkhwa,Public,HEC
+University of Gujrat (UOG),Gujrat,Punjab,Public,HEC
+University of Karachi - NED University Campus (reference),Karachi,Sindh,Public,HEC
+NED University of Engineering & Technology,Karachi,Sindh,Public,HEC
+"University of Engineering & Technology, Taxila",Taxila,Punjab,Public,HEC
+University of the Punjab - Quaid-e-Azam Campus (reference),Lahore,Punjab,Public,HEC
+Institute of Management Sciences (IMSciences),Peshawar,Khyber Pakhtunkhwa,Public,HEC
+University of Sahiwal,Sahiwal,Punjab,Public,HEC
+University of Lahore - City Campus (reference),Lahore,Punjab,Private,HEC
+"University of Veterinary & Animal Sciences, RYK Campus",Rahim Yar Khan,Punjab,Public,HEC
+Shaheed Zulfiqar Ali Bhutto Medical University,Karachi,Sindh,Public,HEC
+Shaheed Benazir Bhutto Women University (Peshawar),Peshawar,Khyber Pakhtunkhwa,Public,HEC
+University of Karachi - Centre for Excellence in Marine Biology (reference),Karachi,Sindh,Public,HEC
+Riphah International University,Islamabad,ICT,Private,HEC
+Shifa Tameer-e-Millat University,Islamabad,ICT,Private,HEC
+Quaid-i-Azam University - Medical College (reference),Islamabad,ICT,Public,HEC
+University of Engineering & Technology - Kala Shah Kaku Campus (reference),Lahore,Punjab,Public,HEC
+Nishtar Medical University,Multan,Punjab,Public,HEC
+University of Azad Jammu & Kashmir - Neelum Campus (reference),Neelum Valley,AJK,Public,HEC
+Pakistan Institute of Development Economics (PIDE),Islamabad,ICT,Public,HEC
+University of Central Punjab - Lahore Campus (reference),Lahore,Punjab,Private,HEC
+Ibrahim Medical College (reference),Karachi,Sindh,Private,HEC
+The University of Faisalabad (TUF),Faisalabad,Punjab,Private,HEC
+Government College Women University Sialkot,Sialkot,Punjab,Public,HEC
+University of Chakwal,Chakwal,Punjab,Public,HEC
+University of Turbat,Turbat,Balochistan,Public,HEC
+University of Gwadar,Gwadar,Balochistan,Public,HEC
+University of Jhang,Jhang,Punjab,Public,HEC
+University of Dera Ghazi Khan,Dera Ghazi Khan,Punjab,Public,HEC
+University of Sialkot,Sialkot,Punjab,Private,HEC
+University of Veterinary and Animal Sciences - Lahore (reference duplicate),Lahore,Punjab,Public,HEC
+Health Services Academy (HSA),Islamabad,ICT,Public,HEC
+Shaheed Benazir Bhutto University (Sheringal),Dir,Khyber Pakhtunkhwa,Public,HEC
+Benazir Bhutto Shaheed University (Lyari),Karachi,Sindh,Public,HEC
+Bannu University of Science & Technology,Bannu,Khyber Pakhtunkhwa,Public,HEC
+Hazara University,Mansehra,Khyber Pakhtunkhwa,Public,HEC
+University of Karachi - Federal Urdu Campus (reference),Karachi,Sindh,Public,HEC
+Fatima Jinnah Women University,Rawalpindi,Punjab,Public,HEC
+Ghulam Ishaq Khan Institute of Engineering Sciences and Technology (GIKI),Topi,Khyber Pakhtunkhwa,Public,HEC
+IUB - Islamic International University (Islamabad),Islamabad,ICT,Private,HEC
+University of Lahore - Sargodha Campus (reference),Sargodha,Punjab,Private,HEC
+Nipas (placeholder entry),,,,placeholder

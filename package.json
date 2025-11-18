@@ -1,0 +1,41 @@
+{
+  "name": "manzil",
+  "version": "1.0.0",
+  "description": "Manzil - Smart Career Counseling & University Guidance Portal for Pakistani Students",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "node backend/server.js",
+    "dev": "nodemon backend/server.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "scrape:hec": "node backend/scripts/scrapeHECUniversities.js",
+    "scrape:test": "node backend/scripts/testHECScraper.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/abdulbasit469/manzil.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/abdulbasit469/manzil/issues"
+  },
+  "homepage": "https://github.com/abdulbasit469/manzil#readme",
+  "dependencies": {
+    "axios": "^1.13.2",
+    "bcryptjs": "^3.0.3",
+    "cheerio": "^1.1.2",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.19.3",
+    "nodemailer": "^7.0.10",
+    "puppeteer": "^24.30.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  }
+}
