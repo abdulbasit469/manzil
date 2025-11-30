@@ -99,6 +99,11 @@ const AdminDashboard = () => {
             <h3>View Analytics</h3>
             <p>Assessment results and trends</p>
           </Link>
+
+          <Link to="/admin/merit-criteria" className="action-card">
+            <h3>Merit Criteria</h3>
+            <p>Manage merit calculation criteria</p>
+          </Link>
         </div>
       </div>
 

@@ -2,6 +2,7 @@ const User = require('../models/User');
 const University = require('../models/University');
 const Program = require('../models/Program');
 const AssessmentResponse = require('../models/Assessment');
+const UniversityCriteria = require('../models/UniversityCriteria');
 
 /**
  * Get all users
@@ -203,6 +204,154 @@ exports.getAllAssessments = async (req, res) => {
   } catch (error) {
     console.error('❌ Error fetching assessments:', error);
     res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/**
+ * Get all merit criteria (Admin)
+ */
+exports.getAllMeritCriteria = async (req, res) => {
+  try {
+    const { universityId, programId } = req.query;
+    const query = { isActive: true };
+    
+    if (universityId) query.university = universityId;
+    if (programId) query.program = programId;
+
+    const criteria = await UniversityCriteria.find(query)
+      .populate('university', 'name city')
+      .populate('program', 'name degree')
+      .sort({ 'university.name': 1, 'program.name': 1 });
+
+    res.status(200).json({
+      success: true,
+      count: criteria.length,
+      criteria
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/**
+ * Get single merit criteria (Admin)
+ */
+exports.getMeritCriteria = async (req, res) => {
+  try {
+    const criteria = await UniversityCriteria.findById(req.params.id)
+      .populate('university', 'name city')
+      .populate('program', 'name degree');
+
+    if (!criteria) {
+      return res.status(404).json({ success: false, message: 'Criteria not found' });
+    }
+
+    res.status(200).json({ success: true, criteria });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/**
+ * Create merit criteria (Admin)
+ */
+exports.createMeritCriteria = async (req, res) => {
+  try {
+    console.log('📥 Creating merit criteria with data:', JSON.stringify(req.body, null, 2));
+    
+    // Validate required fields
+    if (!req.body.university || !req.body.program) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'University and Program are required' 
+      });
+    }
+
+    const criteria = await UniversityCriteria.create(req.body);
+    
+    await criteria.populate('university', 'name');
+    await criteria.populate('program', 'name');
+
+    console.log(`✅ Merit criteria created: ${criteria.university.name} - ${criteria.program.name}`);
+    res.status(201).json({
+      success: true,
+      message: 'Merit criteria created successfully',
+      criteria
+    });
+  } catch (error) {
+    console.error('❌ Create criteria error:', error.message);
+    console.error('Error details:', error);
+    
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(err => err.message).join(', ');
+      return res.status(400).json({ 
+        success: false, 
+        message: `Validation Error: ${messages}` 
+      });
+    }
+    
+    // Handle duplicate key error
+    if (error.code === 11000) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Merit criteria already exists for this university and program' 
+      });
+    }
+    
+    res.status(400).json({ 
+      success: false, 
+      message: error.message || 'Failed to create merit criteria' 
+    });
+  }
+};
+
+/**
+ * Update merit criteria (Admin)
+ */
+exports.updateMeritCriteria = async (req, res) => {
+  try {
+    const criteria = await UniversityCriteria.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true, runValidators: true }
+    )
+    .populate('university', 'name')
+    .populate('program', 'name');
+
+    if (!criteria) {
+      return res.status(404).json({ success: false, message: 'Criteria not found' });
+    }
+
+    console.log(`✅ Merit criteria updated: ${criteria.university.name} - ${criteria.program.name}`);
+    res.status(200).json({
+      success: true,
+      message: 'Merit criteria updated successfully',
+      criteria
+    });
+  } catch (error) {
+    console.error('❌ Update criteria error:', error.message);
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+/**
+ * Delete merit criteria (Admin)
+ */
+exports.deleteMeritCriteria = async (req, res) => {
+  try {
+    const criteria = await UniversityCriteria.findByIdAndDelete(req.params.id);
+    
+    if (!criteria) {
+      return res.status(404).json({ success: false, message: 'Criteria not found' });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Merit criteria deleted successfully'
+    });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
   }
 };
 

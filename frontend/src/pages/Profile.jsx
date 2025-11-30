@@ -8,7 +8,13 @@ const Profile = () => {
     email: '',
     phone: '',
     city: '',
+    fatherName: '',
+    gender: '',
+    dateOfBirth: '',
+    currentStatus: '',
     intermediateType: '',
+    firstYearMarks: '',
+    secondYearMarks: '',
     intermediateMarks: '',
     matricMarks: '',
     interests: []
@@ -111,6 +117,57 @@ const Profile = () => {
 
             <div className="form-row">
               <div className="form-group">
+                <label>Father Name</label>
+                <input
+                  type="text"
+                  name="fatherName"
+                  value={profile.fatherName || ''}
+                  onChange={handleChange}
+                  placeholder="Enter father's name"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Gender</label>
+                <select name="gender" value={profile.gender || ''} onChange={handleChange}>
+                  <option value="">Select...</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label>Date of Birth</label>
+                <input
+                  type="date"
+                  name="dateOfBirth"
+                  value={profile.dateOfBirth ? new Date(profile.dateOfBirth).toISOString().split('T')[0] : ''}
+                  onChange={handleChange}
+                  max={new Date(new Date().setFullYear(new Date().getFullYear() - 13)).toISOString().split('T')[0]}
+                  min={new Date(new Date().setFullYear(new Date().getFullYear() - 100)).toISOString().split('T')[0]}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Current Status</label>
+                <select name="currentStatus" value={profile.currentStatus || ''} onChange={handleChange}>
+                  <option value="">Select...</option>
+                  <option value="FSc Pre-Engineering">FSc Pre-Engineering</option>
+                  <option value="FSc Pre-Medical">FSc Pre-Medical</option>
+                  <option value="ICS">ICS</option>
+                  <option value="ICOM">ICOM</option>
+                  <option value="FA">FA</option>
+                  <option value="A-Levels">A-Levels</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
                 <label>Intermediate Type</label>
                 <select name="intermediateType" value={profile.intermediateType || ''} onChange={handleChange}>
                   <option value="">Select...</option>
@@ -132,6 +189,35 @@ const Profile = () => {
                   onChange={handleChange}
                   min="0"
                   max="1100"
+                  placeholder="Total intermediate marks"
+                />
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label>1st Year Marks (out of 550)</label>
+                <input
+                  type="number"
+                  name="firstYearMarks"
+                  value={profile.firstYearMarks || ''}
+                  onChange={handleChange}
+                  min="0"
+                  max="550"
+                  placeholder="First year marks"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>2nd Year Marks (out of 550)</label>
+                <input
+                  type="number"
+                  name="secondYearMarks"
+                  value={profile.secondYearMarks || ''}
+                  onChange={handleChange}
+                  min="0"
+                  max="550"
+                  placeholder="Second year marks (if result announced)"
                 />
               </div>
             </div>
@@ -145,6 +231,7 @@ const Profile = () => {
                 onChange={handleChange}
                 min="0"
                 max="1100"
+                placeholder="Matriculation marks"
               />
             </div>
 

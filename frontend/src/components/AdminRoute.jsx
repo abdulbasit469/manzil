@@ -3,7 +3,11 @@ import { Navigate } from 'react-router-dom'
 import { AuthContext } from '../context/AuthContext'
 
 const AdminRoute = ({ children }) => {
-  const { user } = useContext(AuthContext)
+  const { user, loading } = useContext(AuthContext)
+
+  if (loading) {
+    return <div style={{textAlign:'center', padding:'50px'}}>Loading...</div>
+  }
 
   if (!user) {
     return <Navigate to="/login" />

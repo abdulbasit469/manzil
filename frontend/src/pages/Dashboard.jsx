@@ -56,6 +56,12 @@ const Dashboard = () => {
           <Link to="/universities" className="btn">Browse Universities</Link>
         </div>
 
+        <div className="dashboard-card">
+          <h3>Merit Calculator</h3>
+          <p>Calculate your admission merit percentage and check admission probability for universities</p>
+          <Link to="/merit-calculator" className="btn">Calculate Merit</Link>
+        </div>
+
         <div className="dashboard-card stats-card">
           <h3>Quick Stats</h3>
           <div className="stat-item">

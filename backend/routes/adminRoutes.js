@@ -5,8 +5,18 @@ const {
   updateUserRole,
   deleteUser,
   getStats,
-  getAllAssessments
+  getAllAssessments,
+  getAllMeritCriteria,
+  getMeritCriteria,
+  createMeritCriteria,
+  updateMeritCriteria,
+  deleteMeritCriteria
 } = require('../controllers/adminController');
+const {
+  createProgram,
+  updateProgram,
+  deleteProgram
+} = require('../controllers/programController');
 const { protect, authorize } = require('../middleware/auth');
 
 const router = express.Router();
@@ -20,6 +30,18 @@ router.put('/users/:id/role', updateUserRole);
 router.delete('/users/:id', deleteUser);
 router.get('/stats', getStats);
 router.get('/assessments', getAllAssessments);
+
+// Merit Criteria routes
+router.get('/merit-criteria', getAllMeritCriteria);
+router.get('/merit-criteria/:id', getMeritCriteria);
+router.post('/merit-criteria', createMeritCriteria);
+router.put('/merit-criteria/:id', updateMeritCriteria);
+router.delete('/merit-criteria/:id', deleteMeritCriteria);
+
+// Program routes
+router.post('/programs', createProgram);
+router.put('/programs/:id', updateProgram);
+router.delete('/programs/:id', deleteProgram);
 
 module.exports = router;
 

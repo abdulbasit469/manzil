@@ -76,6 +76,7 @@ app.use('/api/dashboard', require('./routes/dashboardRoutes'));
 app.use('/api/universities', require('./routes/universityRoutes'));
 app.use('/api/programs', require('./routes/programRoutes'));
 app.use('/api/assessment', require('./routes/assessmentRoutes'));
+app.use('/api/merit', require('./routes/meritRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
 
 // 404 Handler - Route not found

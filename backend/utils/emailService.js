@@ -72,5 +72,85 @@ const sendOTPEmail = async (email, otp, name) => {
   }
 };
 
-module.exports = { sendOTPEmail };
+/**
+ * Send password reset email to user
+ * For testing: Logs to console if email config not available
+ */
+const sendPasswordResetEmail = async (email, resetToken, name) => {
+  const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password/${resetToken}`;
+  
+  try {
+    // Check if email configuration exists
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+      // For testing without email setup - just log to console
+      console.log('\n📧 ====== PASSWORD RESET EMAIL (Development Mode) ======');
+      console.log(`To: ${email}`);
+      console.log(`Name: ${name}`);
+      console.log(`Reset Link: ${resetUrl}`);
+      console.log('Reset link will expire in 30 minutes');
+      console.log('==========================================\n');
+      return { success: true, mode: 'console' };
+    }
+
+    // Create transporter with Gmail
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS // App Password, not regular password
+      },
+      tls: {
+        rejectUnauthorized: false // Allow self-signed certificates (for development)
+      }
+    });
+
+    // Email content
+    const mailOptions = {
+      from: `Manzil Career Portal <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: 'Password Reset Request - Manzil',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #000000;">Password Reset Request</h2>
+          <p>Hi ${name},</p>
+          <p>You requested to reset your password for your Manzil account.</p>
+          <p>Click the button below to reset your password:</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${resetUrl}" style="background-color: #000000; color: #ffffff; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+              Reset Password
+            </a>
+          </div>
+          <p>Or copy and paste this link in your browser:</p>
+          <p style="word-break: break-all; color: #666; background: #f5f5f5; padding: 10px; border-radius: 5px;">
+            ${resetUrl}
+          </p>
+          <p><strong>This link will expire in 30 minutes.</strong></p>
+          <p>If you didn't request a password reset, please ignore this email. Your password will remain unchanged.</p>
+          <hr style="border: 1px solid #eee; margin: 30px 0;">
+          <p style="color: #666; font-size: 12px;">
+            This is an automated email from Manzil Career Counseling Portal.<br>
+            Please do not reply to this email.
+          </p>
+        </div>
+      `
+    };
+
+    // Send email
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`✅ Password reset email sent to ${email}`);
+    return { success: true, mode: 'email', messageId: info.messageId };
+
+  } catch (error) {
+    console.error('❌ Email sending error:', error.message);
+    // Fallback to console logging if email fails
+    console.log('\n📧 ====== PASSWORD RESET EMAIL (Fallback Mode) ======');
+    console.log(`To: ${email}`);
+    console.log(`Name: ${name}`);
+    console.log(`Reset Link: ${resetUrl}`);
+    console.log('==========================================\n');
+    return { success: true, mode: 'fallback' };
+  }
+};
+
+module.exports = { sendOTPEmail, sendPasswordResetEmail };
 

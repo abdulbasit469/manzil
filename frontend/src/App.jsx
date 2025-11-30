@@ -3,12 +3,16 @@ import { AuthProvider } from './context/AuthContext'
 import Login from './pages/Login'
 import Signup from './pages/Signup'
 import VerifyOTP from './pages/VerifyOTP'
+import ForgotPassword from './pages/ForgotPassword'
+import ResetPassword from './pages/ResetPassword'
+import AdminLogin from './pages/AdminLogin'
 import Home from './pages/Home'
 import Dashboard from './pages/Dashboard'
 import Universities from './pages/Universities'
 import Profile from './pages/Profile'
 import Assessment from './pages/Assessment'
 import AssessmentFlow from './pages/AssessmentFlow'
+import MeritCalculator from './pages/MeritCalculator'
 import ProtectedRoute from './components/ProtectedRoute'
 import AdminRoute from './components/AdminRoute'
 import Navbar from './components/Navbar'
@@ -17,6 +21,7 @@ import AdminUsers from './pages/admin/AdminUsers'
 import AdminUniversities from './pages/admin/AdminUniversities'
 import AdminPrograms from './pages/admin/AdminPrograms'
 import AdminAssessments from './pages/admin/AdminAssessments'
+import AdminMeritCriteria from './pages/admin/AdminMeritCriteria'
 import './App.css'
 
 function App() {
@@ -25,11 +30,15 @@ function App() {
       <Router>
         <div className="App">
           <Navbar />
-          <Routes>
+          <div className="main-content">
+            <Routes>
             {/* Public Routes */}
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
             <Route path="/verify-otp" element={<VerifyOTP />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password/:resetToken" element={<ResetPassword />} />
+            <Route path="/admin-login" element={<AdminLogin />} />
             
             {/* Home - Redirects based on role */}
             <Route path="/" element={<Home />} />
@@ -40,6 +49,7 @@ function App() {
             <Route path="/universities" element={<ProtectedRoute><Universities /></ProtectedRoute>} />
             <Route path="/assessment" element={<ProtectedRoute><AssessmentFlow /></ProtectedRoute>} />
             <Route path="/assessment/old" element={<ProtectedRoute><Assessment /></ProtectedRoute>} />
+            <Route path="/merit-calculator" element={<ProtectedRoute><MeritCalculator /></ProtectedRoute>} />
             
             {/* Admin Routes */}
             <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
@@ -48,7 +58,9 @@ function App() {
             <Route path="/admin/universities" element={<AdminRoute><AdminUniversities /></AdminRoute>} />
             <Route path="/admin/programs" element={<AdminRoute><AdminPrograms /></AdminRoute>} />
             <Route path="/admin/assessments" element={<AdminRoute><AdminAssessments /></AdminRoute>} />
-          </Routes>
+            <Route path="/admin/merit-criteria" element={<AdminRoute><AdminMeritCriteria /></AdminRoute>} />
+            </Routes>
+          </div>
         </div>
       </Router>
     </AuthProvider>

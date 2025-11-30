@@ -9,13 +9,61 @@ const Signup = () => {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
+  const [passwordError, setPasswordError] = useState('')
   const [loading, setLoading] = useState(false)
   const { register } = useContext(AuthContext)
   const navigate = useNavigate()
 
+  // Validate password
+  const validatePassword = (pwd) => {
+    const hasUpperCase = /[A-Z]/.test(pwd)
+    const hasLowerCase = /[a-z]/.test(pwd)
+    const hasDigit = /[0-9]/.test(pwd)
+    const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pwd)
+
+    if (!hasUpperCase || !hasLowerCase || !hasDigit || !hasSpecialChar) {
+      return 'Password should contain at least one uppercase, lowercase, digit and special character'
+    }
+    return ''
+  }
+
+  // Handle name change - prevent numbers
+  const handleNameChange = (e) => {
+    const value = e.target.value
+    // Remove any numbers from the input
+    const nameWithoutNumbers = value.replace(/[0-9]/g, '')
+    setName(nameWithoutNumbers)
+  }
+
+  // Handle password change
+  const handlePasswordChange = (e) => {
+    const value = e.target.value
+    setPassword(value)
+    if (value.length > 0) {
+      const error = validatePassword(value)
+      setPasswordError(error)
+    } else {
+      setPasswordError('')
+    }
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
+    setPasswordError('')
+
+    // Validate name (no numbers)
+    if (/\d/.test(name)) {
+      setError('Name cannot contain numbers')
+      return
+    }
+
+    // Validate password
+    const pwdError = validatePassword(password)
+    if (pwdError) {
+      setPasswordError(pwdError)
+      return
+    }
 
     if (password !== confirmPassword) {
       setError('Passwords do not match')
@@ -23,7 +71,7 @@ const Signup = () => {
     }
 
     if (password.length < 6) {
-      setError('Password must be at least 6 characters')
+      setPasswordError('Password must be at least 6 characters')
       return
     }
 
@@ -54,7 +102,7 @@ const Signup = () => {
             <input
               type="text"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={handleNameChange}
               required
               placeholder="Enter your full name"
             />
@@ -76,10 +124,11 @@ const Signup = () => {
             <input
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={handlePasswordChange}
               required
-              placeholder="Minimum 6 characters"
+              placeholder="Enter password with uppercase, lowercase, digit and special character"
             />
+            {passwordError && <div className="field-error">{passwordError}</div>}
           </div>
           
           <div className="form-group">
@@ -97,6 +146,28 @@ const Signup = () => {
             {loading ? 'Creating Account...' : 'Sign Up'}
           </button>
         </form>
+        
+        <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #e0e0e0' }}>
+          <Link 
+            to="/admin-login"
+            className="btn btn-secondary btn-block"
+            style={{ 
+              background: '#6c757d', 
+              color: '#fff',
+              border: 'none',
+              marginTop: '10px',
+              display: 'block',
+              textAlign: 'center',
+              textDecoration: 'none',
+              padding: '12px',
+              borderRadius: '6px',
+              fontSize: '16px',
+              fontWeight: '600'
+            }}
+          >
+            Login as Admin
+          </Link>
+        </div>
         
         <p className="auth-footer">
           Already have an account? <Link to="/login">Login here</Link>

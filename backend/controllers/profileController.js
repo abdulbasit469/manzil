@@ -30,15 +30,25 @@ exports.getProfile = async (req, res) => {
  */
 exports.updateProfile = async (req, res) => {
   try {
-    const { name, phone, city, intermediateType, intermediateMarks, matricMarks, interests } = req.body;
+    const { 
+      name, phone, city, fatherName, gender, dateOfBirth, currentStatus,
+      intermediateType, firstYearMarks, secondYearMarks, intermediateMarks, 
+      matricMarks, interests 
+    } = req.body;
 
     const fieldsToUpdate = {};
     if (name) fieldsToUpdate.name = name;
     if (phone) fieldsToUpdate.phone = phone;
     if (city) fieldsToUpdate.city = city;
+    if (fatherName !== undefined) fieldsToUpdate.fatherName = fatherName;
+    if (gender) fieldsToUpdate.gender = gender;
+    if (dateOfBirth) fieldsToUpdate.dateOfBirth = dateOfBirth;
+    if (currentStatus) fieldsToUpdate.currentStatus = currentStatus;
     if (intermediateType) fieldsToUpdate.intermediateType = intermediateType;
-    if (intermediateMarks) fieldsToUpdate.intermediateMarks = intermediateMarks;
-    if (matricMarks) fieldsToUpdate.matricMarks = matricMarks;
+    if (firstYearMarks !== undefined && firstYearMarks !== '') fieldsToUpdate.firstYearMarks = firstYearMarks;
+    if (secondYearMarks !== undefined && secondYearMarks !== '') fieldsToUpdate.secondYearMarks = secondYearMarks;
+    if (intermediateMarks !== undefined && intermediateMarks !== '') fieldsToUpdate.intermediateMarks = intermediateMarks;
+    if (matricMarks !== undefined && matricMarks !== '') fieldsToUpdate.matricMarks = matricMarks;
     if (interests) fieldsToUpdate.interests = interests;
 
     const user = await User.findByIdAndUpdate(req.user.id, fieldsToUpdate, {
