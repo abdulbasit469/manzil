@@ -24,13 +24,38 @@ exports.register = async (req, res, next) => {
         // User exists but not verified - resend OTP
         const otp = existingUser.generateOTP();
         await existingUser.save();
-        await sendOTPEmail(email, otp, name);
         
-        return res.status(200).json({
-          success: true,
-          message: 'OTP resent to your email. Please verify.',
-          email: email
-        });
+        try {
+          await sendOTPEmail(email, otp, name);
+          return res.status(200).json({
+            success: true,
+            message: 'OTP resent to your email. Please verify.',
+            email: email
+          });
+        } catch (emailError) {
+          const errorMsg = emailError.message || '';
+          if (errorMsg.includes('Email service not configured') || 
+              errorMsg.includes('not configured') || 
+              errorMsg === 'EMAIL_SEND_FAILED') {
+            console.log(`⚠️  Email not working. OTP for ${email}: ${otp}`);
+            return res.status(200).json({
+              success: true,
+              message: `OTP: ${otp} (Email service not working - check server console)`,
+              email: email,
+              otp: otp,
+              developmentMode: true
+            });
+          } else {
+            console.log(`⚠️  Email failed. OTP for ${email}: ${otp}`);
+            return res.status(200).json({
+              success: true,
+              message: `OTP: ${otp} (Email service issue - check server console)`,
+              email: email,
+              otp: otp,
+              developmentMode: true
+            });
+          }
+        }
       }
     }
 
@@ -47,15 +72,41 @@ exports.register = async (req, res, next) => {
     const otp = user.generateOTP();
     await user.save();
     
-    await sendOTPEmail(email, otp, name);
-
-    console.log(`✅ New user registered: ${email} - OTP sent`);
-    
-    res.status(201).json({
-      success: true,
-      message: 'Registration successful! OTP sent to your email.',
-      email: email
-    });
+    try {
+      await sendOTPEmail(email, otp, name);
+      console.log(`✅ New user registered: ${email} - OTP sent`);
+      
+      res.status(201).json({
+        success: true,
+        message: 'Registration successful! OTP sent to your email.',
+        email: email
+      });
+    } catch (emailError) {
+      // Email service not configured or failed - show OTP in response
+      const errorMsg = emailError.message || '';
+      if (errorMsg.includes('Email service not configured') || 
+          errorMsg.includes('not configured') || 
+          errorMsg === 'EMAIL_SEND_FAILED') {
+        console.log(`⚠️  Email not working. OTP for ${email}: ${otp}`);
+        res.status(201).json({
+          success: true,
+          message: `Registration successful! OTP: ${otp} (Email service not working - check server console)`,
+          email: email,
+          otp: otp, // Include OTP in response for development
+          developmentMode: true
+        });
+      } else {
+        // Unexpected error - still show OTP
+        console.log(`⚠️  Email failed. OTP for ${email}: ${otp}`);
+        res.status(201).json({
+          success: true,
+          message: `Registration successful! OTP: ${otp} (Email service issue - check server console)`,
+          email: email,
+          otp: otp,
+          developmentMode: true
+        });
+      }
+    }
 
   } catch (error) {
     console.error('❌ Registration error:', error.message);
@@ -226,14 +277,36 @@ exports.resendOTP = async (req, res, next) => {
     const otp = user.generateOTP();
     await user.save();
     
-    await sendOTPEmail(email, otp, user.name);
+    try {
+      await sendOTPEmail(email, otp, user.name);
+      console.log(`✅ OTP resent to: ${email}`);
 
-    console.log(`✅ OTP resent to: ${email}`);
-
-    res.status(200).json({
-      success: true,
-      message: 'OTP sent to your email'
-    });
+      res.status(200).json({
+        success: true,
+        message: 'OTP sent to your email'
+      });
+    } catch (emailError) {
+      const errorMsg = emailError.message || '';
+      if (errorMsg.includes('Email service not configured') || 
+          errorMsg.includes('not configured') || 
+          errorMsg === 'EMAIL_SEND_FAILED') {
+        console.log(`⚠️  Email not working. OTP for ${email}: ${otp}`);
+        res.status(200).json({
+          success: true,
+          message: `OTP: ${otp} (Email service not working - check server console)`,
+          otp: otp,
+          developmentMode: true
+        });
+      } else {
+        console.log(`⚠️  Email failed. OTP for ${email}: ${otp}`);
+        res.status(200).json({
+          success: true,
+          message: `OTP: ${otp} (Email service issue - check server console)`,
+          otp: otp,
+          developmentMode: true
+        });
+      }
+    }
 
   } catch (error) {
     console.error('❌ Resend OTP error:', error.message);
@@ -293,8 +366,17 @@ exports.forgotPassword = async (req, res, next) => {
     }
 
     // Generate reset token
-    const resetToken = user.getResetPasswordToken();
-    await user.save({ validateBeforeSave: false });
+    let resetToken;
+    try {
+      resetToken = user.getResetPasswordToken();
+      await user.save({ validateBeforeSave: false });
+    } catch (tokenError) {
+      console.error('❌ Error generating reset token:', tokenError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to generate reset token. Please try again.'
+      });
+    }
 
     // Create reset URL
     const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password/${resetToken}`;
@@ -306,24 +388,32 @@ exports.forgotPassword = async (req, res, next) => {
       
       res.status(200).json({
         success: true,
-        message: 'Password reset link sent to your email'
+        message: 'Password reset link has been sent to your email. Please check your inbox.'
       });
-    } catch (error) {
-      // If email fails, remove the reset token
-      user.resetPasswordToken = undefined;
-      user.resetPasswordExpire = undefined;
-      await user.save({ validateBeforeSave: false });
-
-      console.error('❌ Email sending error:', error.message);
+    } catch (emailError) {
+      console.error('❌ Email error caught:', emailError.message);
       
-      return res.status(500).json({
-        success: false,
-        message: 'Email could not be sent. Please try again later.'
+      // Log reset link to console for development/debugging
+      if (emailError.message === 'EMAIL_SEND_FAILED' || 
+          emailError.message.includes('Email service not configured')) {
+        console.log(`\n⚠️  Email service not working. Reset link for ${email}:`);
+        console.log(`   ${resetUrl}\n`);
+      } else {
+        console.log(`\n⚠️  Email sending failed. Reset link for ${email}:`);
+        console.log(`   ${resetUrl}\n`);
+      }
+      
+      // Always return success message - don't reveal email issues to user
+      // In production, email should work. In development, check server console for link
+      res.status(200).json({
+        success: true,
+        message: 'Password reset link has been sent to your email. Please check your inbox.'
       });
     }
 
   } catch (error) {
     console.error('❌ Forgot password error:', error.message);
+    console.error('❌ Error stack:', error.stack);
     res.status(500).json({
       success: false,
       message: error.message || 'Failed to process password reset request'

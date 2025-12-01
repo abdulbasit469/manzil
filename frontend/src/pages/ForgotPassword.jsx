@@ -17,9 +17,12 @@ const ForgotPassword = () => {
 
     try {
       const res = await api.post('/api/auth/forgot-password', { email })
-      setSuccess(res.data.message || 'Password reset link sent to your email')
+      
+      // Always show simple success message - link is sent via email
+      setSuccess('Password reset link has been sent to your email. Please check your inbox.')
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to send reset link')
+      const errorMsg = err.response?.data?.message || 'Failed to send reset link'
+      setError(errorMsg)
     } finally {
       setLoading(false)
     }
@@ -60,5 +63,6 @@ const ForgotPassword = () => {
 }
 
 export default ForgotPassword
+
 
 

@@ -14,8 +14,10 @@ const sendOTPEmail = async (email, otp, name) => {
       console.log(`Name: ${name}`);
       console.log(`OTP: ${otp}`);
       console.log('OTP will expire in 10 minutes');
+      console.log('⚠️  Email credentials not configured. Check server console for OTP.');
       console.log('==========================================\n');
-      return { success: true, mode: 'console' };
+      // Throw error so frontend knows email wasn't actually sent
+      throw new Error('Email service not configured. OTP logged to server console. Please check backend terminal for OTP.');
     }
 
     // Create transporter with Gmail
@@ -62,13 +64,22 @@ const sendOTPEmail = async (email, otp, name) => {
 
   } catch (error) {
     console.error('❌ Email sending error:', error.message);
-    // Fallback to console logging if email fails
+    
+    // If it's a configuration error (missing credentials), re-throw it
+    if (error.message.includes('Email service not configured')) {
+      throw error;
+    }
+    
+    // For other errors (invalid credentials, network issues, etc.), log to console as fallback
     console.log('\n📧 ====== OTP EMAIL (Fallback Mode) ======');
     console.log(`To: ${email}`);
     console.log(`Name: ${name}`);
     console.log(`OTP: ${otp}`);
+    console.log(`Error: ${error.message}`);
+    console.log('⚠️  Email sending failed. OTP logged above.');
     console.log('==========================================\n');
-    return { success: true, mode: 'fallback' };
+    // Throw a specific error that will be caught and handled gracefully
+    throw new Error('EMAIL_SEND_FAILED');
   }
 };
 
@@ -88,8 +99,10 @@ const sendPasswordResetEmail = async (email, resetToken, name) => {
       console.log(`Name: ${name}`);
       console.log(`Reset Link: ${resetUrl}`);
       console.log('Reset link will expire in 30 minutes');
+      console.log('⚠️  Email credentials not configured. Check server console for reset link.');
       console.log('==========================================\n');
-      return { success: true, mode: 'console' };
+      // Throw error so frontend knows email wasn't actually sent
+      throw new Error('Email service not configured. Reset link logged to server console. Please check backend terminal for reset link.');
     }
 
     // Create transporter with Gmail
@@ -142,13 +155,22 @@ const sendPasswordResetEmail = async (email, resetToken, name) => {
 
   } catch (error) {
     console.error('❌ Email sending error:', error.message);
-    // Fallback to console logging if email fails
+    
+    // If it's a configuration error (missing credentials), re-throw it
+    if (error.message.includes('Email service not configured')) {
+      throw error;
+    }
+    
+    // For other errors (invalid credentials, network issues, etc.), log to console as fallback
     console.log('\n📧 ====== PASSWORD RESET EMAIL (Fallback Mode) ======');
     console.log(`To: ${email}`);
     console.log(`Name: ${name}`);
     console.log(`Reset Link: ${resetUrl}`);
+    console.log(`Error: ${error.message}`);
+    console.log('⚠️  Email sending failed. Reset link logged above.');
     console.log('==========================================\n');
-    return { success: true, mode: 'fallback' };
+    // Throw a specific error that will be caught and handled gracefully
+    throw new Error('EMAIL_SEND_FAILED');
   }
 };
 

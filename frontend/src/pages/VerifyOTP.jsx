@@ -4,14 +4,15 @@ import api from '../services/api'
 import './Auth.css'
 
 const VerifyOTP = () => {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const email = location.state?.email
   const [otp, setOtp] = useState('')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
   const [resending, setResending] = useState(false)
-  const navigate = useNavigate()
-  const location = useLocation()
-  const email = location.state?.email
+  const [devOTP, setDevOTP] = useState(location.state?.otp || '')
 
   if (!email) {
     navigate('/signup')
@@ -50,7 +51,20 @@ const VerifyOTP = () => {
 
     try {
       const res = await api.post('/api/auth/resend-otp', { email })
-      setSuccess(res.data.message)
+      
+      // If in development mode, show OTP
+      if (res.data.developmentMode && res.data.otp) {
+        setDevOTP(res.data.otp)
+        setSuccess(
+          <div>
+            <p style={{ marginBottom: '10px' }}>⚠️ Email service not configured (Development Mode)</p>
+            <p style={{ marginBottom: '10px', fontWeight: 'bold', fontSize: '18px' }}>Your OTP: <span style={{ color: '#000', letterSpacing: '3px' }}>{res.data.otp}</span></p>
+            <p style={{ fontSize: '12px', color: '#666' }}>Check server console for more details</p>
+          </div>
+        )
+      } else {
+        setSuccess(res.data.message)
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to resend OTP')
     } finally {
@@ -66,9 +80,27 @@ const VerifyOTP = () => {
           We've sent a 6-digit OTP to<br />
           <strong>{email}</strong>
         </p>
-        <p className="subtitle" style={{fontSize: '12px', color: '#999'}}>
-          Check your terminal/console for OTP (development mode)
-        </p>
+        
+        {devOTP && (
+          <div style={{
+            background: '#fff3cd',
+            border: '1px solid #ffc107',
+            borderRadius: '6px',
+            padding: '15px',
+            marginBottom: '20px',
+            textAlign: 'center'
+          }}>
+            <p style={{ margin: '0 0 10px 0', fontWeight: 'bold', color: '#856404' }}>
+              ⚠️ Development Mode - Email service not configured
+            </p>
+            <p style={{ margin: '0', fontSize: '24px', fontWeight: 'bold', letterSpacing: '5px', color: '#000' }}>
+              Your OTP: {devOTP}
+            </p>
+            <p style={{ margin: '10px 0 0 0', fontSize: '12px', color: '#666' }}>
+              Check server console for more details
+            </p>
+          </div>
+        )}
         
         {error && <div className="error-message">{error}</div>}
         {success && <div className="success-message">{success}</div>}

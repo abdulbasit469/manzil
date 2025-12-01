@@ -80,7 +80,13 @@ const Signup = () => {
     try {
       const res = await register(name, email, password)
       // Redirect to OTP verification page
-      navigate('/verify-otp', { state: { email } })
+      // If in development mode, pass OTP to VerifyOTP page
+      navigate('/verify-otp', { 
+        state: { 
+          email,
+          otp: res?.otp || null
+        } 
+      })
     } catch (err) {
       setError(err.response?.data?.message || 'Registration failed')
     } finally {

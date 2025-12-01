@@ -21,3 +21,4 @@ router.get('/criteria/university/:universityId', getUniversityCriteria);
 module.exports = router;
 
 
+

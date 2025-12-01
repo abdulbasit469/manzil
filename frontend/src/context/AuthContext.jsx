@@ -41,6 +41,7 @@ export const AuthProvider = ({ children }) => {
   const register = async (name, email, password) => {
     const res = await api.post('/api/auth/register', { name, email, password })
     // Don't auto-login after registration - user must login manually
+    // Return data including OTP for development mode
     return res.data
   }
 

@@ -1123,3 +1123,4 @@ The system is built using **Node.js/Express backend** and **React.js frontend**,
 **Note:** This document describes the **currently implemented modules** as per the FYP project codebase. Future enhancements (Merit Calculator, Entry Test Mock Exams, Admission Calendar, Scholarship Information, University Comparison Tool) are planned for later milestones.
 
 
+

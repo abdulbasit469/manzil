@@ -224,3 +224,4 @@ exports.getUniversityCriteria = async (req, res) => {
 };
 
 
+
