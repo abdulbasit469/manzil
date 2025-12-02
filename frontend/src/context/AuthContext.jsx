@@ -52,8 +52,14 @@ export const AuthProvider = ({ children }) => {
     delete api.defaults.headers.common['Authorization']
   }
 
+  const refreshUser = async () => {
+    if (token) {
+      await loadUser()
+    }
+  }
+
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, token, loading, login, register, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   )

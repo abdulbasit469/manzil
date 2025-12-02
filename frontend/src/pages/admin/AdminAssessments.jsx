@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react'
+import { motion } from 'motion/react'
+import { BarChart3 } from 'lucide-react'
 import api from '../../services/api'
-import './Admin.css'
+import { Card } from '../../components/ui/card'
+import { Button } from '../../components/ui/button'
 
 const AdminAssessments = () => {
   const [assessments, setAssessments] = useState([])
@@ -52,121 +55,169 @@ const AdminAssessments = () => {
     .slice(0, 5)
 
   return (
-    <div className="admin-container">
-      <div className="admin-header">
-        <h1>Assessment Analytics</h1>
-        <p>View all career assessments and recommendations</p>
-      </div>
-
-      {/* Statistics */}
-      <div className="stats-grid">
-        <div className="stat-card">
-          <div className="stat-icon">T</div>
-          <div className="stat-info">
-            <h3>{totalAssessments}</h3>
-            <p>Total Assessments</p>
-            <span className="stat-detail">Completed by users</span>
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-icon">%</div>
-          <div className="stat-info">
-            <h3>{averageScore}%</h3>
-            <p>Average Score</p>
-            <span className="stat-detail">Across all assessments</span>
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-icon">C</div>
-          <div className="stat-info">
-            <h3>{Object.keys(careerCounts).length}</h3>
-            <p>Career Paths</p>
-            <span className="stat-detail">Recommended</span>
-          </div>
+    <div className="w-full bg-slate-50">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white p-4 md:p-8 shadow-lg">
+        <div className="max-w-7xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            <div className="flex items-center gap-2 md:gap-3 mb-2">
+              <BarChart3 className="w-5 h-5 md:w-6 md:h-6" />
+              <p className="text-sm md:text-base text-indigo-100">Assessment Analytics</p>
+            </div>
+            <h1 className="text-2xl md:text-4xl mb-2 font-bold">View Analytics</h1>
+            <p className="text-xs md:text-base text-indigo-100">
+              View all career assessments and recommendations
+            </p>
+          </motion.div>
         </div>
       </div>
 
-      {/* Top Career Recommendations */}
-      {topCareers.length > 0 && (
-        <div className="admin-section">
-          <h2>Top 5 Recommended Careers</h2>
-          <div className="activity-card">
-            {topCareers.map(([career, count], index) => (
-              <div key={career} className="activity-item">
-                <span className="activity-icon">{index + 1}</span>
-                <div style={{ flex: 1 }}>
-                  <p><strong>{career}</strong></p>
-                  <span className="activity-time">{count} students recommended</span>
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto p-4 md:p-8">
+        {/* Statistics */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="mb-8"
+        >
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Card className="p-6 border-2 border-indigo-200 bg-indigo-50/50">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0 shadow-lg">
+                  <span className="text-white font-bold text-xl">T</span>
                 </div>
-                <div style={{
-                  padding: '5px 15px',
-                  background: '#000',
-                  color: 'white',
-                  borderRadius: '5px',
-                  fontWeight: 'bold'
-                }}>
-                  {count}
+                <div>
+                  <h3 className="text-3xl font-bold text-slate-900 mb-1">{totalAssessments}</h3>
+                  <p className="text-sm text-slate-600">Total Assessments</p>
+                  <p className="text-xs text-slate-500 mt-1">Completed by users</p>
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
-      )}
+            </Card>
 
-      {/* Assessments Table */}
-      <div className="admin-section">
-        <h2>All Assessments</h2>
-        <div className="admin-table-container">
+            <Card className="p-6 border-2 border-blue-200 bg-blue-50/50">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center flex-shrink-0 shadow-lg">
+                  <span className="text-white font-bold text-xl">%</span>
+                </div>
+                <div>
+                  <h3 className="text-3xl font-bold text-slate-900 mb-1">{averageScore}%</h3>
+                  <p className="text-sm text-slate-600">Average Score</p>
+                  <p className="text-xs text-slate-500 mt-1">Across all assessments</p>
+                </div>
+              </div>
+            </Card>
+
+            <Card className="p-6 border-2 border-green-200 bg-green-50/50">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center flex-shrink-0 shadow-lg">
+                  <span className="text-white font-bold text-xl">C</span>
+                </div>
+                <div>
+                  <h3 className="text-3xl font-bold text-slate-900 mb-1">{Object.keys(careerCounts).length}</h3>
+                  <p className="text-sm text-slate-600">Career Paths</p>
+                  <p className="text-xs text-slate-500 mt-1">Recommended</p>
+                </div>
+              </div>
+            </Card>
+          </div>
+        </motion.div>
+
+        {/* Top Career Recommendations */}
+        {topCareers.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="mb-8"
+          >
+            <h2 className="text-2xl font-semibold text-slate-900 mb-6">Top 5 Recommended Careers</h2>
+            <Card className="p-6">
+              <div className="space-y-4">
+                {topCareers.map(([career, count], index) => (
+                  <div key={career} className="flex items-center gap-4 p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors">
+                    <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0 text-white font-bold">
+                      {index + 1}
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-semibold text-slate-900">{career}</p>
+                      <p className="text-sm text-slate-600">{count} students recommended</p>
+                    </div>
+                    <div className="px-4 py-2 bg-slate-900 text-white rounded-lg font-bold">
+                      {count}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </motion.div>
+        )}
+
+        {/* Assessments Table */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+        >
+          <h2 className="text-2xl font-semibold text-slate-900 mb-6">All Assessments</h2>
+          <Card className="p-6">
           {loading ? (
-            <p>Loading assessments...</p>
+            <div className="text-center py-8 text-slate-600">Loading assessments...</div>
           ) : assessments.length === 0 ? (
-            <p>No assessments found yet</p>
+            <div className="text-center py-8 text-slate-600">No assessments found yet</div>
           ) : (
-            <table className="admin-table">
+            <div className="overflow-x-auto">
+            <table className="w-full">
               <thead>
-                <tr>
-                  <th>Student Name</th>
-                  <th>Email</th>
-                  <th>Score</th>
-                  <th>Recommended Career</th>
-                  <th>Completed On</th>
-                  <th>Actions</th>
+                <tr className="bg-slate-100">
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900">Student Name</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900">Email</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900">Score</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900">Recommended Career</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900">Completed On</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {assessments.map(assessment => (
-                  <tr key={assessment._id}>
-                    <td>{assessment.user?.name || 'Unknown'}</td>
-                    <td>{assessment.user?.email || 'N/A'}</td>
-                    <td>
-                      <span style={{
-                        padding: '5px 10px',
-                        borderRadius: '5px',
-                        background: assessment.score >= 70 ? '#28a745' : assessment.score >= 50 ? '#ffc107' : '#dc3545',
-                        color: 'white',
-                        fontWeight: 'bold'
-                      }}>
+                  <tr key={assessment._id} className="border-b border-slate-200 hover:bg-slate-50">
+                    <td className="px-4 py-3 text-sm text-slate-900">{assessment.user?.name || 'Unknown'}</td>
+                    <td className="px-4 py-3 text-sm text-slate-700">{assessment.user?.email || 'N/A'}</td>
+                    <td className="px-4 py-3">
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                        assessment.score >= 70 
+                          ? 'bg-green-100 text-green-700' 
+                          : assessment.score >= 50 
+                          ? 'bg-yellow-100 text-yellow-700' 
+                          : 'bg-red-100 text-red-700'
+                      }`}>
                         {assessment.score}%
                       </span>
                     </td>
-                    <td>{assessment.recommendedCareer || 'N/A'}</td>
-                    <td>{new Date(assessment.createdAt).toLocaleDateString()}</td>
-                    <td>
-                      <button
-                        className="btn-edit"
+                    <td className="px-4 py-3 text-sm text-slate-700">{assessment.recommendedCareer || 'N/A'}</td>
+                    <td className="px-4 py-3 text-sm text-slate-600">{new Date(assessment.createdAt).toLocaleDateString()}</td>
+                    <td className="px-4 py-3">
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => handleViewDetails(assessment)}
+                        className="border-indigo-300 text-indigo-600 hover:bg-indigo-50"
                       >
                         View Details
-                      </button>
+                      </Button>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            </div>
           )}
-        </div>
+          </Card>
+        </motion.div>
       </div>
 
       {/* Assessment Details Modal */}

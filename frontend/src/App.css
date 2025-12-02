@@ -4,6 +4,31 @@
   flex-direction: column;
 }
 
+.main-content {
+  margin-left: 80px; /* Default sidebar width when closed */
+  padding-top: 56px; /* TopNavbar height - content starts below it */
+  transition: margin-left 0.3s ease, left 0.3s ease;
+  height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  position: fixed;
+  top: 0;
+  left: 80px;
+  right: 0;
+  background: #f8f9fa;
+  z-index: 30; /* Lower than TopNavbar (z-40) */
+}
+
+/* Mobile: sidebar overlay, no margin */
+@media (max-width: 1023px) {
+  .main-content {
+    left: 0 !important;
+    margin-left: 0 !important;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
 .container {
   max-width: 1200px;
   margin: 0 auto;
@@ -50,4 +75,3 @@ label {
   margin-top: 10px;
   font-weight: 500;
 }
-

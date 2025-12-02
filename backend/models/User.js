@@ -61,11 +61,6 @@ const userSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
-  currentStatus: {
-    type: String,
-    enum: ['FSc Pre-Engineering', 'FSc Pre-Medical', 'ICS', 'ICOM', 'FA', 'A-Levels', 'Other'],
-    trim: true
-  },
   intermediateType: {
     type: String,
     enum: ['FSc Pre-Engineering', 'FSc Pre-Medical', 'ICS', 'ICOM', 'FA', 'Other'],
@@ -89,6 +84,19 @@ const userSchema = new mongoose.Schema({
     type: Number,
     min: 0,
     max: 1100
+  },
+  matricMajors: {
+    type: String,
+    enum: ['Science', 'Arts', 'Commerce', 'General'],
+    trim: true
+  },
+  profilePicture: {
+    type: String, // URL or path to profile picture
+    default: ''
+  },
+  secondYearResultAvailable: {
+    type: Boolean,
+    default: false
   },
   interests: [{
     type: String
@@ -145,10 +153,11 @@ userSchema.methods.calculateProfileCompletion = function() {
     'fatherName',
     'gender',
     'dateOfBirth',
-    'currentStatus',
     'matricMarks',
+    'matricMajors',
+    'intermediateType',
     'firstYearMarks',
-    'secondYearMarks'
+    'intermediateMarks'
   ];
   
   const completed = requiredFields.filter(field => {

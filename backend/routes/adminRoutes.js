@@ -17,6 +17,11 @@ const {
   updateProgram,
   deleteProgram
 } = require('../controllers/programController');
+const {
+  createUniversity,
+  updateUniversity,
+  deleteUniversity
+} = require('../controllers/universityController');
 const { protect, authorize } = require('../middleware/auth');
 
 const router = express.Router();
@@ -42,6 +47,11 @@ router.delete('/merit-criteria/:id', deleteMeritCriteria);
 router.post('/programs', createProgram);
 router.put('/programs/:id', updateProgram);
 router.delete('/programs/:id', deleteProgram);
+
+// University routes
+router.post('/universities', createUniversity);
+router.put('/universities/:id', updateUniversity);
+router.delete('/universities/:id', deleteUniversity);
 
 module.exports = router;
 

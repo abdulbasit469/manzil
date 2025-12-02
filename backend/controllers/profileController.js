@@ -31,9 +31,9 @@ exports.getProfile = async (req, res) => {
 exports.updateProfile = async (req, res) => {
   try {
     const { 
-      name, phone, city, fatherName, gender, dateOfBirth, currentStatus,
+      name, phone, city, fatherName, gender, dateOfBirth,
       intermediateType, firstYearMarks, secondYearMarks, intermediateMarks, 
-      matricMarks, interests 
+      matricMarks, matricMajors, profilePicture, secondYearResultAvailable, interests 
     } = req.body;
 
     const fieldsToUpdate = {};
@@ -43,12 +43,14 @@ exports.updateProfile = async (req, res) => {
     if (fatherName !== undefined) fieldsToUpdate.fatherName = fatherName;
     if (gender) fieldsToUpdate.gender = gender;
     if (dateOfBirth) fieldsToUpdate.dateOfBirth = dateOfBirth;
-    if (currentStatus) fieldsToUpdate.currentStatus = currentStatus;
     if (intermediateType) fieldsToUpdate.intermediateType = intermediateType;
     if (firstYearMarks !== undefined && firstYearMarks !== '') fieldsToUpdate.firstYearMarks = firstYearMarks;
     if (secondYearMarks !== undefined && secondYearMarks !== '') fieldsToUpdate.secondYearMarks = secondYearMarks;
     if (intermediateMarks !== undefined && intermediateMarks !== '') fieldsToUpdate.intermediateMarks = intermediateMarks;
     if (matricMarks !== undefined && matricMarks !== '') fieldsToUpdate.matricMarks = matricMarks;
+    if (matricMajors) fieldsToUpdate.matricMajors = matricMajors;
+    if (profilePicture !== undefined) fieldsToUpdate.profilePicture = profilePicture;
+    if (secondYearResultAvailable !== undefined) fieldsToUpdate.secondYearResultAvailable = secondYearResultAvailable;
     if (interests) fieldsToUpdate.interests = interests;
 
     const user = await User.findByIdAndUpdate(req.user.id, fieldsToUpdate, {

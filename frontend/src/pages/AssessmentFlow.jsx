@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { motion } from 'motion/react'
+import { Briefcase, Sparkles } from 'lucide-react'
 import api from '../services/api'
 import PersonalityTest from '../components/PersonalityTest'
 import AptitudeTest from '../components/AptitudeTest'
 import InterestTest from '../components/InterestTest'
 import AssessmentResults from '../components/AssessmentResults'
-import './Assessment.css'
+import { Card } from '../components/ui/card'
+import { Button } from '../components/ui/button'
 
 const AssessmentFlow = () => {
   const [currentStep, setCurrentStep] = useState('status') // status, personality, aptitude, interest, results
@@ -176,61 +179,82 @@ const AssessmentFlow = () => {
 
   // Status view
   return (
-    <div className="assessment-container">
-      <div className="assessment-card">
-        <h2>Career Assessment</h2>
-        <p className="subtitle">Complete all 3 tests to get your personalized career recommendations</p>
+    <div className="w-full bg-slate-50">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white p-8 shadow-lg">
+        <div className="max-w-7xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            <div className="flex items-center gap-3 mb-2">
+              <Briefcase className="w-6 h-6" />
+              <p className="text-indigo-100">Career Assessment</p>
+            </div>
+            <h1 className="text-4xl mb-2 font-bold">Discover Your Career Path</h1>
+            <p className="text-indigo-100">
+              Complete all 3 tests to get your personalized career recommendations
+            </p>
+          </motion.div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto p-8">
+        <Card className="p-8">
         
         <div className="test-status">
           <div className={`status-item ${status?.personality ? 'completed' : ''}`}>
             <h3>1. Personality Test (RIASEC)</h3>
             <p>{status?.personality ? 'Completed' : 'Not Started'}</p>
-            <button 
-              className="btn btn-primary"
+            <Button 
+              className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:shadow-lg"
               onClick={() => setCurrentStep('personality')}
             >
               {status?.personality ? 'Retake' : 'Start'}
-            </button>
+            </Button>
           </div>
 
           <div className={`status-item ${status?.aptitude ? 'completed' : ''}`}>
             <h3>2. Aptitude Test</h3>
             <p>{status?.aptitude ? 'Completed' : 'Not Started'}</p>
-            <button 
-              className="btn btn-primary"
+            <Button 
+              className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:shadow-lg"
               onClick={() => setCurrentStep('aptitude')}
               disabled={!status?.personality}
             >
               {status?.aptitude ? 'Retake' : 'Start'}
-            </button>
+            </Button>
           </div>
 
           <div className={`status-item ${status?.interest ? 'completed' : ''}`}>
             <h3>3. Interest Test</h3>
             <p>{status?.interest ? 'Completed' : 'Not Started'}</p>
-            <button 
-              className="btn btn-primary"
+            <Button 
+              className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:shadow-lg"
               onClick={() => setCurrentStep('interest')}
               disabled={!status?.aptitude}
             >
               {status?.interest ? 'Retake' : 'Start'}
-            </button>
+            </Button>
           </div>
         </div>
 
         {status?.allCompleted && (
           <div className="results-ready">
-            <button 
-              className="btn btn-primary btn-block"
+            <Button 
+              className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:shadow-lg"
               onClick={() => {
                 loadResults()
                 setCurrentStep('results')
               }}
             >
               View Results
-            </button>
+            </Button>
           </div>
         )}
+        </Card>
       </div>
     </div>
   )

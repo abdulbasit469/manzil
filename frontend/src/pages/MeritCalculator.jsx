@@ -1,7 +1,10 @@
 import { useState, useEffect, useContext } from 'react'
+import { motion } from 'motion/react'
+import { Calculator, Sparkles } from 'lucide-react'
 import api from '../services/api'
 import { AuthContext } from '../context/AuthContext'
-import './MeritCalculator.css'
+import { Card } from '../components/ui/card'
+import { Button } from '../components/ui/button'
 
 const MeritCalculator = () => {
   const { user } = useContext(AuthContext)
@@ -176,12 +179,35 @@ const MeritCalculator = () => {
   }
 
   return (
-    <div className="merit-calculator-container">
-      <div className="merit-calculator-card">
-        <h2>Merit Calculator</h2>
-        <p className="subtitle">Calculate your admission merit percentage and check admission probability</p>
+    <div className="w-full bg-slate-50">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white p-4 md:p-8 shadow-lg">
+        <div className="max-w-7xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            <div className="flex items-center gap-2 md:gap-3 mb-2">
+              <Calculator className="w-5 h-5 md:w-6 md:h-6" />
+              <p className="text-sm md:text-base text-indigo-100">Merit Calculator</p>
+            </div>
+            <h1 className="text-2xl md:text-4xl mb-2 font-bold">Calculate Your Merit</h1>
+            <p className="text-xs md:text-base text-indigo-100">
+              Calculate your admission merit percentage and check admission probability
+            </p>
+          </motion.div>
+        </div>
+      </div>
 
-        {error && <div className="error-message">{error}</div>}
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto p-4 md:p-8">
+        <Card className="p-4 md:p-8">
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
+              {error}
+            </div>
+          )}
 
         <form onSubmit={handleSubmit}>
           <div className="form-row">
@@ -301,73 +327,90 @@ const MeritCalculator = () => {
             </small>
           </div>
 
-          <button type="submit" className="btn btn-primary btn-block" disabled={calculating}>
+          <Button 
+            type="submit" 
+            className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:shadow-lg transition-all" 
+            disabled={calculating}
+          >
             {calculating ? 'Calculating...' : 'Calculate Merit'}
-          </button>
+          </Button>
         </form>
 
         {result && (
-          <div className="merit-result">
-            <div className="result-header">
-              <h3>Merit Calculation Result</h3>
-            </div>
+          <div className="mt-8 p-6 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-lg border-2 border-indigo-200">
+            <h3 className="text-2xl font-semibold text-slate-900 mb-6">Merit Calculation Result</h3>
 
-            <div className="result-content">
-              <div className="merit-percentage">
-                <div className="percentage-value">{result.meritPercentage}%</div>
-                <div className="percentage-label">Your Merit Percentage</div>
+            <div className="space-y-6">
+              <div className="text-center p-6 bg-white rounded-lg shadow-md">
+                <div className="text-5xl font-bold text-indigo-600 mb-2">{result.meritPercentage}%</div>
+                <div className="text-lg text-slate-600">Your Merit Percentage</div>
               </div>
 
               {result.admissionProbability && (
                 <div 
-                  className="admission-probability"
+                  className="p-6 bg-white rounded-lg shadow-md border-2"
                   style={{ borderColor: getProbabilityColor(result.admissionProbability) }}
                 >
-                  <div className="probability-label">Admission Probability</div>
+                  <div className="text-sm text-slate-600 mb-2">Admission Probability</div>
                   <div 
-                    className="probability-value"
+                    className="text-3xl font-bold mb-2"
                     style={{ color: getProbabilityColor(result.admissionProbability) }}
                   >
                     {result.admissionProbability}
                   </div>
                   {result.probabilityMessage && (
-                    <div className="probability-message">{result.probabilityMessage}</div>
+                    <div className="text-sm text-slate-600">{result.probabilityMessage}</div>
                   )}
                 </div>
               )}
 
-              <div className="criteria-info">
-                <h4>Calculation Criteria</h4>
-                <div className="criteria-details">
-                  <div className="criteria-item">
-                    <span>University:</span>
-                    <strong>{result.criteria.university}</strong>
+              <div className="p-6 bg-white rounded-lg shadow-md">
+                <h4 className="text-xl font-semibold text-slate-900 mb-4">Calculation Criteria</h4>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center py-2 border-b border-slate-200">
+                    <span className="text-slate-600">University:</span>
+                    <strong className="text-slate-900">{result.criteria.university}</strong>
                   </div>
-                  <div className="criteria-item">
-                    <span>Program:</span>
-                    <strong>{result.criteria.program}</strong>
+                  <div className="flex justify-between items-center py-2 border-b border-slate-200">
+                    <span className="text-slate-600">Program:</span>
+                    <strong className="text-slate-900">{result.criteria.program}</strong>
                   </div>
-                  <div className="criteria-item">
-                    <span>Entry Test:</span>
-                    <strong>{result.criteria.entryTestName || 'Not Required'}</strong>
+                  <div className="flex justify-between items-center py-2 border-b border-slate-200">
+                    <span className="text-slate-600">Entry Test:</span>
+                    <strong className="text-slate-900">{result.criteria.entryTestName || 'Not Required'}</strong>
                   </div>
-                  <div className="weights-info">
-                    <h5>Merit Weights:</h5>
-                    <ul>
+                  <div className="mt-4 pt-4 border-t border-slate-300">
+                    <h5 className="font-semibold text-slate-900 mb-3">Merit Weights:</h5>
+                    <ul className="space-y-2">
                       {result.criteria.weights.matric > 0 && (
-                        <li>Matric: {result.criteria.weights.matric}%</li>
+                        <li className="flex justify-between">
+                          <span className="text-slate-600">Matric:</span>
+                          <strong className="text-slate-900">{result.criteria.weights.matric}%</strong>
+                        </li>
                       )}
                       {result.criteria.weights.firstYear > 0 && (
-                        <li>1st Year: {result.criteria.weights.firstYear}%</li>
+                        <li className="flex justify-between">
+                          <span className="text-slate-600">1st Year:</span>
+                          <strong className="text-slate-900">{result.criteria.weights.firstYear}%</strong>
+                        </li>
                       )}
                       {result.criteria.weights.secondYear > 0 && (
-                        <li>2nd Year: {result.criteria.weights.secondYear}%</li>
+                        <li className="flex justify-between">
+                          <span className="text-slate-600">2nd Year:</span>
+                          <strong className="text-slate-900">{result.criteria.weights.secondYear}%</strong>
+                        </li>
                       )}
                       {result.criteria.weights.intermediate > 0 && (
-                        <li>Intermediate: {result.criteria.weights.intermediate}%</li>
+                        <li className="flex justify-between">
+                          <span className="text-slate-600">Intermediate:</span>
+                          <strong className="text-slate-900">{result.criteria.weights.intermediate}%</strong>
+                        </li>
                       )}
                       {result.criteria.weights.entryTest > 0 && (
-                        <li>Entry Test: {result.criteria.weights.entryTest}%</li>
+                        <li className="flex justify-between">
+                          <span className="text-slate-600">Entry Test:</span>
+                          <strong className="text-slate-900">{result.criteria.weights.entryTest}%</strong>
+                        </li>
                       )}
                     </ul>
                   </div>
@@ -376,6 +419,7 @@ const MeritCalculator = () => {
             </div>
           </div>
         )}
+        </Card>
       </div>
     </div>
   )

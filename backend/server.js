@@ -40,8 +40,9 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
-app.use(express.json()); // Parse JSON bodies
-app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
+// Increase body parser limit for profile pictures (base64 images can be large)
+app.use(express.json({ limit: '10mb' })); // Parse JSON bodies - increased limit for images
+app.use(express.urlencoded({ extended: true, limit: '10mb' })); // Parse URL-encoded bodies
 
 // Request logging middleware (for debugging)
 app.use((req, res, next) => {

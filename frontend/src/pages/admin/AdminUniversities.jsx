@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react'
+import { motion } from 'motion/react'
+import { GraduationCap } from 'lucide-react'
 import api from '../../services/api'
-import './Admin.css'
+import { Card } from '../../components/ui/card'
+import { Button } from '../../components/ui/button'
 
 const AdminUniversities = () => {
   const [universities, setUniversities] = useState([])
@@ -81,9 +84,11 @@ const AdminUniversities = () => {
         name: university.name,
         city: university.city,
         type: university.type,
-        ranking: university.ranking || '',
+        hecRanking: university.hecRanking || '',
         website: university.website || '',
-        contact: university.contact || { email: '', phone: '', address: '' }
+        email: university.email || '',
+        phone: university.phone || '',
+        address: university.address || ''
       })
     } else {
       setEditMode(false)
@@ -91,10 +96,12 @@ const AdminUniversities = () => {
       setFormData({
         name: '',
         city: '',
-        type: 'public',
-        ranking: '',
+        type: 'Public',
+        hecRanking: '',
         website: '',
-        contact: { email: '', phone: '', address: '' }
+        email: '',
+        phone: '',
+        address: ''
       })
     }
     setShowModal(true)
@@ -108,15 +115,7 @@ const AdminUniversities = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target
-    if (name.startsWith('contact.')) {
-      const field = name.split('.')[1]
-      setFormData(prev => ({
-        ...prev,
-        contact: { ...prev.contact, [field]: value }
-      }))
-    } else {
-      setFormData(prev => ({ ...prev, [name]: value }))
-    }
+    setFormData(prev => ({ ...prev, [name]: value }))
   }
 
   const handleSubmit = async (e) => {
@@ -150,235 +149,281 @@ const AdminUniversities = () => {
   }
 
   return (
-    <div className="admin-container">
-      <div className="admin-header">
-        <h1>University Management</h1>
-        <p>Add, edit, and manage universities</p>
+    <div className="w-full bg-slate-50">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white p-8 shadow-lg">
+        <div className="max-w-7xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            <div className="flex items-center gap-3 mb-2">
+              <GraduationCap className="w-6 h-6" />
+              <p className="text-indigo-100">University Management</p>
+            </div>
+            <h1 className="text-4xl mb-2 font-bold">Manage Universities</h1>
+            <p className="text-indigo-100">
+              Add, edit, and manage universities
+            </p>
+          </motion.div>
+        </div>
       </div>
 
-      {/* Search and Add */}
-      <div className="admin-filters">
-        <input
-          type="text"
-          placeholder="Search universities..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          style={{ flex: 1 }}
-        />
-        <button className="btn-add" onClick={() => handleOpenModal()}>
-          + Add University
-        </button>
-      </div>
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto p-8">
+        {/* Search and Add */}
+        <Card className="p-4 md:p-6 mb-6 md:mb-8">
+          <div className="flex flex-col md:flex-row gap-3 md:gap-4">
+            <input
+              type="text"
+              placeholder="Search universities..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="flex-1 px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+            <Button 
+              onClick={() => handleOpenModal()}
+              className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:shadow-lg"
+            >
+              + Add University
+            </Button>
+          </div>
+        </Card>
 
-      {/* Universities Table */}
-      <div className="admin-table-container">
+        {/* Universities Table */}
+        <Card className="p-6">
         {loading ? (
-          <p>Loading universities...</p>
+          <div className="text-center py-8 text-slate-600">Loading universities...</div>
         ) : universities.length === 0 ? (
-          <p>No universities found</p>
+          <div className="text-center py-8 text-slate-600">No universities found</div>
         ) : (
-          <div>
-          <table className="admin-table">
+          <>
+          <div className="overflow-x-auto">
+          <table className="w-full">
             <thead>
-              <tr>
-                <th>Name</th>
-                <th>City</th>
-                <th>Type</th>
-                <th>Ranking</th>
-                <th>Website</th>
-                <th>Actions</th>
+              <tr className="bg-slate-100">
+                <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900">Name</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900">City</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900">Type</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900">Ranking</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900">Website</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900">Actions</th>
               </tr>
             </thead>
             <tbody>
               {universities.map(uni => (
-                <tr key={uni._id}>
-                  <td><strong>{uni.name}</strong></td>
-                  <td>{uni.city}</td>
-                  <td>
-                    <span style={{
-                      padding: '5px 10px',
-                      borderRadius: '5px',
-                      background: (uni.type && uni.type.toLowerCase() === 'public') ? '#000' : '#666',
-                      color: 'white',
-                      fontSize: '12px'
-                    }}>
+                <tr key={uni._id} className="border-b border-slate-200 hover:bg-slate-50">
+                  <td className="px-4 py-3 text-sm font-semibold text-slate-900">{uni.name}</td>
+                  <td className="px-4 py-3 text-sm text-slate-700">{uni.city}</td>
+                  <td className="px-4 py-3">
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                      (uni.type && uni.type.toLowerCase() === 'public') 
+                        ? 'bg-slate-900 text-white' 
+                        : 'bg-slate-600 text-white'
+                    }`}>
                       {uni.type ? uni.type.toUpperCase() : 'N/A'}
                     </span>
                   </td>
-                  <td>{uni.hecRanking || uni.ranking || 'N/A'}</td>
-                  <td>
+                  <td className="px-4 py-3 text-sm text-slate-700">{uni.hecRanking || uni.ranking || 'N/A'}</td>
+                  <td className="px-4 py-3">
                     {uni.website ? (
-                      <a href={uni.website} target="_blank" rel="noopener noreferrer">
+                      <a href={uni.website} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">
                         Visit
                       </a>
-                    ) : 'N/A'}
+                    ) : <span className="text-slate-400">N/A</span>}
                   </td>
-                  <td>
-                    <div className="table-actions">
-                      <button
-                        className="btn-edit"
+                  <td className="px-4 py-3">
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => handleOpenModal(uni)}
+                        className="border-indigo-300 text-indigo-600 hover:bg-indigo-50"
                       >
                         Edit
-                      </button>
-                      <button
-                        className="btn-delete"
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => handleDelete(uni._id, uni.name)}
+                        className="border-red-300 text-red-600 hover:bg-red-50"
                       >
                         Delete
-                      </button>
+                      </Button>
                     </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          </div>
           
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="pagination">
-              <button
-                className="pagination-btn"
+            <div className="flex items-center justify-between mt-6 pt-4 border-t border-slate-200">
+              <Button
+                variant="outline"
                 onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                 disabled={currentPage === 1}
               >
                 Previous
-              </button>
+              </Button>
               
-              <div className="pagination-info">
+              <span className="text-sm text-slate-600">
                 Page {currentPage} of {totalPages} ({total} total)
+              </span>
+              
+              <div className="flex gap-2">
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
+                  
+                  return (
+                    <Button
+                      key={pageNum}
+                      variant={currentPage === pageNum ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={currentPage === pageNum ? "bg-indigo-600 text-white" : ""}
+                    >
+                      {pageNum}
+                    </Button>
+                  );
+                })}
               </div>
               
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                let pageNum;
-                if (totalPages <= 5) {
-                  pageNum = i + 1;
-                } else if (currentPage <= 3) {
-                  pageNum = i + 1;
-                } else if (currentPage >= totalPages - 2) {
-                  pageNum = totalPages - 4 + i;
-                } else {
-                  pageNum = currentPage - 2 + i;
-                }
-                
-                return (
-                  <button
-                    key={pageNum}
-                    className={`pagination-btn ${currentPage === pageNum ? 'active' : ''}`}
-                    onClick={() => setCurrentPage(pageNum)}
-                  >
-                    {pageNum}
-                  </button>
-                );
-              })}
-              
-              <button
-                className="pagination-btn"
+              <Button
+                variant="outline"
                 onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                 disabled={currentPage === totalPages}
               >
                 Next
-              </button>
+              </Button>
             </div>
           )}
-          </div>
+          </>
         )}
+        </Card>
       </div>
 
       {/* Add/Edit Modal */}
       {showModal && (
-        <div className="modal-overlay" onClick={handleCloseModal}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2>{editMode ? 'Edit University' : 'Add New University'}</h2>
-            <form onSubmit={handleSubmit}>
-              <div className="form-group">
-                <label>University Name *</label>
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={handleCloseModal}>
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="p-4 md:p-6 border-b border-slate-200">
+              <h2 className="text-xl md:text-2xl font-bold text-slate-900">{editMode ? 'Edit University' : 'Add New University'}</h2>
+            </div>
+            <form onSubmit={handleSubmit} className="p-4 md:p-6 space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700">University Name *</label>
                 <input
                   type="text"
                   name="name"
                   value={formData.name}
                   onChange={handleChange}
                   required
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
 
-              <div className="form-group">
-                <label>City *</label>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700">City *</label>
                 <input
                   type="text"
                   name="city"
                   value={formData.city}
                   onChange={handleChange}
                   required
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
 
-              <div className="form-group">
-                <label>Type *</label>
-                <select name="type" value={formData.type} onChange={handleChange} required>
-                  <option value="public">Public</option>
-                  <option value="private">Private</option>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700">Type *</label>
+                <select 
+                  name="type" 
+                  value={formData.type} 
+                  onChange={handleChange} 
+                  required
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="Public">Public</option>
+                  <option value="Private">Private</option>
                 </select>
               </div>
 
-              <div className="form-group">
-                <label>HEC Ranking</label>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700">HEC Ranking</label>
                 <input
                   type="number"
-                  name="ranking"
-                  value={formData.ranking}
+                  name="hecRanking"
+                  value={formData.hecRanking}
                   onChange={handleChange}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
 
-              <div className="form-group">
-                <label>Website</label>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700">Website</label>
                 <input
                   type="url"
                   name="website"
                   value={formData.website}
                   onChange={handleChange}
                   placeholder="https://..."
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
 
-              <div className="form-group">
-                <label>Email</label>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700">Email</label>
                 <input
                   type="email"
-                  name="contact.email"
-                  value={formData.contact.email}
+                  name="email"
+                  value={formData.email}
                   onChange={handleChange}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
 
-              <div className="form-group">
-                <label>Phone</label>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700">Phone</label>
                 <input
                   type="tel"
-                  name="contact.phone"
-                  value={formData.contact.phone}
+                  name="phone"
+                  value={formData.phone}
                   onChange={handleChange}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
 
-              <div className="form-group">
-                <label>Address</label>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700">Address</label>
                 <textarea
-                  name="contact.address"
-                  value={formData.contact.address}
+                  name="address"
+                  value={formData.address}
                   onChange={handleChange}
                   rows="3"
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
 
-              <div className="modal-actions">
-                <button type="button" className="btn-cancel" onClick={handleCloseModal}>
+              <div className="flex gap-3 justify-end pt-4 border-t border-slate-200 mt-6">
+                <Button type="button" variant="outline" onClick={handleCloseModal}>
                   Cancel
-                </button>
-                <button type="submit" className="btn-add">
+                </Button>
+                <Button type="submit" className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:shadow-lg">
                   {editMode ? 'Update' : 'Add'} University
-                </button>
+                </Button>
               </div>
             </form>
           </div>

@@ -1,4 +1,5 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom'
+import { useEffect } from 'react'
 import { AuthProvider } from './context/AuthContext'
 import Login from './pages/Login'
 import Signup from './pages/Signup'
@@ -24,10 +25,31 @@ import AdminAssessments from './pages/admin/AdminAssessments'
 import AdminMeritCriteria from './pages/admin/AdminMeritCriteria'
 import './App.css'
 
+function ScrollToTop() {
+  const location = useLocation()
+  
+  useEffect(() => {
+    // Reset scroll to ensure content starts below navbar
+    const resetScroll = () => {
+      const mainContent = document.querySelector('.main-content')
+      if (mainContent) {
+        mainContent.scrollTop = 0
+      }
+    }
+    resetScroll()
+    // Reset multiple times to ensure it works
+    setTimeout(resetScroll, 10)
+    setTimeout(resetScroll, 50)
+  }, [location.pathname])
+  
+  return null
+}
+
 function App() {
   return (
     <AuthProvider>
       <Router>
+        <ScrollToTop />
         <div className="App">
           <Navbar />
           <div className="main-content">
