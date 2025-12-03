@@ -219,8 +219,8 @@ const AdminUniversities = () => {
                   <td className="px-4 py-3">
                     <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
                       (uni.type && uni.type.toLowerCase() === 'public') 
-                        ? 'bg-slate-900 text-white' 
-                        : 'bg-slate-600 text-white'
+                        ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md' 
+                        : 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md'
                     }`}>
                       {uni.type ? uni.type.toUpperCase() : 'N/A'}
                     </span>

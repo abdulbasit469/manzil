@@ -41,9 +41,7 @@ exports.calculateMerit = async (req, res) => {
     if (intermediateMarks && intermediateMarks < criteria.minimumIntermediateMarks) {
       errors.push(`Intermediate marks must be at least ${criteria.minimumIntermediateMarks}`);
     }
-    if (entryTestMarks && entryTestMarks < criteria.minimumEntryTestMarks) {
-      errors.push(`Entry test marks must be at least ${criteria.minimumEntryTestMarks}`);
-    }
+    // Entry test marks validation removed - no minimum requirement
 
     if (errors.length > 0) {
       return res.status(400).json({
@@ -222,6 +220,7 @@ exports.getUniversityCriteria = async (req, res) => {
     });
   }
 };
+
 
 
 

@@ -6,17 +6,56 @@
 
 .main-content {
   margin-left: 80px; /* Default sidebar width when closed */
-  padding-top: 56px; /* TopNavbar height - content starts below it */
   transition: margin-left 0.3s ease, left 0.3s ease;
-  height: 100vh;
+  height: calc(100vh - 56px); /* Full height minus TopNavbar */
   overflow-y: auto;
   overflow-x: hidden;
   position: fixed;
-  top: 0;
+  top: 56px; /* Start below TopNavbar */
   left: 80px;
   right: 0;
   background: #f8f9fa;
   z-index: 30; /* Lower than TopNavbar (z-40) */
+  box-sizing: border-box;
+}
+
+/* Ensure content inside respects padding and starts below navbar */
+.main-content > * {
+  position: relative;
+  z-index: 0;
+}
+
+/* Ensure first child doesn't have negative margins that would pull it up */
+.main-content > *:first-child {
+  margin-top: 0;
+}
+
+/* Custom Scrollbar Styling */
+.main-content::-webkit-scrollbar {
+  width: 10px;
+}
+
+.main-content::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+.main-content::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #1a1a2e 0%, #533483 100%);
+  border-radius: 10px;
+  border: 2px solid #f1f1f1;
+}
+
+.main-content::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #533483 0%, #1a1a2e 100%);
+}
+
+/* Firefox scrollbar */
+@supports (scrollbar-width: thin) {
+  .main-content {
+    scrollbar-width: thin;
+    scrollbar-color: #533483 #f1f1f1;
+  }
 }
 
 /* Mobile: sidebar overlay, no margin */

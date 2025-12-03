@@ -19,8 +19,6 @@ const MeritCalculator = () => {
     universityId: '',
     programId: '',
     matricMarks: '',
-    firstYearMarks: '',
-    secondYearMarks: '',
     intermediateMarks: '',
     entryTestMarks: ''
   })
@@ -86,8 +84,6 @@ const MeritCalculator = () => {
       setFormData(prev => ({
         ...prev,
         matricMarks: profile.matricMarks || '',
-        firstYearMarks: profile.firstYearMarks || '',
-        secondYearMarks: profile.secondYearMarks || '',
         intermediateMarks: profile.intermediateMarks || ''
       }))
     } catch (error) {
@@ -124,9 +120,9 @@ const MeritCalculator = () => {
       return
     }
 
-    // Check if intermediate marks or separate year marks are provided
-    if (!formData.intermediateMarks && (!formData.firstYearMarks || !formData.secondYearMarks)) {
-      setError('Please enter either intermediate marks or both 1st and 2nd year marks')
+    // Check if intermediate marks are provided
+    if (!formData.intermediateMarks) {
+      setError('Please enter intermediate marks')
       setCalculating(false)
       return
     }
@@ -139,16 +135,9 @@ const MeritCalculator = () => {
         entryTestMarks: formData.entryTestMarks ? parseFloat(formData.entryTestMarks) : null
       }
 
-      // Add intermediate marks or separate year marks
+      // Add intermediate marks
       if (formData.intermediateMarks) {
         payload.intermediateMarks = parseFloat(formData.intermediateMarks)
-      } else {
-        if (formData.firstYearMarks) {
-          payload.firstYearMarks = parseFloat(formData.firstYearMarks)
-        }
-        if (formData.secondYearMarks) {
-          payload.secondYearMarks = parseFloat(formData.secondYearMarks)
-        }
       }
 
       const res = await api.post('/api/merit/calculate', payload)
@@ -270,7 +259,7 @@ const MeritCalculator = () => {
             </div>
 
             <div className="form-group">
-              <label>Intermediate Marks (out of 1100)</label>
+              <label>Intermediate Marks (out of 1100) *</label>
               <input
                 type="number"
                 name="intermediateMarks"
@@ -278,36 +267,8 @@ const MeritCalculator = () => {
                 onChange={handleChange}
                 min="0"
                 max="1100"
+                required
                 placeholder="Total intermediate marks"
-              />
-              <small className="form-hint">OR enter 1st and 2nd year separately below</small>
-            </div>
-          </div>
-
-          <div className="form-row">
-            <div className="form-group">
-              <label>1st Year Marks (out of 550)</label>
-              <input
-                type="number"
-                name="firstYearMarks"
-                value={formData.firstYearMarks}
-                onChange={handleChange}
-                min="0"
-                max="550"
-                placeholder="First year marks"
-              />
-            </div>
-
-            <div className="form-group">
-              <label>2nd Year Marks (out of 550)</label>
-              <input
-                type="number"
-                name="secondYearMarks"
-                value={formData.secondYearMarks}
-                onChange={handleChange}
-                min="0"
-                max="550"
-                placeholder="Second year marks"
               />
             </div>
           </div>

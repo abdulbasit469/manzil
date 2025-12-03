@@ -1,9 +1,17 @@
-import { useState, useContext } from 'react'
+import { useState, useContext, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { AuthContext } from '../context/AuthContext'
 import './Auth.css'
 
 const AdminLogin = () => {
+  useEffect(() => {
+    document.body.classList.add('auth-page')
+    document.documentElement.classList.add('auth-page')
+    return () => {
+      document.body.classList.remove('auth-page')
+      document.documentElement.classList.remove('auth-page')
+    }
+  }, [])
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')

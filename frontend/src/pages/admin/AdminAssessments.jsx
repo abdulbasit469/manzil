@@ -147,7 +147,7 @@ const AdminAssessments = () => {
                       <p className="font-semibold text-slate-900">{career}</p>
                       <p className="text-sm text-slate-600">{count} students recommended</p>
                     </div>
-                    <div className="px-4 py-2 bg-slate-900 text-white rounded-lg font-bold">
+                    <div className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-bold shadow-md">
                       {count}
                     </div>
                   </div>

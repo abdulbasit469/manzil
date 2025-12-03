@@ -28,8 +28,11 @@ export function TopNavbar({ onMenuClick, sidebarWidth = 80, isSidebarOpen = true
 
   return (
     <div 
-      className="bg-slate-900 text-white h-14 flex items-center justify-between px-4 md:px-6 shadow-lg fixed top-0 right-0 z-40 transition-all duration-300"
-      style={{ left: isMobile ? '0' : `${sidebarWidth}px` }}
+      className="bg-slate-900 text-white h-14 flex items-center justify-between px-4 md:px-6 shadow-lg fixed top-0 z-40 transition-all duration-300"
+      style={{ 
+        left: isMobile ? '0' : `${sidebarWidth}px`,
+        right: '0' // Extend to edge, scrollbar will be behind/visible
+      }}
       id="top-navbar"
     >
       <Button

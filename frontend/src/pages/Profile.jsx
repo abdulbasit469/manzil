@@ -326,83 +326,87 @@ const Profile = () => {
               
               {/* Profile Picture */}
               <div className="form-group profile-picture-group">
-                <label>Profile Picture</label>
-                <div className="profile-picture-container">
-                  <div className="profile-picture-preview">
-                    {profilePicturePreview ? (
-                      <img src={profilePicturePreview} alt="Profile" />
-                    ) : (
-                      <div className="profile-picture-placeholder">
-                        <span>No Image</span>
+                <div className="profile-picture-wrapper">
+                  <div className="profile-picture-right-section">
+                    <label>Profile Picture</label>
+                    <div className="profile-picture-container">
+                      <div className="profile-picture-actions">
+                        <div className="profile-picture-preview">
+                          {profilePicturePreview ? (
+                            <img src={profilePicturePreview} alt="Profile" />
+                          ) : (
+                            <div className="profile-picture-placeholder">
+                              <span>No Image</span>
+                            </div>
+                          )}
+                        </div>
+                        <input
+                          type="file"
+                          id="profilePicture"
+                          accept="image/*"
+                          onChange={handleProfilePictureChange}
+                          className="profile-picture-input"
+                        />
+                        <label htmlFor="profilePicture" className="profile-picture-label">
+                          Choose Image
+                        </label>
+                        {profilePictureFile && (
+                          <button
+                            type="button"
+                            onClick={handleSaveProfilePicture}
+                            disabled={savingPicture}
+                            className="profile-picture-save-btn"
+                          >
+                            {savingPicture ? 'Saving...' : 'Save Picture'}
+                          </button>
+                        )}
+                        <p className="profile-picture-hint">Max size: 5MB (JPG, PNG, GIF)</p>
                       </div>
-                    )}
+                    </div>
                   </div>
-                  <div className="profile-picture-actions">
-                    <input
-                      type="file"
-                      id="profilePicture"
-                      accept="image/*"
-                      onChange={handleProfilePictureChange}
-                      className="profile-picture-input"
-                    />
-                    <label htmlFor="profilePicture" className="profile-picture-label">
-                      Choose Image
-                    </label>
-                    {profilePictureFile && (
-                      <button
-                        type="button"
-                        onClick={handleSaveProfilePicture}
-                        disabled={savingPicture}
-                        className="profile-picture-save-btn"
-                      >
-                        {savingPicture ? 'Saving...' : 'Save Picture'}
-                      </button>
-                    )}
+                  
+                  <div className="profile-picture-left-section">
+                    <div className="form-group">
+                      <label>Full Name</label>
+                      <input
+                        type="text"
+                        name="name"
+                        value={profile.name}
+                        onChange={handleChange}
+                        required
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Email</label>
+                      <input
+                        type="email"
+                        name="email"
+                        value={profile.email}
+                        disabled
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Phone</label>
+                      <input
+                        type="text"
+                        name="phone"
+                        value={profile.phone || ''}
+                        onChange={handleChange}
+                        placeholder="03001234567"
+                        maxLength="11"
+                        pattern="[0-9]{11}"
+                      />
+                      {fieldErrors.phone && (
+                        <p className="text-red-600 text-sm mt-1">{fieldErrors.phone}</p>
+                      )}
+                    </div>
                   </div>
-                </div>
-                <p className="profile-picture-hint">Max size: 5MB (JPG, PNG, GIF)</p>
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Full Name</label>
-                  <input
-                    type="text"
-                    name="name"
-                    value={profile.name}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>Email</label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={profile.email}
-                    disabled
-                  />
                 </div>
               </div>
 
               <div className="form-row">
-                <div className="form-group">
-                  <label>Phone (11 digits)</label>
-                  <input
-                    type="text"
-                    name="phone"
-                    value={profile.phone || ''}
-                    onChange={handleChange}
-                    placeholder="03001234567"
-                    maxLength="11"
-                    pattern="[0-9]{11}"
-                  />
-                  {fieldErrors.phone && (
-                    <p className="text-red-600 text-sm mt-1">{fieldErrors.phone}</p>
-                  )}
-                </div>
-
                 <div className="form-group">
                   <label>City</label>
                   <input
@@ -413,9 +417,7 @@ const Profile = () => {
                     placeholder="e.g., Lahore, Karachi"
                   />
                 </div>
-              </div>
 
-              <div className="form-row">
                 <div className="form-group">
                   <label>Father Name</label>
                   <input
@@ -424,6 +426,20 @@ const Profile = () => {
                     value={profile.fatherName || ''}
                     onChange={handleChange}
                     placeholder="Enter father's name"
+                  />
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Date of Birth</label>
+                  <input
+                    type="date"
+                    name="dateOfBirth"
+                    value={profile.dateOfBirth ? new Date(profile.dateOfBirth).toISOString().split('T')[0] : ''}
+                    onChange={handleChange}
+                    max={new Date(new Date().setFullYear(new Date().getFullYear() - 13)).toISOString().split('T')[0]}
+                    min={new Date(new Date().setFullYear(new Date().getFullYear() - 100)).toISOString().split('T')[0]}
                   />
                 </div>
 
@@ -436,18 +452,6 @@ const Profile = () => {
                     <option value="Other">Other</option>
                   </select>
                 </div>
-              </div>
-
-              <div className="form-group">
-                <label>Date of Birth</label>
-                <input
-                  type="date"
-                  name="dateOfBirth"
-                  value={profile.dateOfBirth ? new Date(profile.dateOfBirth).toISOString().split('T')[0] : ''}
-                  onChange={handleChange}
-                  max={new Date(new Date().setFullYear(new Date().getFullYear() - 13)).toISOString().split('T')[0]}
-                  min={new Date(new Date().setFullYear(new Date().getFullYear() - 100)).toISOString().split('T')[0]}
-                />
               </div>
             </div>
 
@@ -527,43 +531,8 @@ const Profile = () => {
                   </div>
                 </div>
 
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>1st Year Marks (out of 550)</label>
-                    <input
-                      type="number"
-                      name="firstYearMarks"
-                      value={profile.firstYearMarks || ''}
-                      onChange={handleChange}
-                      min="0"
-                      max="550"
-                      placeholder="First year marks"
-                    />
-                    {fieldErrors.firstYearMarks && (
-                      <p className="text-red-600 text-sm mt-1">{fieldErrors.firstYearMarks}</p>
-                    )}
-                  </div>
-
-                  <div className="form-group">
-                    <label>2nd Year Marks (out of 550)</label>
-                    <input
-                      type="number"
-                      name="secondYearMarks"
-                      value={profile.secondYearMarks || ''}
-                      onChange={handleChange}
-                      min="0"
-                      max="550"
-                      placeholder="Second year marks"
-                      disabled={!profile.secondYearResultAvailable}
-                    />
-                    {fieldErrors.secondYearMarks && (
-                      <p className="text-red-600 text-sm mt-1">{fieldErrors.secondYearMarks}</p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="form-group">
-                  <label className="flex items-center gap-2 cursor-pointer">
+                <div className="form-group checkbox-inline">
+                  <label className="flex items-center gap-2 cursor-pointer" style={{ marginBottom: 0 }}>
                     <input
                       type="checkbox"
                       name="secondYearResultAvailable"

@@ -41,9 +41,9 @@ const AdminUsers = () => {
   }
 
   return (
-    <div className="w-full bg-slate-50">
+    <div className="w-full bg-slate-50 min-h-full">
       {/* Header */}
-      <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white p-8 shadow-lg">
+      <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white p-8 shadow-lg relative z-0">
         <div className="max-w-7xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: -20 }}
