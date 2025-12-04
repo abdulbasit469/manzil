@@ -4,6 +4,8 @@ import { BookOpen } from 'lucide-react'
 import api from '../../services/api'
 import { Card } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
+import { useNotification } from '../../context/NotificationContext'
+import { useConfirmation } from '../../hooks/useConfirmation'
 
 const AdminPrograms = () => {
   const [programs, setPrograms] = useState([])
@@ -18,6 +20,9 @@ const AdminPrograms = () => {
   const [totalPages, setTotalPages] = useState(1)
   const [total, setTotal] = useState(0)
   const itemsPerPage = 10
+  
+  const { showSuccess, showError } = useNotification()
+  const { confirm, ConfirmationComponent } = useConfirmation()
   
   const [formData, setFormData] = useState({
     name: '',
@@ -144,32 +149,42 @@ const AdminPrograms = () => {
     try {
       if (editMode) {
         await api.put(`/api/admin/programs/${currentProgram._id}`, formData)
-        alert('Program updated successfully!')
+        showSuccess('Program updated successfully!')
       } else {
         await api.post('/api/admin/programs', formData)
-        alert('Program added successfully!')
+        showSuccess('Program added successfully!')
       }
       handleCloseModal()
       fetchPrograms(currentPage)
     } catch (error) {
-      alert('Error: ' + error.response?.data?.message)
+      showError('Error: ' + (error.response?.data?.message || 'Something went wrong'))
     }
   }
 
   const handleDelete = async (id, name) => {
-    if (!window.confirm(`Delete program "${name}"?`)) return
+    const confirmed = await confirm({
+      title: 'Delete Program',
+      message: `Are you sure you want to delete program "${name}"?`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      type: 'danger'
+    })
+    
+    if (!confirmed) return
     
     try {
       await api.delete(`/api/admin/programs/${id}`)
-      alert('Program deleted successfully')
+      showSuccess('Program deleted successfully')
       fetchPrograms(currentPage)
     } catch (error) {
-      alert('Failed to delete: ' + error.response?.data?.message)
+      showError('Failed to delete: ' + (error.response?.data?.message || 'Something went wrong'))
     }
   }
 
   return (
-    <div className="w-full bg-slate-50">
+    <>
+      {ConfirmationComponent}
+      <div className="w-full bg-slate-50">
       {/* Header */}
       <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white p-4 md:p-8 shadow-lg">
         <div className="max-w-7xl mx-auto">
@@ -336,13 +351,13 @@ const AdminPrograms = () => {
       {/* Add/Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={handleCloseModal}>
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="p-4 md:p-6 border-b border-slate-200">
-              <h2 className="text-xl md:text-2xl font-bold text-slate-900">{editMode ? 'Edit Program' : 'Add New Program'}</h2>
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[85vh] overflow-hidden shadow-2xl flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="p-3 border-b border-slate-200">
+              <h2 className="text-lg font-bold text-slate-900">{editMode ? 'Edit Program' : 'Add New Program'}</h2>
             </div>
-            <form onSubmit={handleSubmit} className="p-4 md:p-6 space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">Program Name *</label>
+            <form onSubmit={handleSubmit} className="p-4 grid grid-cols-2 gap-3 text-sm">
+              <div className="col-span-2">
+                <label className="block text-xs font-medium text-slate-700 mb-1">Program Name *</label>
                 <input
                   type="text"
                   name="name"
@@ -350,18 +365,18 @@ const AdminPrograms = () => {
                   onChange={handleChange}
                   placeholder="e.g. Computer Science"
                   required
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">University *</label>
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">University *</label>
                 <select 
                   name="university" 
                   value={formData.university} 
                   onChange={handleChange} 
                   required
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
                   <option value="">Select University</option>
                   {universities.map(uni => (
@@ -370,22 +385,22 @@ const AdminPrograms = () => {
                 </select>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">Degree Type *</label>
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Degree Type *</label>
                 <select 
                   name="degree" 
                   value={formData.degree} 
                   onChange={handleChange} 
                   required
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
-                  <option value="BS">BS (Bachelor of Science)</option>
-                  <option value="BA">BA (Bachelor of Arts)</option>
-                  <option value="BBA">BBA (Bachelor of Business Administration)</option>
-                  <option value="MS">MS (Master of Science)</option>
+                  <option value="BS">BS</option>
+                  <option value="BA">BA</option>
+                  <option value="BBA">BBA</option>
+                  <option value="MS">MS</option>
                   <option value="PhD">PhD</option>
-                  <option value="BE">BE (Bachelor of Engineering)</option>
-                  <option value="MBA">MBA (Master of Business Administration)</option>
+                  <option value="BE">BE</option>
+                  <option value="MBA">MBA</option>
                   <option value="M.Phil">M.Phil</option>
                   <option value="BA-LLB">BA-LLB</option>
                   <option value="Pharm-D">Pharm-D</option>
@@ -394,8 +409,8 @@ const AdminPrograms = () => {
                 </select>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">Duration *</label>
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Duration *</label>
                 <input
                   type="text"
                   name="duration"
@@ -403,18 +418,18 @@ const AdminPrograms = () => {
                   onChange={handleChange}
                   placeholder="e.g. 4 years"
                   required
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">Category *</label>
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Category *</label>
                 <select 
                   name="category" 
                   value={formData.category} 
                   onChange={handleChange} 
                   required
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
                   <option value="Engineering">Engineering</option>
                   <option value="Medical">Medical</option>
@@ -426,43 +441,43 @@ const AdminPrograms = () => {
                 </select>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">Fee per Semester (Rs.)</label>
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Fee per Semester (Rs.)</label>
                 <input
                   type="number"
                   name="feePerSemester"
                   value={formData.feePerSemester}
                   onChange={handleChange}
                   placeholder="e.g. 150000"
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">Eligibility Criteria</label>
+              <div className="col-span-2">
+                <label className="block text-xs font-medium text-slate-700 mb-1">Eligibility Criteria</label>
                 <textarea
                   name="eligibility"
                   value={formData.eligibility}
                   onChange={handleChange}
-                  rows="3"
+                  rows="2"
                   placeholder="e.g. FSc Pre-Engineering with 60% marks"
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">Career Scope</label>
+              <div className="col-span-2">
+                <label className="block text-xs font-medium text-slate-700 mb-1">Career Scope</label>
                 <textarea
                   name="careerScope"
                   value={formData.careerScope}
                   onChange={handleChange}
-                  rows="3"
+                  rows="2"
                   placeholder="Describe career opportunities..."
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
 
-              <div className="flex gap-3 justify-end pt-4 border-t border-slate-200 mt-6">
+              <div className="flex gap-2 justify-end col-span-2 pt-2 border-t border-slate-200 mt-2">
                 <Button type="button" variant="outline" onClick={handleCloseModal}>
                   Cancel
                 </Button>
@@ -475,6 +490,7 @@ const AdminPrograms = () => {
         </div>
       )}
     </div>
+    </>
   )
 }
 

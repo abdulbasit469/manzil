@@ -36,19 +36,13 @@ const AssessmentFlow = () => {
         loadResults()
         setCurrentStep('results')
       } else {
-        // Determine which test to show next
-        if (!res.data.status.personality) {
-          setCurrentStep('personality')
-        } else if (!res.data.status.aptitude) {
-          setCurrentStep('aptitude')
-        } else if (!res.data.status.interest) {
-          setCurrentStep('interest')
-        }
+        // Keep on status page - user must click Start button
+        setCurrentStep('status')
       }
     } catch (error) {
       console.error('Error checking status:', error)
-      // Start with personality test if no status found
-      setCurrentStep('personality')
+      // Keep on status page - user must click Start button
+      setCurrentStep('status')
     }
   }
 
@@ -115,7 +109,7 @@ const AssessmentFlow = () => {
       setCurrentStep('results')
     } catch (error) {
       console.error('Error aggregating results:', error)
-      alert('Error loading results. Please try again.')
+      // Error will be handled by notification system if needed
     } finally {
       setLoading(false)
     }

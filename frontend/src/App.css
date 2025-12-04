@@ -19,6 +19,11 @@
   box-sizing: border-box;
 }
 
+/* Hide main-content on auth pages */
+body.auth-page .main-content {
+  display: none !important;
+}
+
 /* Ensure content inside respects padding and starts below navbar */
 .main-content > * {
   position: relative;
@@ -113,4 +118,34 @@ label {
   display: block;
   margin-top: 10px;
   font-weight: 500;
+}
+
+/* Hide scrollbars on all forms */
+form {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+form::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* Modal forms - no scrollbars */
+.modal-content form,
+[class*="modal"] form,
+form[class*="form"] {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.modal-content form::-webkit-scrollbar,
+[class*="modal"] form::-webkit-scrollbar,
+form[class*="form"]::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }

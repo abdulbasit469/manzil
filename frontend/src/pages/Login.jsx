@@ -24,6 +24,9 @@ const Login = () => {
 
   // Validate password
   const validatePassword = (pwd) => {
+    if (pwd.length < 8) {
+      return 'Password must be at least 8 characters long'
+    }
     const hasUpperCase = /[A-Z]/.test(pwd)
     const hasLowerCase = /[a-z]/.test(pwd)
     const hasDigit = /[0-9]/.test(pwd)

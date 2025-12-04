@@ -112,7 +112,78 @@ exports.getDashboard = async (req, res) => {
     const user = await User.findById(req.user.id);
     const completion = user.calculateProfileCompletion();
 
-    // TODO: Add more dashboard stats (saved universities, assessment status, etc.)
+    // Get assessment data for graphs
+    const AssessmentResponse = require('../models/Assessment');
+    const latestAssessment = await AssessmentResponse.findOne({ user: req.user.id })
+      .sort({ createdAt: -1 });
+
+    // Calculate assessment scores for graphs
+    let assessmentScores = [];
+    if (latestAssessment) {
+      if (latestAssessment.personalityResults?.normalizedScores) {
+        const personalityAvg = Object.values(latestAssessment.personalityResults.normalizedScores)
+          .reduce((sum, val) => sum + val, 0) / 6;
+        assessmentScores.push({ category: 'Personality', score: Math.round(personalityAvg) });
+      }
+      if (latestAssessment.aptitudeResults?.normalizedSectionScores) {
+        const aptitudeAvg = Object.values(latestAssessment.aptitudeResults.normalizedSectionScores)
+          .reduce((sum, val) => sum + (val || 0), 0) / Object.keys(latestAssessment.aptitudeResults.normalizedSectionScores).length;
+        assessmentScores.push({ category: 'Aptitude', score: Math.round(aptitudeAvg) });
+      }
+      if (latestAssessment.interestResults?.normalizedScores) {
+        const interestAvg = Object.values(latestAssessment.interestResults.normalizedScores)
+          .reduce((sum, val) => sum + val, 0) / Object.keys(latestAssessment.interestResults.normalizedScores).length;
+        assessmentScores.push({ category: 'Interest', score: Math.round(interestAvg) });
+      }
+    }
+
+    // Get weekly activity (last 7 days of assessment activity)
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    
+    const weeklyAssessments = await AssessmentResponse.find({
+      user: req.user.id,
+      createdAt: { $gte: sevenDaysAgo }
+    }).sort({ createdAt: 1 });
+
+    // Group by day of week
+    const activityData = [
+      { day: 'Mon', value: 0 },
+      { day: 'Tue', value: 0 },
+      { day: 'Wed', value: 0 },
+      { day: 'Thu', value: 0 },
+      { day: 'Fri', value: 0 },
+      { day: 'Sat', value: 0 },
+      { day: 'Sun', value: 0 }
+    ];
+
+    weeklyAssessments.forEach(assessment => {
+      const dayIndex = assessment.createdAt.getDay();
+      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const dayName = dayNames[dayIndex];
+      const dayData = activityData.find(d => d.day === dayName);
+      if (dayData) {
+        dayData.value += 10; // Increment activity
+      }
+    });
+
+    // Normalize activity values to 0-100 scale
+    const maxActivity = Math.max(...activityData.map(d => d.value), 1);
+    activityData.forEach(day => {
+      day.value = Math.round((day.value / maxActivity) * 100);
+    });
+
+    // Get saved universities count
+    const SavedUniversity = require('../models/SavedUniversity');
+    const savedUniversitiesCount = await SavedUniversity.countDocuments({ user: req.user.id });
+
+    // Get applications count
+    const Application = require('../models/Application');
+    const applicationsCount = await Application.countDocuments({ 
+      user: req.user.id,
+      status: { $in: ['pending', 'submitted', 'under_review'] }
+    });
+
     const dashboardData = {
       user: {
         name: user.name,
@@ -121,9 +192,17 @@ exports.getDashboard = async (req, res) => {
       },
       profileCompletion: completion,
       stats: {
-        savedUniversities: 0, // TODO: Implement later
-        assessmentTaken: false, // TODO: Implement later
-        applicationsInProgress: 0 // TODO: Implement later
+        savedUniversities: savedUniversitiesCount,
+        assessmentTaken: !!latestAssessment,
+        applicationsInProgress: applicationsCount
+      },
+      graphs: {
+        weeklyActivity: activityData,
+        assessmentScores: assessmentScores.length > 0 ? assessmentScores : [
+          { category: 'Personality', score: 0 },
+          { category: 'Aptitude', score: 0 },
+          { category: 'Interest', score: 0 }
+        ]
       },
       recentActivity: [] // TODO: Implement later
     };

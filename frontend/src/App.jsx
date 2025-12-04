@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom'
 import { useEffect } from 'react'
 import { AuthProvider } from './context/AuthContext'
+import { NotificationProvider } from './context/NotificationContext'
 import Login from './pages/Login'
 import Signup from './pages/Signup'
 import VerifyOTP from './pages/VerifyOTP'
@@ -14,6 +15,7 @@ import Profile from './pages/Profile'
 import Assessment from './pages/Assessment'
 import AssessmentFlow from './pages/AssessmentFlow'
 import MeritCalculator from './pages/MeritCalculator'
+import MockTest from './pages/MockTest'
 import ProtectedRoute from './components/ProtectedRoute'
 import AdminRoute from './components/AdminRoute'
 import Navbar from './components/Navbar'
@@ -45,23 +47,17 @@ function ScrollToTop() {
   return null
 }
 
-function App() {
+function AppContent() {
+  const location = useLocation()
+  const hideNavbarPaths = ['/login', '/signup', '/admin-login', '/forgot-password', '/verify-otp', '/reset-password']
+  const isAuthPage = hideNavbarPaths.some(path => location.pathname.startsWith(path))
+
   return (
-    <AuthProvider>
-      <Router>
-        <ScrollToTop />
-        <div className="App">
-          <Navbar />
-          <div className="main-content">
-            <Routes>
-            {/* Public Routes */}
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<Signup />} />
-            <Route path="/verify-otp" element={<VerifyOTP />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/reset-password/:resetToken" element={<ResetPassword />} />
-            <Route path="/admin-login" element={<AdminLogin />} />
-            
+    <div className="App">
+      {!isAuthPage && <Navbar />}
+      {!isAuthPage ? (
+        <div className="main-content">
+          <Routes>
             {/* Home - Redirects based on role */}
             <Route path="/" element={<Home />} />
             
@@ -71,6 +67,7 @@ function App() {
             <Route path="/universities" element={<ProtectedRoute><Universities /></ProtectedRoute>} />
             <Route path="/assessment" element={<ProtectedRoute><AssessmentFlow /></ProtectedRoute>} />
             <Route path="/assessment/old" element={<ProtectedRoute><Assessment /></ProtectedRoute>} />
+            <Route path="/mock-test" element={<ProtectedRoute><MockTest /></ProtectedRoute>} />
             <Route path="/merit-calculator" element={<ProtectedRoute><MeritCalculator /></ProtectedRoute>} />
             
             {/* Admin Routes */}
@@ -81,10 +78,32 @@ function App() {
             <Route path="/admin/programs" element={<AdminRoute><AdminPrograms /></AdminRoute>} />
             <Route path="/admin/assessments" element={<AdminRoute><AdminAssessments /></AdminRoute>} />
             <Route path="/admin/merit-criteria" element={<AdminRoute><AdminMeritCriteria /></AdminRoute>} />
-            </Routes>
-          </div>
+          </Routes>
         </div>
-      </Router>
+      ) : (
+        <Routes>
+          {/* Auth Routes */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
+          <Route path="/verify-otp" element={<VerifyOTP />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password/:resetToken" element={<ResetPassword />} />
+          <Route path="/admin-login" element={<AdminLogin />} />
+        </Routes>
+      )}
+    </div>
+  )
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <NotificationProvider>
+        <Router>
+          <ScrollToTop />
+          <AppContent />
+        </Router>
+      </NotificationProvider>
     </AuthProvider>
   )
 }

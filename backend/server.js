@@ -74,6 +74,8 @@ app.get('/', (req, res) => {
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/profile', require('./routes/profileRoutes'));
 app.use('/api/dashboard', require('./routes/dashboardRoutes'));
+app.use('/api/saved-universities', require('./routes/savedUniversityRoutes'));
+app.use('/api/applications', require('./routes/applicationRoutes'));
 app.use('/api/universities', require('./routes/universityRoutes'));
 app.use('/api/programs', require('./routes/programRoutes'));
 app.use('/api/assessment', require('./routes/assessmentRoutes'));

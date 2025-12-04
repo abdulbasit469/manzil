@@ -27,6 +27,9 @@ const Signup = () => {
 
   // Validate password
   const validatePassword = (pwd) => {
+    if (pwd.length < 8) {
+      return 'Password must be at least 8 characters long'
+    }
     const hasUpperCase = /[A-Z]/.test(pwd)
     const hasLowerCase = /[a-z]/.test(pwd)
     const hasDigit = /[0-9]/.test(pwd)
@@ -81,8 +84,8 @@ const Signup = () => {
       return
     }
 
-    if (password.length < 6) {
-      setPasswordError('Password must be at least 6 characters')
+    if (password.length < 8) {
+      setPasswordError('Password must be at least 8 characters long')
       return
     }
 
@@ -183,28 +186,6 @@ const Signup = () => {
             {loading ? 'Creating Account...' : 'Sign Up'}
           </button>
         </form>
-        
-        <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #e0e0e0' }}>
-          <Link 
-            to="/admin-login"
-            className="btn btn-secondary btn-block"
-            style={{ 
-              background: '#6c757d', 
-              color: '#fff',
-              border: 'none',
-              marginTop: '10px',
-              display: 'block',
-              textAlign: 'center',
-              textDecoration: 'none',
-              padding: '12px',
-              borderRadius: '6px',
-              fontSize: '16px',
-              fontWeight: '600'
-            }}
-          >
-            Login as Admin
-          </Link>
-        </div>
         
         <p className="auth-footer">
           Already have an account? <Link to="/login">Login here</Link>

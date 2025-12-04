@@ -18,10 +18,22 @@ const MeritCalculator = () => {
   const [formData, setFormData] = useState({
     universityId: '',
     programId: '',
-    matricMarks: '',
-    intermediateMarks: '',
-    entryTestMarks: ''
+    matricTotalMarks: '',
+    matricObtainedMarks: '',
+    intermediateTotalMarks: '',
+    intermediateObtainedMarks: '',
+    entryTestType: '', // 'ECAT', 'NAT', 'NET', 'SAT'
+    entryTestTotalMarks: '',
+    entryTestObtainedMarks: ''
   })
+  const [fieldErrors, setFieldErrors] = useState({})
+  
+  const entryTestTypes = {
+    ECAT: 400,
+    NAT: 100,
+    NET: 200,
+    SAT: 1600
+  }
 
   useEffect(() => {
     fetchUniversities()
@@ -83,22 +95,121 @@ const MeritCalculator = () => {
       // Pre-fill form with user profile data
       setFormData(prev => ({
         ...prev,
-        matricMarks: profile.matricMarks || '',
-        intermediateMarks: profile.intermediateMarks || ''
+        matricTotalMarks: profile.matricTotalMarks || '',
+        matricObtainedMarks: profile.matricObtainedMarks || '',
+        intermediateTotalMarks: profile.intermediateTotalMarks || '',
+        intermediateObtainedMarks: profile.intermediateObtainedMarks || ''
       }))
     } catch (error) {
       console.error('Error fetching profile:', error)
     }
   }
 
-  const handleChange = (e) => {
+  const handleMarksChange = (e) => {
     const { name, value } = e.target
-    setFormData(prev => ({
-      ...prev,
+    
+    // Update state first
+    const updatedFormData = {
+      ...formData,
       [name]: value
-    }))
+    }
+    setFormData(updatedFormData)
     setError('')
     setResult(null)
+    
+    // Then validate immediately
+    const errors = { ...fieldErrors }
+    
+    // Validate matric marks - check if obtained exceeds total
+    if (name === 'matricObtainedMarks' || name === 'matricTotalMarks') {
+      const total = updatedFormData.matricTotalMarks ? parseFloat(updatedFormData.matricTotalMarks) : 0
+      const obtained = updatedFormData.matricObtainedMarks ? parseFloat(updatedFormData.matricObtainedMarks) : 0
+      
+      if (updatedFormData.matricTotalMarks && updatedFormData.matricObtainedMarks) {
+        if (!isNaN(total) && !isNaN(obtained) && total > 0 && obtained > total) {
+          errors.matricObtainedMarks = 'Obtained marks cannot exceed total marks'
+        } else {
+          delete errors.matricObtainedMarks
+        }
+      } else {
+        delete errors.matricObtainedMarks
+      }
+    }
+    
+    // Validate intermediate marks - check if obtained exceeds total
+    if (name === 'intermediateObtainedMarks' || name === 'intermediateTotalMarks') {
+      const total = updatedFormData.intermediateTotalMarks ? parseFloat(updatedFormData.intermediateTotalMarks) : 0
+      const obtained = updatedFormData.intermediateObtainedMarks ? parseFloat(updatedFormData.intermediateObtainedMarks) : 0
+      
+      if (updatedFormData.intermediateTotalMarks && updatedFormData.intermediateObtainedMarks) {
+        if (!isNaN(total) && !isNaN(obtained) && total > 0 && obtained > total) {
+          errors.intermediateObtainedMarks = 'Obtained marks cannot exceed total marks'
+        } else {
+          delete errors.intermediateObtainedMarks
+        }
+      } else {
+        delete errors.intermediateObtainedMarks
+      }
+    }
+
+    // Update errors
+    setFieldErrors(errors)
+  }
+
+  const handleEntryTestCheckbox = (testType) => {
+    if (formData.entryTestType === testType) {
+      // Uncheck - clear entry test data
+      setFormData(prev => ({
+        ...prev,
+        entryTestType: '',
+        entryTestTotalMarks: '',
+        entryTestObtainedMarks: ''
+      }))
+    } else {
+      // Check - set entry test type and total marks
+      setFormData(prev => ({
+        ...prev,
+        entryTestType: testType,
+        entryTestTotalMarks: entryTestTypes[testType].toString(),
+        entryTestObtainedMarks: ''
+      }))
+    }
+    setError('')
+    setResult(null)
+    // Clear entry test errors
+    const errors = { ...fieldErrors }
+    delete errors.entryTestObtainedMarks
+    setFieldErrors(errors)
+  }
+
+  const handleChange = (e) => {
+    const { name, value } = e.target
+    
+    // Create updated form data immediately
+    const updatedFormData = {
+      ...formData,
+      [name]: value
+    }
+    
+    setError('')
+    setResult(null)
+
+    // Validate entry test obtained marks if entry test is selected
+    if (name === 'entryTestObtainedMarks' && formData.entryTestType) {
+      const errors = { ...fieldErrors }
+      const total = parseFloat(formData.entryTestTotalMarks)
+      const obtained = parseFloat(value)
+      
+      if (value && !isNaN(total) && !isNaN(obtained) && obtained > total) {
+        errors.entryTestObtainedMarks = 'Obtained marks cannot exceed total marks'
+      } else {
+        delete errors.entryTestObtainedMarks
+      }
+      setFieldErrors(errors)
+    }
+    
+    // Update form data state
+    setFormData(updatedFormData)
   }
 
   const handleSubmit = async (e) => {
@@ -114,30 +225,67 @@ const MeritCalculator = () => {
       return
     }
 
-    if (!formData.matricMarks) {
-      setError('Please enter matric marks')
+    if (!formData.matricTotalMarks || !formData.matricObtainedMarks) {
+      setError('Please enter matric total and obtained marks')
       setCalculating(false)
       return
     }
 
-    // Check if intermediate marks are provided
-    if (!formData.intermediateMarks) {
-      setError('Please enter intermediate marks')
+    if (!formData.intermediateTotalMarks || !formData.intermediateObtainedMarks) {
+      setError('Please enter intermediate total and obtained marks')
       setCalculating(false)
       return
+    }
+
+    // Check for field errors
+    if (Object.keys(fieldErrors).length > 0) {
+      setError('Please fix the errors before submitting')
+      setCalculating(false)
+      return
+    }
+
+    // Validate obtained marks don't exceed total marks
+    const matricObtained = parseFloat(formData.matricObtainedMarks)
+    const matricTotal = parseFloat(formData.matricTotalMarks)
+    if (matricObtained > matricTotal) {
+      setError('Matric obtained marks cannot exceed total marks')
+      setCalculating(false)
+      return
+    }
+
+    const intermediateObtained = parseFloat(formData.intermediateObtainedMarks)
+    const intermediateTotal = parseFloat(formData.intermediateTotalMarks)
+    if (intermediateObtained > intermediateTotal) {
+      setError('Intermediate obtained marks cannot exceed total marks')
+      setCalculating(false)
+      return
+    }
+
+    // Validate entry test if selected
+    let entryTestMarks = null
+    if (formData.entryTestType && formData.entryTestObtainedMarks) {
+      const entryTestObtained = parseFloat(formData.entryTestObtainedMarks)
+      const entryTestTotal = parseFloat(formData.entryTestTotalMarks)
+      if (entryTestObtained > entryTestTotal) {
+        setError('Entry test obtained marks cannot exceed total marks')
+        setCalculating(false)
+        return
+      }
+      // Calculate percentage (out of 100) for entry test
+      entryTestMarks = (entryTestObtained / entryTestTotal) * 100
     }
 
     try {
+      // Calculate percentage marks (out of 1100) for backward compatibility with backend
+      const matricPercentage = (matricObtained / matricTotal) * 1100
+      const intermediatePercentage = (intermediateObtained / intermediateTotal) * 1100
+
       const payload = {
         universityId: formData.universityId,
         programId: formData.programId,
-        matricMarks: parseFloat(formData.matricMarks),
-        entryTestMarks: formData.entryTestMarks ? parseFloat(formData.entryTestMarks) : null
-      }
-
-      // Add intermediate marks
-      if (formData.intermediateMarks) {
-        payload.intermediateMarks = parseFloat(formData.intermediateMarks)
+        matricMarks: matricPercentage,
+        intermediateMarks: intermediatePercentage,
+        entryTestMarks: entryTestMarks
       }
 
       const res = await api.post('/api/merit/calculate', payload)
@@ -245,44 +393,127 @@ const MeritCalculator = () => {
 
           <div className="form-row">
             <div className="form-group">
-              <label>Matric Marks (out of 1100) *</label>
+              <label>Matric Total Marks *</label>
               <input
                 type="number"
-                name="matricMarks"
-                value={formData.matricMarks}
-                onChange={handleChange}
-                min="0"
-                max="1100"
+                name="matricTotalMarks"
+                value={formData.matricTotalMarks}
+                onChange={handleMarksChange}
+                onInput={handleMarksChange}
+                min="1"
                 required
-                placeholder="Enter matric marks"
+                placeholder="Enter total marks"
               />
+              {fieldErrors.matricTotalMarks && (
+                <p className="text-red-600 text-sm mt-1">{fieldErrors.matricTotalMarks}</p>
+              )}
             </div>
 
             <div className="form-group">
-              <label>Intermediate Marks (out of 1100) *</label>
+              <label>Matric Obtained Marks *</label>
               <input
                 type="number"
-                name="intermediateMarks"
-                value={formData.intermediateMarks}
-                onChange={handleChange}
+                name="matricObtainedMarks"
+                value={formData.matricObtainedMarks}
+                onChange={handleMarksChange}
+                onInput={handleMarksChange}
                 min="0"
-                max="1100"
                 required
-                placeholder="Total intermediate marks"
+                placeholder="Enter obtained marks"
               />
+              {fieldErrors.matricObtainedMarks && (
+                <p className="text-red-600 text-sm mt-1">{fieldErrors.matricObtainedMarks}</p>
+              )}
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label>Intermediate Total Marks *</label>
+              <input
+                type="number"
+                name="intermediateTotalMarks"
+                value={formData.intermediateTotalMarks}
+                onChange={handleMarksChange}
+                onInput={handleMarksChange}
+                min="1"
+                required
+                placeholder="Enter total marks"
+              />
+              {fieldErrors.intermediateTotalMarks && (
+                <p className="text-red-600 text-sm mt-1">{fieldErrors.intermediateTotalMarks}</p>
+              )}
+            </div>
+
+            <div className="form-group">
+              <label>Intermediate Obtained Marks *</label>
+              <input
+                type="number"
+                name="intermediateObtainedMarks"
+                value={formData.intermediateObtainedMarks}
+                onChange={handleMarksChange}
+                onInput={handleMarksChange}
+                min="0"
+                required
+                placeholder="Enter obtained marks"
+              />
+              {fieldErrors.intermediateObtainedMarks && (
+                <p className="text-red-600 text-sm mt-1">{fieldErrors.intermediateObtainedMarks}</p>
+              )}
             </div>
           </div>
 
           <div className="form-group">
-            <label>Entry Test Marks</label>
-            <input
-              type="number"
-              name="entryTestMarks"
-              value={formData.entryTestMarks}
-              onChange={handleChange}
-              min="0"
-              placeholder="Enter test marks (if taken)"
-            />
+            <label>Entry Test</label>
+            <div className="space-y-3">
+              <div className="flex flex-wrap gap-4">
+                {Object.keys(entryTestTypes).map(testType => (
+                  <label key={testType} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.entryTestType === testType}
+                      onChange={() => handleEntryTestCheckbox(testType)}
+                      className="w-5 h-5 cursor-pointer accent-indigo-600"
+                    />
+                    <span className="text-slate-700 font-medium">{testType}</span>
+                  </label>
+                ))}
+              </div>
+              
+              {formData.entryTestType && (
+                <div className="mt-4 p-4 bg-indigo-50 rounded-lg border border-indigo-200">
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>Total Marks</label>
+                      <input
+                        type="number"
+                        name="entryTestTotalMarks"
+                        value={formData.entryTestTotalMarks}
+                        onChange={handleChange}
+                        disabled
+                        className="bg-slate-100"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Obtained Marks *</label>
+                      <input
+                        type="number"
+                        name="entryTestObtainedMarks"
+                        value={formData.entryTestObtainedMarks}
+                        onChange={handleChange}
+                        min="0"
+                        max={formData.entryTestTotalMarks}
+                        placeholder="Enter obtained marks"
+                        required
+                      />
+                      {fieldErrors.entryTestObtainedMarks && (
+                        <p className="text-red-600 text-sm mt-1">{fieldErrors.entryTestObtainedMarks}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
             <small className="form-hint">
               {result?.criteria?.entryTestName && `Test: ${result.criteria.entryTestName}`}
             </small>

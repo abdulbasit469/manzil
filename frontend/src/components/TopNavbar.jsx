@@ -1,4 +1,5 @@
 import { useContext, useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from './ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
@@ -6,6 +7,7 @@ import { AuthContext } from '../context/AuthContext'
 
 export function TopNavbar({ onMenuClick, sidebarWidth = 80, isSidebarOpen = true }) {
   const { user } = useContext(AuthContext)
+  const navigate = useNavigate()
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024)
 
   useEffect(() => {
@@ -48,15 +50,28 @@ export function TopNavbar({ onMenuClick, sidebarWidth = 80, isSidebarOpen = true
         <span className="text-xs md:text-sm text-slate-300 truncate max-w-[120px] md:max-w-none">
           {user.name}
         </span>
-        <Avatar className="w-7 h-7 md:w-8 md:h-8 cursor-pointer hover:ring-2 hover:ring-indigo-400 transition-all flex-shrink-0">
-          {user.profilePicture ? (
-            <AvatarImage src={user.profilePicture} alt={user.name} />
-          ) : (
-            <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white text-xs md:text-sm">
-              {initials}
-            </AvatarFallback>
-          )}
-        </Avatar>
+        <div 
+          onClick={() => navigate('/profile')}
+          className="cursor-pointer"
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              navigate('/profile')
+            }
+          }}
+        >
+          <Avatar className="w-7 h-7 md:w-8 md:h-8 hover:ring-2 hover:ring-indigo-400 transition-all flex-shrink-0">
+            {user.profilePicture ? (
+              <AvatarImage src={user.profilePicture} alt={user.name} />
+            ) : (
+              <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white text-xs md:text-sm">
+                {initials}
+              </AvatarFallback>
+            )}
+          </Avatar>
+        </div>
       </div>
     </div>
   )

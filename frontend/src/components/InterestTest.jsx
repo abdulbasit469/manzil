@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react'
 import api from '../services/api'
 import '../pages/Assessment.css'
+import { useNotification } from '../context/NotificationContext'
 
 const InterestTest = ({ onComplete, onBack }) => {
   const [questions, setQuestions] = useState([])
   const [responses, setResponses] = useState({})
   const [loading, setLoading] = useState(false)
   const [currentQuestion, setCurrentQuestion] = useState(0)
+  const { showError } = useNotification()
 
   useEffect(() => {
     fetchQuestions()
@@ -21,7 +23,7 @@ const InterestTest = ({ onComplete, onBack }) => {
       setResponses(initial)
     } catch (error) {
       console.error('Error fetching questions:', error)
-      alert('Failed to load questions')
+      showError('Failed to load questions')
     }
   }
 
@@ -72,7 +74,7 @@ const InterestTest = ({ onComplete, onBack }) => {
       }
     } catch (error) {
       console.error('Error submitting test:', error)
-      alert('Failed to submit test')
+      showError('Failed to submit test')
     } finally {
       setLoading(false)
     }

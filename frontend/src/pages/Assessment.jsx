@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import api from '../services/api'
 import './Assessment.css'
+import { useNotification } from '../context/NotificationContext'
 
 const Assessment = () => {
   const [questions, setQuestions] = useState([])
@@ -8,6 +9,7 @@ const Assessment = () => {
   const [results, setResults] = useState(null)
   const [loading, setLoading] = useState(false)
   const [showResults, setShowResults] = useState(false)
+  const { showError } = useNotification()
 
   useEffect(() => {
     fetchQuestions()
@@ -58,7 +60,7 @@ const Assessment = () => {
       setShowResults(true)
     } catch (error) {
       console.error('Error submitting assessment:', error)
-      alert('Failed to submit assessment')
+      showError('Failed to submit assessment')
     } finally {
       setLoading(false)
     }

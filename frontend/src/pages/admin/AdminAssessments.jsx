@@ -235,7 +235,7 @@ const AdminAssessments = () => {
             </div>
 
             <h3>Answers:</h3>
-            <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+            <div style={{ maxHeight: '400px', overflowY: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }} className="scrollbar-hide">
               {selectedAssessment.answers && selectedAssessment.answers.length > 0 ? (
                 selectedAssessment.answers.map((answer, index) => (
                   <div key={index} style={{

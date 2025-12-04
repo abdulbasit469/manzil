@@ -4,6 +4,8 @@ import { GraduationCap } from 'lucide-react'
 import api from '../../services/api'
 import { Card } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
+import { useNotification } from '../../context/NotificationContext'
+import { useConfirmation } from '../../hooks/useConfirmation'
 
 const AdminUniversities = () => {
   const [universities, setUniversities] = useState([])
@@ -16,6 +18,9 @@ const AdminUniversities = () => {
   const [totalPages, setTotalPages] = useState(1)
   const [total, setTotal] = useState(0)
   const itemsPerPage = 10
+  
+  const { showSuccess, showError } = useNotification()
+  const { confirm, ConfirmationComponent } = useConfirmation()
   
   const [formData, setFormData] = useState({
     name: '',
@@ -124,32 +129,42 @@ const AdminUniversities = () => {
     try {
       if (editMode) {
         await api.put(`/api/admin/universities/${currentUniversity._id}`, formData)
-        alert('University updated successfully!')
+        showSuccess('University updated successfully!')
       } else {
         await api.post('/api/admin/universities', formData)
-        alert('University added successfully!')
+        showSuccess('University added successfully!')
       }
       handleCloseModal()
       fetchUniversities(currentPage)
     } catch (error) {
-      alert('Error: ' + error.response?.data?.message)
+      showError('Error: ' + (error.response?.data?.message || 'Something went wrong'))
     }
   }
 
   const handleDelete = async (id, name) => {
-    if (!window.confirm(`Delete ${name}? This will also delete all associated programs!`)) return
+    const confirmed = await confirm({
+      title: 'Delete University',
+      message: `Are you sure you want to delete ${name}? This will also delete all associated programs!`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      type: 'danger'
+    })
+    
+    if (!confirmed) return
     
     try {
       await api.delete(`/api/admin/universities/${id}`)
-      alert('University deleted successfully')
+      showSuccess('University deleted successfully')
       fetchUniversities()
     } catch (error) {
-      alert('Failed to delete: ' + error.response?.data?.message)
+      showError('Failed to delete: ' + (error.response?.data?.message || 'Something went wrong'))
     }
   }
 
   return (
-    <div className="w-full bg-slate-50">
+    <>
+      {ConfirmationComponent}
+      <div className="w-full bg-slate-50">
       {/* Header */}
       <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white p-8 shadow-lg">
         <div className="max-w-7xl mx-auto">
@@ -318,106 +333,106 @@ const AdminUniversities = () => {
       {/* Add/Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={handleCloseModal}>
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="p-4 md:p-6 border-b border-slate-200">
-              <h2 className="text-xl md:text-2xl font-bold text-slate-900">{editMode ? 'Edit University' : 'Add New University'}</h2>
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[85vh] overflow-hidden shadow-2xl flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="p-3 border-b border-slate-200">
+              <h2 className="text-lg font-bold text-slate-900">{editMode ? 'Edit University' : 'Add New University'}</h2>
             </div>
-            <form onSubmit={handleSubmit} className="p-4 md:p-6 space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">University Name *</label>
+            <form onSubmit={handleSubmit} className="p-4 grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">University Name *</label>
                 <input
                   type="text"
                   name="name"
                   value={formData.name}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">City *</label>
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">City *</label>
                 <input
                   type="text"
                   name="city"
                   value={formData.city}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">Type *</label>
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Type *</label>
                 <select 
                   name="type" 
                   value={formData.type} 
                   onChange={handleChange} 
                   required
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
                   <option value="Public">Public</option>
                   <option value="Private">Private</option>
                 </select>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">HEC Ranking</label>
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">HEC Ranking</label>
                 <input
                   type="number"
                   name="hecRanking"
                   value={formData.hecRanking}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">Website</label>
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Website</label>
                 <input
                   type="url"
                   name="website"
                   value={formData.website}
                   onChange={handleChange}
                   placeholder="https://..."
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">Email</label>
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Email</label>
                 <input
                   type="email"
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">Phone</label>
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Phone</label>
                 <input
                   type="tel"
                   name="phone"
                   value={formData.phone}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">Address</label>
+              <div className="col-span-2">
+                <label className="block text-xs font-medium text-slate-700 mb-1">Address</label>
                 <textarea
                   name="address"
                   value={formData.address}
                   onChange={handleChange}
-                  rows="3"
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  rows="2"
+                  className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
 
-              <div className="flex gap-3 justify-end pt-4 border-t border-slate-200 mt-6">
+              <div className="flex gap-2 justify-end col-span-2 pt-2 border-t border-slate-200 mt-2">
                 <Button type="button" variant="outline" onClick={handleCloseModal}>
                   Cancel
                 </Button>
@@ -430,6 +445,7 @@ const AdminUniversities = () => {
         </div>
       )}
     </div>
+    </>
   )
 }
 

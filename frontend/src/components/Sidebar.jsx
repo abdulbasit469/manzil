@@ -12,7 +12,8 @@ import {
   ChevronRight,
   Users,
   BookOpen,
-  BarChart3
+  BarChart3,
+  FileText
 } from 'lucide-react'
 import { Button } from './ui/button'
 import { AuthContext } from '../context/AuthContext'
@@ -44,6 +45,7 @@ export function Sidebar({ isOpen, onToggle }) {
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
     { icon: GraduationCap, label: 'Universities', path: '/universities' },
     { icon: Briefcase, label: 'Career Assessment', path: '/assessment' },
+    { icon: FileText, label: 'Mock Test', path: '/mock-test' },
     { icon: Calculator, label: 'Merit Calculator', path: '/merit-calculator' },
     { icon: User, label: 'Profile', path: '/profile' },
   ]

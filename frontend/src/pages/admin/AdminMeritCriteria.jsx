@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import api from '../../services/api'
 import './Admin.css'
+import { useNotification } from '../../context/NotificationContext'
+import { useConfirmation } from '../../hooks/useConfirmation'
 
 const AdminMeritCriteria = () => {
   const [criteria, setCriteria] = useState([])
@@ -26,6 +28,9 @@ const AdminMeritCriteria = () => {
   })
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  
+  const { showSuccess, showError } = useNotification()
+  const { confirm, ConfirmationComponent } = useConfirmation()
 
   useEffect(() => {
     fetchCriteria()
@@ -153,7 +158,15 @@ const AdminMeritCriteria = () => {
   }
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this criteria?')) {
+    const confirmed = await confirm({
+      title: 'Delete Merit Criteria',
+      message: 'Are you sure you want to delete this criteria?',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      type: 'danger'
+    })
+    
+    if (!confirmed) {
       return
     }
 
@@ -175,7 +188,9 @@ const AdminMeritCriteria = () => {
   if (loading) return <div className="admin-container"><p>Loading...</p></div>
 
   return (
-    <div className="admin-container">
+    <>
+      {ConfirmationComponent}
+      <div className="admin-container">
       <div className="admin-header">
         <h1>Merit Criteria Management</h1>
         <button onClick={openAddModal} className="btn btn-primary">Add Criteria</button>
@@ -443,6 +458,7 @@ const AdminMeritCriteria = () => {
         </div>
       )}
     </div>
+    </>
   )
 }
 

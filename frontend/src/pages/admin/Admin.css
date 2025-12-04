@@ -678,14 +678,132 @@
 
 .modal-content {
   background: white;
-  padding: 35px;
+  padding: 20px;
   border-radius: 8px;
   max-width: 650px;
   width: 90%;
-  max-height: 90vh;
-  overflow-y: auto;
+  max-height: 85vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   box-shadow: 0 20px 60px rgba(0,0,0,0.3);
   border: 1px solid #e0e0e0;
+}
+
+.modal-content .modal-header {
+  padding: 12px 0;
+  margin-bottom: 15px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.modal-content .modal-header h2 {
+  font-size: 18px;
+  margin: 0;
+}
+
+.modal-content form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  font-size: 14px;
+}
+
+.modal-content form .form-group {
+  margin-bottom: 0;
+}
+
+.modal-content form .form-group label {
+  font-size: 12px;
+  margin-bottom: 4px;
+  display: block;
+}
+
+.modal-content form .form-group input,
+.modal-content form .form-group select,
+.modal-content form .form-group textarea {
+  padding: 6px 10px;
+  font-size: 13px;
+  height: auto;
+}
+
+.modal-content form .form-row {
+  display: contents;
+}
+
+.modal-content form h3 {
+  grid-column: 1 / -1;
+  font-size: 14px;
+  margin: 10px 0 8px 0;
+  padding-top: 10px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.modal-content form .form-group:has(textarea),
+.modal-content form .form-group:has(input[type="checkbox"]) {
+  grid-column: 1 / -1;
+}
+
+.modal-content .modal-actions {
+  grid-column: 1 / -1;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e0e0e0;
+}
+
+/* Hide scrollbars on modal content and forms */
+.modal-content,
+.modal-content * {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.modal-content::-webkit-scrollbar,
+.modal-content *::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.modal-content form {
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+  flex: 1;
+  padding-right: 5px;
+}
+
+.modal-content form::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* Scrollbar hide utility class */
+.scrollbar-hide {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.modal-content form {
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  flex: 1;
+  padding-right: 5px;
+}
+
+.modal-content form::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .modal-content h2 {

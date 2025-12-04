@@ -3,11 +3,16 @@ import { motion } from 'motion/react'
 import { Users, Sparkles } from 'lucide-react'
 import api from '../../services/api'
 import { Card } from '../../components/ui/card'
+import { useNotification } from '../../context/NotificationContext'
+import { useConfirmation } from '../../hooks/useConfirmation'
 
 const AdminUsers = () => {
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  
+  const { showSuccess, showError } = useNotification()
+  const { confirm, ConfirmationComponent } = useConfirmation()
 
   useEffect(() => {
     fetchUsers()
@@ -29,19 +34,29 @@ const AdminUsers = () => {
 
 
   const handleDeleteUser = async (userId, userEmail) => {
-    if (!window.confirm(`Delete user ${userEmail}? This cannot be undone!`)) return
+    const confirmed = await confirm({
+      title: 'Delete User',
+      message: `Are you sure you want to delete user ${userEmail}? This cannot be undone!`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      type: 'danger'
+    })
+    
+    if (!confirmed) return
 
     try {
       await api.delete(`/api/admin/users/${userId}`)
-      alert('User deleted successfully')
+      showSuccess('User deleted successfully')
       fetchUsers()
     } catch (error) {
-      alert('Failed to delete user: ' + error.response?.data?.message)
+      showError('Failed to delete user: ' + (error.response?.data?.message || 'Something went wrong'))
     }
   }
 
   return (
-    <div className="w-full bg-slate-50 min-h-full">
+    <>
+      {ConfirmationComponent}
+      <div className="w-full bg-slate-50 min-h-full">
       {/* Header */}
       <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white p-8 shadow-lg relative z-0">
         <div className="max-w-7xl mx-auto">
@@ -131,6 +146,7 @@ const AdminUsers = () => {
         </div>
       </div>
     </div>
+    </>
   )
 }
 

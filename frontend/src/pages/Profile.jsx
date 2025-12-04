@@ -23,7 +23,11 @@ const Profile = () => {
     intermediateType: '',
     firstYearMarks: '',
     secondYearMarks: '',
+    intermediateTotalMarks: '',
+    intermediateObtainedMarks: '',
     intermediateMarks: '',
+    matricTotalMarks: '',
+    matricObtainedMarks: '',
     matricMarks: '',
     matricMajors: '',
     secondYearResultAvailable: false,
@@ -181,6 +185,14 @@ const Profile = () => {
     setLoading(true)
 
     try {
+      // Validate all fields
+      const hasErrors = Object.keys(fieldErrors).length > 0
+      if (hasErrors) {
+        setError('Please fix the errors before submitting')
+        setLoading(false)
+        return
+      }
+
       // If profile picture is selected, convert to base64
       let profilePictureData = profile.profilePicture
       if (profilePictureFile) {
@@ -199,11 +211,33 @@ const Profile = () => {
         })
       }
 
-      // Don't include profile picture in main form submit - it has its own save button
+      // Calculate percentage marks for backward compatibility
       const updateData = {
         ...profile
-        // profilePicture is handled separately
       }
+
+      // Calculate matric marks percentage if both fields are provided
+      if (updateData.matricTotalMarks && updateData.matricObtainedMarks) {
+        const total = parseFloat(updateData.matricTotalMarks)
+        const obtained = parseFloat(updateData.matricObtainedMarks)
+        if (!isNaN(total) && !isNaN(obtained) && total > 0) {
+          // Store as percentage out of 1100 for backward compatibility
+          updateData.matricMarks = ((obtained / total) * 1100).toFixed(2)
+        }
+      }
+
+      // Calculate intermediate marks percentage if both fields are provided
+      if (updateData.intermediateTotalMarks && updateData.intermediateObtainedMarks) {
+        const total = parseFloat(updateData.intermediateTotalMarks)
+        const obtained = parseFloat(updateData.intermediateObtainedMarks)
+        if (!isNaN(total) && !isNaN(obtained) && total > 0) {
+          // Store as percentage out of 1100 for backward compatibility
+          updateData.intermediateMarks = ((obtained / total) * 1100).toFixed(2)
+        }
+      }
+
+      // Don't include profile picture in main form submit - it has its own save button
+      // profilePicture is handled separately
 
       const res = await api.put('/api/profile', updateData)
       setSuccess('Profile updated successfully!')
@@ -219,8 +253,9 @@ const Profile = () => {
     }
   }
 
-  const validateField = (name, value) => {
+  const validateField = (name, value, updatedProfile) => {
     const errors = { ...fieldErrors }
+    const profileToCheck = updatedProfile || profile
     
     // Phone number validation (11 digits)
     if (name === 'phone' && value) {
@@ -234,22 +269,57 @@ const Profile = () => {
       delete errors.phone
     }
 
-    // Marks validation
-    const marksFields = {
-      matricMarks: { max: 1100, label: 'Matric Marks' },
-      intermediateMarks: { max: 1100, label: 'Intermediate Marks' },
-      firstYearMarks: { max: 550, label: '1st Year Marks' },
-      secondYearMarks: { max: 550, label: '2nd Year Marks' }
+    // Marks validation - check if obtained marks exceed total marks
+    if (name === 'matricObtainedMarks' && value && profileToCheck.matricTotalMarks) {
+      const obtained = parseFloat(value)
+      const total = parseFloat(profileToCheck.matricTotalMarks)
+      if (!isNaN(obtained) && !isNaN(total) && obtained > total) {
+        errors.matricObtainedMarks = 'Obtained marks cannot exceed total marks'
+      } else {
+        delete errors.matricObtainedMarks
+      }
+    } else if (name === 'matricTotalMarks' && value && profileToCheck.matricObtainedMarks) {
+      const obtained = parseFloat(profileToCheck.matricObtainedMarks)
+      const total = parseFloat(value)
+      if (!isNaN(obtained) && !isNaN(total) && obtained > total) {
+        errors.matricObtainedMarks = 'Obtained marks cannot exceed total marks'
+      } else {
+        delete errors.matricObtainedMarks
+      }
+    } else if (name === 'intermediateObtainedMarks' && value && profileToCheck.intermediateTotalMarks) {
+      const obtained = parseFloat(value)
+      const total = parseFloat(profileToCheck.intermediateTotalMarks)
+      if (!isNaN(obtained) && !isNaN(total) && obtained > total) {
+        errors.intermediateObtainedMarks = 'Obtained marks cannot exceed total marks'
+      } else {
+        delete errors.intermediateObtainedMarks
+      }
+    } else if (name === 'intermediateTotalMarks' && value && profileToCheck.intermediateObtainedMarks) {
+      const obtained = parseFloat(profileToCheck.intermediateObtainedMarks)
+      const total = parseFloat(value)
+      if (!isNaN(obtained) && !isNaN(total) && obtained > total) {
+        errors.intermediateObtainedMarks = 'Obtained marks cannot exceed total marks'
+      } else {
+        delete errors.intermediateObtainedMarks
+      }
     }
 
-    if (marksFields[name] && value) {
+    // General validation for marks fields (must be positive numbers)
+    const marksFields = ['matricTotalMarks', 'matricObtainedMarks', 'intermediateTotalMarks', 'intermediateObtainedMarks']
+    if (marksFields.includes(name) && value) {
       const numValue = parseFloat(value)
-      if (isNaN(numValue) || numValue < 0 || numValue > marksFields[name].max) {
-        errors[name] = `${marksFields[name].label} must be between 0 and ${marksFields[name].max}`
+      if (isNaN(numValue) || numValue < 0) {
+        errors[name] = 'Marks must be a positive number'
+      } else if (name === 'matricTotalMarks' || name === 'intermediateTotalMarks') {
+        if (numValue <= 0) {
+          errors[name] = 'Total marks must be greater than 0'
+        } else {
+          delete errors[name]
+        }
       } else {
         delete errors[name]
       }
-    } else if (marksFields[name] && !value) {
+    } else if (marksFields.includes(name) && !value) {
       delete errors[name]
     }
 
@@ -257,24 +327,86 @@ const Profile = () => {
     return Object.keys(errors).length === 0
   }
 
+  const handleMarksChange = (e) => {
+    const { name, value } = e.target
+    
+    // Update state first
+    const updatedProfile = {
+      ...profile,
+      [name]: value
+    }
+    setProfile(updatedProfile)
+    
+    // Then validate immediately
+    const errors = { ...fieldErrors }
+    
+    // Validate matric marks - check if obtained exceeds total
+    if (name === 'matricObtainedMarks' || name === 'matricTotalMarks') {
+      const total = updatedProfile.matricTotalMarks ? parseFloat(updatedProfile.matricTotalMarks) : 0
+      const obtained = updatedProfile.matricObtainedMarks ? parseFloat(updatedProfile.matricObtainedMarks) : 0
+      
+      if (updatedProfile.matricTotalMarks && updatedProfile.matricObtainedMarks) {
+        if (!isNaN(total) && !isNaN(obtained) && total > 0 && obtained > total) {
+          errors.matricObtainedMarks = 'Obtained marks cannot exceed total marks'
+        } else {
+          delete errors.matricObtainedMarks
+        }
+      } else {
+        delete errors.matricObtainedMarks
+      }
+    }
+    
+    // Validate intermediate marks - check if obtained exceeds total
+    if (name === 'intermediateObtainedMarks' || name === 'intermediateTotalMarks') {
+      const total = updatedProfile.intermediateTotalMarks ? parseFloat(updatedProfile.intermediateTotalMarks) : 0
+      const obtained = updatedProfile.intermediateObtainedMarks ? parseFloat(updatedProfile.intermediateObtainedMarks) : 0
+      
+      if (updatedProfile.intermediateTotalMarks && updatedProfile.intermediateObtainedMarks) {
+        if (!isNaN(total) && !isNaN(obtained) && total > 0 && obtained > total) {
+          errors.intermediateObtainedMarks = 'Obtained marks cannot exceed total marks'
+        } else {
+          delete errors.intermediateObtainedMarks
+        }
+      } else {
+        delete errors.intermediateObtainedMarks
+      }
+    }
+
+    // Update errors
+    setFieldErrors(errors)
+  }
+
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target
     
-    // Update profile first
-    setProfile({ 
+    // Create updated profile object immediately
+    const updatedProfile = { 
       ...profile, 
       [name]: type === 'checkbox' ? checked : value 
-    })
-    
-    // Validate after update
-    if (type !== 'checkbox' && value) {
-      validateField(name, value)
-    } else if (type !== 'checkbox' && !value) {
-      // Clear error if field is empty
-      const errors = { ...fieldErrors }
-      delete errors[name]
-      setFieldErrors(errors)
     }
+    
+    // Validate immediately with updated profile (before state update)
+    if (type !== 'checkbox') {
+      // Validate immediately
+      const errors = { ...fieldErrors }
+      
+      // Phone number validation (11 digits)
+      if (name === 'phone' && value) {
+        const phoneRegex = /^[0-9]{11}$/
+        if (!phoneRegex.test(value.replace(/\s+/g, ''))) {
+          errors.phone = 'Phone number must be exactly 11 digits'
+        } else {
+          delete errors.phone
+        }
+      } else if (name === 'phone' && !value) {
+        delete errors.phone
+      }
+
+      // Marks validation is handled by handleMarksInput for marks fields
+    }
+    
+    // Update profile state
+    setProfile(updatedProfile)
   }
 
   return (
@@ -466,31 +598,49 @@ const Profile = () => {
               <div className="education-subsection">
                 <h4 className="subsection-title">Matriculation</h4>
                 
+                <div className="form-group">
+                  <label>Majors in Matric</label>
+                  <select name="matricMajors" value={profile.matricMajors || ''} onChange={handleChange}>
+                    <option value="">Select...</option>
+                    <option value="Science">Science</option>
+                    <option value="Arts">Arts</option>
+                    <option value="Commerce">Commerce</option>
+                    <option value="General">General</option>
+                  </select>
+                </div>
+
                 <div className="form-row">
                   <div className="form-group">
-                    <label>Majors in Matric</label>
-                    <select name="matricMajors" value={profile.matricMajors || ''} onChange={handleChange}>
-                      <option value="">Select...</option>
-                      <option value="Science">Science</option>
-                      <option value="Arts">Arts</option>
-                      <option value="Commerce">Commerce</option>
-                      <option value="General">General</option>
-                    </select>
+                    <label>Matric Total Marks *</label>
+                    <input
+                      type="number"
+                      name="matricTotalMarks"
+                      value={profile.matricTotalMarks || ''}
+                      onChange={handleMarksChange}
+                      onInput={handleMarksChange}
+                      min="1"
+                      placeholder="Enter total marks"
+                      required
+                    />
+                    {fieldErrors.matricTotalMarks && (
+                      <p className="text-red-600 text-sm mt-1">{fieldErrors.matricTotalMarks}</p>
+                    )}
                   </div>
 
                   <div className="form-group">
-                    <label>Matric Marks (out of 1100)</label>
+                    <label>Matric Obtained Marks *</label>
                     <input
                       type="number"
-                      name="matricMarks"
-                      value={profile.matricMarks || ''}
-                      onChange={handleChange}
+                      name="matricObtainedMarks"
+                      value={profile.matricObtainedMarks || ''}
+                      onChange={handleMarksChange}
+                      onInput={handleMarksChange}
                       min="0"
-                      max="1100"
-                      placeholder="Matriculation marks"
+                      placeholder="Enter obtained marks"
+                      required
                     />
-                    {fieldErrors.matricMarks && (
-                      <p className="text-red-600 text-sm mt-1">{fieldErrors.matricMarks}</p>
+                    {fieldErrors.matricObtainedMarks && (
+                      <p className="text-red-600 text-sm mt-1">{fieldErrors.matricObtainedMarks}</p>
                     )}
                   </div>
                 </div>
@@ -515,18 +665,36 @@ const Profile = () => {
                   </div>
 
                   <div className="form-group">
-                    <label>Intermediate Marks (out of 1100)</label>
+                    <label>Intermediate Total Marks *</label>
                     <input
                       type="number"
-                      name="intermediateMarks"
-                      value={profile.intermediateMarks || ''}
-                      onChange={handleChange}
-                      min="0"
-                      max="1100"
-                      placeholder="Total intermediate marks"
+                      name="intermediateTotalMarks"
+                      value={profile.intermediateTotalMarks || ''}
+                      onChange={handleMarksChange}
+                      onInput={handleMarksChange}
+                      min="1"
+                      placeholder="Enter total marks"
+                      required
                     />
-                    {fieldErrors.intermediateMarks && (
-                      <p className="text-red-600 text-sm mt-1">{fieldErrors.intermediateMarks}</p>
+                    {fieldErrors.intermediateTotalMarks && (
+                      <p className="text-red-600 text-sm mt-1">{fieldErrors.intermediateTotalMarks}</p>
+                    )}
+                  </div>
+
+                  <div className="form-group">
+                    <label>Intermediate Obtained Marks *</label>
+                    <input
+                      type="number"
+                      name="intermediateObtainedMarks"
+                      value={profile.intermediateObtainedMarks || ''}
+                      onChange={handleMarksChange}
+                      onInput={handleMarksChange}
+                      min="0"
+                      placeholder="Enter obtained marks"
+                      required
+                    />
+                    {fieldErrors.intermediateObtainedMarks && (
+                      <p className="text-red-600 text-sm mt-1">{fieldErrors.intermediateObtainedMarks}</p>
                     )}
                   </div>
                 </div>
