@@ -4,23 +4,28 @@ import { motion } from 'motion/react'
 import { Briefcase, Sparkles } from 'lucide-react'
 import api from '../services/api'
 import PersonalityTest from '../components/PersonalityTest'
-import AptitudeTest from '../components/AptitudeTest'
 import InterestTest from '../components/InterestTest'
 import AssessmentResults from '../components/AssessmentResults'
 import { Card } from '../components/ui/card'
 import { Button } from '../components/ui/button'
+import { useNotification } from '../context/NotificationContext'
+import { MBTIDetailsModal } from '../components/ui/MBTIDetailsModal'
 
 const AssessmentFlow = () => {
-  const [currentStep, setCurrentStep] = useState('status') // status, personality, aptitude, interest, results
+  const [currentStep, setCurrentStep] = useState('status') // status, personality, interest, results
   const [status, setStatus] = useState(null)
+  const [mbtiType, setMbtiType] = useState(null)
+  const [mbtiDetails, setMbtiDetails] = useState(null)
+  const [showMbtiModal, setShowMbtiModal] = useState(false)
+  const [loadingDetails, setLoadingDetails] = useState(false)
   const [loading, setLoading] = useState(false)
   const [testResults, setTestResults] = useState({
     personality: null,
-    aptitude: null,
     interest: null,
     aggregated: null
   })
   const navigate = useNavigate()
+  const { showInfo, showError } = useNotification()
 
   useEffect(() => {
     checkStatus()
@@ -29,7 +34,11 @@ const AssessmentFlow = () => {
   const checkStatus = async () => {
     try {
       const res = await api.get('/api/assessment/status')
+      console.log('Status response:', res.data) // Debug log
       setStatus(res.data.status)
+      const mbti = res.data.mbtiType || null
+      console.log('Setting MBTI type:', mbti) // Debug log
+      setMbtiType(mbti)
       
       // If all tests completed, show results
       if (res.data.status.allCompleted && res.data.hasAggregatedResults) {
@@ -51,7 +60,6 @@ const AssessmentFlow = () => {
       const res = await api.get('/api/assessment/results')
       setTestResults({
         personality: res.data.personality,
-        aptitude: res.data.aptitude,
         interest: res.data.interest,
         aggregated: res.data.aggregated
       })
@@ -60,30 +68,17 @@ const AssessmentFlow = () => {
     }
   }
 
-  const handlePersonalityComplete = async (results) => {
+  const handlePersonalityComplete = async (results, mbtiTypeFromResponse) => {
     setTestResults(prev => ({ ...prev, personality: results }))
-    
-    // Move to next test
-    if (status && !status.aptitude) {
-      setCurrentStep('aptitude')
-    } else if (status && !status.interest) {
-      setCurrentStep('interest')
-    } else {
-      // All tests done, aggregate and show results
-      await aggregateAndShowResults()
+    // Set MBTI type immediately if available from response
+    if (mbtiTypeFromResponse) {
+      setMbtiType(mbtiTypeFromResponse)
     }
-  }
-
-  const handleAptitudeComplete = async (results) => {
-    setTestResults(prev => ({ ...prev, aptitude: results }))
-    
-    // Move to next test
-    if (status && !status.interest) {
-      setCurrentStep('interest')
-    } else {
-      // All tests done, aggregate and show results
-      await aggregateAndShowResults()
-    }
+    // Wait a moment for backend to save, then refresh status to get MBTI type
+    await new Promise(resolve => setTimeout(resolve, 500))
+    await checkStatus()
+    // Stay on status page to show result
+    setCurrentStep('status')
   }
 
   const handleInterestComplete = async (results) => {
@@ -117,8 +112,17 @@ const AssessmentFlow = () => {
 
   const handleRetake = () => {
     setCurrentStep('personality')
-    setTestResults({ personality: null, aptitude: null, interest: null, aggregated: null })
+    setTestResults({ personality: null, interest: null, aggregated: null })
+    setMbtiType(null)
     checkStatus()
+  }
+
+  const handleAptitudeClick = () => {
+    showInfo('This feature will be implemented in 8th semester', 5000)
+  }
+
+  const handleInterestClick = () => {
+    showInfo('This feature will be implemented in 8th semester', 5000)
   }
 
   if (loading) {
@@ -137,7 +141,7 @@ const AssessmentFlow = () => {
       <AssessmentResults 
         results={testResults.aggregated}
         personality={testResults.personality}
-        aptitude={testResults.aptitude}
+        aptitude={null}
         interest={testResults.interest}
         onRetake={handleRetake}
       />
@@ -148,16 +152,7 @@ const AssessmentFlow = () => {
     return (
       <PersonalityTest 
         onComplete={handlePersonalityComplete}
-        onBack={() => navigate('/dashboard')}
-      />
-    )
-  }
-
-  if (currentStep === 'aptitude') {
-    return (
-      <AptitudeTest 
-        onComplete={handleAptitudeComplete}
-        onBack={() => setCurrentStep('personality')}
+        onBack={() => setCurrentStep('status')}
       />
     )
   }
@@ -166,14 +161,21 @@ const AssessmentFlow = () => {
     return (
       <InterestTest 
         onComplete={handleInterestComplete}
-        onBack={() => setCurrentStep('aptitude')}
+        onBack={() => setCurrentStep('status')}
       />
     )
   }
 
   // Status view
   return (
-    <div className="w-full bg-slate-50">
+    <>
+      <MBTIDetailsModal
+        isOpen={showMbtiModal}
+        onClose={() => setShowMbtiModal(false)}
+        mbtiType={mbtiType}
+        details={mbtiDetails}
+      />
+      <div className="w-full bg-slate-50">
       {/* Header */}
       <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white p-8 shadow-lg">
         <div className="max-w-7xl mx-auto">
@@ -200,11 +202,85 @@ const AssessmentFlow = () => {
         
         <div className="test-status">
           <div className={`status-item ${status?.personality ? 'completed' : ''}`}>
-            <h3>1. Personality Test (RIASEC)</h3>
+            <h3>1. Personality Test (MBTI)</h3>
             <p>{status?.personality ? 'Completed' : 'Not Started'}</p>
+            {status?.personality && (
+              <div style={{ 
+                textAlign: 'center', 
+                margin: '15px 0',
+                padding: '10px 0'
+              }}>
+                {mbtiType ? (
+                  <>
+                    <p style={{ 
+                      fontSize: '14px', 
+                      color: '#666', 
+                      marginBottom: '8px',
+                      fontWeight: '500'
+                    }}>
+                      Your MBTI Type
+                    </p>
+                    <div style={{ 
+                      fontSize: '36px', 
+                      fontWeight: 'bold', 
+                      color: '#533483',
+                      letterSpacing: '3px',
+                      marginBottom: '15px'
+                    }}>
+                      {mbtiType}
+                    </div>
+                  </>
+                ) : (
+                  <p style={{ 
+                    fontSize: '12px', 
+                    color: '#999', 
+                    fontStyle: 'italic'
+                  }}>
+                    Loading MBTI type...
+                  </p>
+                )}
+                {mbtiType && (
+                  <Button 
+                    style={{
+                      background: loadingDetails ? '#9333ea80' : '#9333ea',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      padding: '10px 20px',
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      cursor: loadingDetails ? 'not-allowed' : 'pointer',
+                      opacity: loadingDetails ? 0.7 : 1
+                    }}
+                    disabled={loadingDetails}
+                    onClick={async () => {
+                      setLoadingDetails(true)
+                      try {
+                        const res = await api.get(`/api/assessment/personality/mbti/${mbtiType}/details`)
+                        if (res.data.success && res.data.details) {
+                          setMbtiDetails(res.data.details)
+                          setShowMbtiModal(true)
+                        } else {
+                          showError(res.data.message || 'Failed to load MBTI details')
+                        }
+                      } catch (error) {
+                        console.error('Error fetching MBTI details:', error)
+                        const errorMessage = error.response?.data?.message || error.message || 'Failed to load MBTI details. Please try again later.'
+                        showError(errorMessage)
+                      } finally {
+                        setLoadingDetails(false)
+                      }
+                    }}
+                  >
+                    {loadingDetails ? 'Loading...' : 'Show Details'}
+                  </Button>
+                )}
+              </div>
+            )}
             <Button 
               className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:shadow-lg"
               onClick={() => setCurrentStep('personality')}
+              style={{ marginTop: mbtiType ? '10px' : '0' }}
             >
               {status?.personality ? 'Retake' : 'Start'}
             </Button>
@@ -215,7 +291,7 @@ const AssessmentFlow = () => {
             <p>{status?.aptitude ? 'Completed' : 'Not Started'}</p>
             <Button 
               className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:shadow-lg"
-              onClick={() => setCurrentStep('aptitude')}
+              onClick={handleAptitudeClick}
               disabled={!status?.personality}
             >
               {status?.aptitude ? 'Retake' : 'Start'}
@@ -227,8 +303,8 @@ const AssessmentFlow = () => {
             <p>{status?.interest ? 'Completed' : 'Not Started'}</p>
             <Button 
               className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:shadow-lg"
-              onClick={() => setCurrentStep('interest')}
-              disabled={!status?.aptitude}
+              onClick={handleInterestClick}
+              disabled={!status?.personality}
             >
               {status?.interest ? 'Retake' : 'Start'}
             </Button>
@@ -251,6 +327,7 @@ const AssessmentFlow = () => {
         </Card>
       </div>
     </div>
+    </>
   )
 }
 

@@ -16,6 +16,9 @@ import Assessment from './pages/Assessment'
 import AssessmentFlow from './pages/AssessmentFlow'
 import MeritCalculator from './pages/MeritCalculator'
 import MockTest from './pages/MockTest'
+import Community from './pages/Community'
+import CreatePost from './pages/CreatePost'
+import PostDetail from './pages/PostDetail'
 import ProtectedRoute from './components/ProtectedRoute'
 import AdminRoute from './components/AdminRoute'
 import Navbar from './components/Navbar'
@@ -69,6 +72,9 @@ function AppContent() {
             <Route path="/assessment/old" element={<ProtectedRoute><Assessment /></ProtectedRoute>} />
             <Route path="/mock-test" element={<ProtectedRoute><MockTest /></ProtectedRoute>} />
             <Route path="/merit-calculator" element={<ProtectedRoute><MeritCalculator /></ProtectedRoute>} />
+            <Route path="/community" element={<ProtectedRoute><Community /></ProtectedRoute>} />
+            <Route path="/community/create" element={<ProtectedRoute><CreatePost /></ProtectedRoute>} />
+            <Route path="/community/post/:id" element={<ProtectedRoute><PostDetail /></ProtectedRoute>} />
             
             {/* Admin Routes */}
             <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />

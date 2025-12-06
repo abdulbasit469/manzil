@@ -52,8 +52,6 @@ const Navbar = () => {
         <>
           <TopNavbar 
             onMenuClick={() => setIsSidebarOpen(!isSidebarOpen)} 
-            sidebarWidth={sidebarWidth}
-            isSidebarOpen={isSidebarOpen}
           />
           <Sidebar isOpen={isSidebarOpen} onToggle={() => setIsSidebarOpen(!isSidebarOpen)} />
         </>

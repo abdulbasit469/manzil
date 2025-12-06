@@ -2,6 +2,7 @@ const express = require('express');
 const dotenv = require('dotenv');
 const cors = require('cors');
 const helmet = require('helmet');
+const path = require('path');
 const connectDB = require('./config/db');
 
 // Load environment variables
@@ -13,9 +14,6 @@ const app = express();
 // Connect to MongoDB
 connectDB();
 
-// Middleware
-app.use(helmet()); // Security headers
-
 // CORS configuration - Allow multiple origins for development
 const allowedOrigins = [
   'http://localhost:3000',
@@ -25,6 +23,7 @@ const allowedOrigins = [
   process.env.FRONTEND_URL
 ].filter(Boolean); // Remove undefined values
 
+// CORS middleware - apply before static files
 app.use(cors({
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
@@ -40,7 +39,33 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
-// Increase body parser limit for profile pictures (base64 images can be large)
+
+// Serve static files from uploads directory with explicit CORS middleware
+app.use('/uploads', (req, res, next) => {
+  // Set CORS headers explicitly
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.header('Access-Control-Expose-Headers', 'Content-Type');
+  
+  // Handle preflight OPTIONS request
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
+// Serve static files
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Middleware
+// Configure helmet to allow CORS for static files
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  crossOriginEmbedderPolicy: false
+})); // Security headers
+
+// Increase body parser limit for profile pictures and media (base64 images can be large)
 app.use(express.json({ limit: '10mb' })); // Parse JSON bodies - increased limit for images
 app.use(express.urlencoded({ extended: true, limit: '10mb' })); // Parse URL-encoded bodies
 
@@ -77,6 +102,7 @@ app.use('/api/dashboard', require('./routes/dashboardRoutes'));
 app.use('/api/saved-universities', require('./routes/savedUniversityRoutes'));
 app.use('/api/applications', require('./routes/applicationRoutes'));
 app.use('/api/universities', require('./routes/universityRoutes'));
+app.use('/api/community', require('./routes/communityRoutes'));
 app.use('/api/programs', require('./routes/programRoutes'));
 app.use('/api/assessment', require('./routes/assessmentRoutes'));
 app.use('/api/merit', require('./routes/meritRoutes'));

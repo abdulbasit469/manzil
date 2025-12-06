@@ -2,18 +2,17 @@ import { useContext, useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { motion } from 'motion/react'
 import { 
-  LayoutDashboard, 
-  GraduationCap, 
+  LayoutDashboard,
+  GraduationCap,
   Briefcase, 
   Calculator,
   User,
   LogOut,
-  ChevronLeft,
-  ChevronRight,
   Users,
   BookOpen,
   BarChart3,
-  FileText
+  FileText,
+  MessageSquare
 } from 'lucide-react'
 import { Button } from './ui/button'
 import { AuthContext } from '../context/AuthContext'
@@ -45,6 +44,7 @@ export function Sidebar({ isOpen, onToggle }) {
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
     { icon: GraduationCap, label: 'Universities', path: '/universities' },
     { icon: Briefcase, label: 'Career Assessment', path: '/assessment' },
+    { icon: MessageSquare, label: 'Community', path: '/community' },
     { icon: FileText, label: 'Mock Test', path: '/mock-test' },
     { icon: Calculator, label: 'Merit Calculator', path: '/merit-calculator' },
     { icon: User, label: 'Profile', path: '/profile' },
@@ -84,21 +84,12 @@ export function Sidebar({ isOpen, onToggle }) {
           x: isMobile ? (isOpen ? 0 : -280) : 0
         }}
         transition={{ duration: 0.3 }}
-        className="bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white flex flex-col relative shadow-2xl h-screen z-50 flex-shrink-0 fixed left-0 top-0 overflow-y-auto"
+        className="bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white flex flex-col relative shadow-2xl z-50 flex-shrink-0 fixed left-0 overflow-y-auto"
+        style={{
+          top: '56px', // Height of TopNavbar (h-14 = 56px)
+          height: 'calc(100vh - 56px)' // Full height minus navbar
+        }}
       >
-      {/* Header */}
-      <div className="p-6 border-b border-slate-700/50">
-        <motion.div
-          animate={{ opacity: isOpen ? 1 : 0 }}
-          transition={{ duration: 0.2 }}
-          className="flex items-center gap-3"
-        >
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
-            <GraduationCap className="w-6 h-6" />
-          </div>
-          {isOpen && <span className="text-xl font-semibold">Manzil</span>}
-        </motion.div>
-      </div>
 
       {/* Navigation */}
       <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
@@ -134,7 +125,7 @@ export function Sidebar({ isOpen, onToggle }) {
       </nav>
 
       {/* Logout */}
-      <div className="p-4 border-t border-slate-700/50">
+      <div className="p-4">
         <button 
           onClick={handleLogout}
           className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-400 hover:bg-slate-700/50 hover:text-white transition-all duration-200"

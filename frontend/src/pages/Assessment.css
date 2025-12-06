@@ -1,8 +1,7 @@
 .assessment-container {
   padding: 40px 60px;
   min-height: calc(100vh - 60px);
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 15%, #f8f9fa 15%, #f8f9fa 100%);
-  background-attachment: fixed;
+  background: #f8f9fa;
   position: relative;
 }
 
@@ -34,17 +33,16 @@
 .assessment-card, .results-card {
   max-width: 1000px;
   margin: 0 auto;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
+  background: #ffffff;
   padding: 45px;
   border-radius: 16px;
-  border: 1px solid rgba(255,255,255,0.3);
-  box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+  border: 1px solid rgba(0,0,0,0.1);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   animation: fadeIn 0.6s ease;
 }
 
 .assessment-card h2, .results-card h2 {
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #533483 100%);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -54,20 +52,19 @@
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  border-bottom: 2px solid rgba(26, 26, 46, 0.2);
+  border-bottom: 2px solid rgba(102, 126, 234, 0.2);
   padding-bottom: 15px;
 }
 
 .question-block {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
+  background: #ffffff;
   padding: 30px;
   border-radius: 12px;
   margin-bottom: 25px;
-  border: 1px solid rgba(26, 26, 46, 0.2);
-  border-left: 4px solid #1a1a2e;
+  border: 1px solid rgba(0,0,0,0.1);
+  border-left: 4px solid #667eea;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
 }
 
 .question-block:hover {
@@ -77,7 +74,7 @@
 }
 
 .question-number {
-  color: #1a1a2e;
+  color: #667eea;
   font-weight: 700;
   margin-bottom: 10px;
   font-size: 16px;
@@ -130,6 +127,62 @@
   font-size: 15px;
   color: #333;
   font-weight: 500;
+}
+
+/* MBTI 5-Circle Visualization */
+.mbti-options-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 20px;
+  padding: 15px 0;
+  gap: 10px;
+}
+
+.mbti-option-circle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  flex: 1;
+  transition: all 0.3s ease;
+}
+
+.mbti-option-circle:hover {
+  transform: scale(1.1);
+}
+
+.mbti-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid #ccc;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  margin-bottom: 8px;
+}
+
+.mbti-circle.selected {
+  width: 50px;
+  height: 50px;
+  border: 3px solid #1a1a2e;
+  background: #1a1a2e;
+}
+
+.mbti-circle-label {
+  font-size: 11px;
+  color: #666;
+  text-align: center;
+  max-width: 60px;
+  font-weight: 400;
+}
+
+.mbti-circle-label.selected {
+  color: #1a1a2e;
+  font-weight: 600;
 }
 
 .careers-list {
@@ -215,9 +268,9 @@
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #1a1a2e 0%, #16213e 50%, #533483 100%);
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
   transition: width 0.3s ease;
-  box-shadow: 0 2px 8px rgba(26, 26, 46, 0.4);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
 }
 
 .progress-text {
@@ -274,12 +327,18 @@
   background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #533483 100%);
   color: white;
   box-shadow: 0 4px 20px rgba(26, 26, 46, 0.3);
+  border: none;
 }
 
 .navigation-buttons button:last-child:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 25px rgba(26, 26, 46, 0.5);
   background: linear-gradient(135deg, #0f1419 0%, #0d1a2e 50%, #3d2a5e 100%);
+}
+
+.navigation-buttons button:last-child:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 /* Test Status */

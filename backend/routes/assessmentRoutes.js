@@ -5,6 +5,7 @@ const {
   getResults,
   getPersonalityQuestions,
   submitPersonalityTest,
+  getMBTIDetails,
   getAptitudeQuestions,
   submitAptitudeTest,
   submitCompleteAssessment,
@@ -21,9 +22,10 @@ router.post('/submit', protect, submitAssessment);
 router.post('/interest/submit', protect, submitAssessment); // Alias for clarity
 router.get('/results', protect, getResults);
 
-// Personality Test endpoints
+// Personality Test endpoints (MBTI)
 router.get('/personality/questions', protect, getPersonalityQuestions);
 router.post('/personality/submit', protect, submitPersonalityTest);
+router.get('/personality/mbti/:mbtiType/details', protect, getMBTIDetails);
 
 // Aptitude Test endpoints
 router.get('/aptitude/questions', protect, getAptitudeQuestions);

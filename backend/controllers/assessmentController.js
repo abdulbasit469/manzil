@@ -1,69 +1,104 @@
 const AssessmentResponse = require('../models/Assessment');
 
 // ============================================
-// PERSONALITY TEST (Holland Codes - RIASEC)
+// PERSONALITY TEST (MBTI - Myers-Briggs Type Indicator)
 // ============================================
 
-// Personality Test Questions (36 questions - 6 per RIASEC type)
-const personalityQuestions = [
-  // Realistic (R) - 6 questions
-  { id: 1, question: "I enjoy working with tools, machines, and hands-on activities", riasecType: "Realistic" },
-  { id: 2, question: "I prefer practical, concrete tasks over abstract thinking", riasecType: "Realistic" },
-  { id: 3, question: "I like building, fixing, or constructing things", riasecType: "Realistic" },
-  { id: 4, question: "I enjoy outdoor activities and working with nature", riasecType: "Realistic" },
-  { id: 5, question: "I prefer working with things rather than people", riasecType: "Realistic" },
-  { id: 6, question: "I am good at operating machinery and technical equipment", riasecType: "Realistic" },
-  
-  // Investigative (I) - 6 questions
-  { id: 7, question: "I enjoy conducting research and solving complex problems", riasecType: "Investigative" },
-  { id: 8, question: "I like analyzing data and finding patterns", riasecType: "Investigative" },
-  { id: 9, question: "I am curious about how things work and why they happen", riasecType: "Investigative" },
-  { id: 10, question: "I enjoy scientific experiments and laboratory work", riasecType: "Investigative" },
-  { id: 11, question: "I prefer working independently on challenging problems", riasecType: "Investigative" },
-  { id: 12, question: "I am interested in understanding natural phenomena and scientific principles", riasecType: "Investigative" },
-  
-  // Artistic (A) - 6 questions
-  { id: 13, question: "I enjoy creative activities like writing, drawing, or music", riasecType: "Artistic" },
-  { id: 14, question: "I prefer expressing myself through art, design, or performance", riasecType: "Artistic" },
-  { id: 15, question: "I like working in unstructured, flexible environments", riasecType: "Artistic" },
-  { id: 16, question: "I am imaginative and enjoy thinking outside the box", riasecType: "Artistic" },
-  { id: 17, question: "I appreciate beauty, aesthetics, and creative expression", riasecType: "Artistic" },
-  { id: 18, question: "I prefer activities that allow for self-expression and originality", riasecType: "Artistic" },
-  
-  // Social (S) - 6 questions
-  { id: 19, question: "I enjoy helping and teaching others", riasecType: "Social" },
-  { id: 20, question: "I like working in teams and collaborating with people", riasecType: "Social" },
-  { id: 21, question: "I am good at understanding people's feelings and needs", riasecType: "Social" },
-  { id: 22, question: "I prefer jobs that involve serving or helping others", riasecType: "Social" },
-  { id: 23, question: "I enjoy counseling, mentoring, or providing guidance to others", riasecType: "Social" },
-  { id: 24, question: "I am interested in social issues and community welfare", riasecType: "Social" },
-  
-  // Enterprising (E) - 6 questions
-  { id: 25, question: "I enjoy leading and managing others", riasecType: "Enterprising" },
-  { id: 26, question: "I like persuading and influencing people", riasecType: "Enterprising" },
-  { id: 27, question: "I am interested in business, sales, and making profits", riasecType: "Enterprising" },
-  { id: 28, question: "I prefer competitive environments and achieving goals", riasecType: "Enterprising" },
-  { id: 29, question: "I enjoy taking risks and making important decisions", riasecType: "Enterprising" },
-  { id: 30, question: "I am ambitious and want to achieve success in business or leadership", riasecType: "Enterprising" },
-  
-  // Conventional (C) - 6 questions
-  { id: 31, question: "I prefer organized, structured work environments", riasecType: "Conventional" },
-  { id: 32, question: "I enjoy working with data, numbers, and detailed records", riasecType: "Conventional" },
-  { id: 33, question: "I like following established procedures and routines", riasecType: "Conventional" },
-  { id: 34, question: "I am good at organizing information and maintaining accuracy", riasecType: "Conventional" },
-  { id: 35, question: "I prefer clear instructions and well-defined tasks", riasecType: "Conventional" },
-  { id: 36, question: "I enjoy administrative work and keeping things in order", riasecType: "Conventional" }
-];
+// MBTI Test Questions (80 questions - 20 per dimension)
+// Questions 1-20: Extroversion (E) vs Introversion (I)
+// Questions 21-40: Sensing (S) vs Intuition (N)
+// Questions 41-60: Thinking (T) vs Feeling (F)
+// Questions 61-80: Judging (J) vs Perceiving (P)
 
-// RIASEC to Career Field Mapping
-const riasecCareerMapping = {
-  "Realistic": ["Engineering", "Technical", "Construction", "Manufacturing"],
-  "Investigative": ["Medical", "Research", "Science", "Laboratory"],
-  "Artistic": ["Arts", "Media", "Design", "Creative"],
-  "Social": ["Teaching", "Counseling", "Healthcare", "Social Work"],
-  "Enterprising": ["Business", "Management", "Sales", "Entrepreneurship"],
-  "Conventional": ["Accounting", "Administration", "Finance", "Data Entry"]
-};
+const personalityQuestions = [
+  // Extroversion (E) vs Introversion (I) - Questions 1-20
+  { id: 1, question: "I feel energized after spending time with a large group of people", mbtiDimension: "E/I", dimensionType: "E" },
+  { id: 2, question: "I prefer to think things through before speaking", mbtiDimension: "E/I", dimensionType: "I" },
+  { id: 3, question: "I enjoy being the center of attention at social gatherings", mbtiDimension: "E/I", dimensionType: "E" },
+  { id: 4, question: "I need quiet time alone to recharge my energy", mbtiDimension: "E/I", dimensionType: "I" },
+  { id: 5, question: "I am comfortable starting conversations with strangers", mbtiDimension: "E/I", dimensionType: "E" },
+  { id: 6, question: "I prefer deep conversations with one or two close friends", mbtiDimension: "E/I", dimensionType: "I" },
+  { id: 7, question: "I enjoy networking events and meeting new people", mbtiDimension: "E/I", dimensionType: "E" },
+  { id: 8, question: "I feel drained after too much social interaction", mbtiDimension: "E/I", dimensionType: "I" },
+  { id: 9, question: "I am outgoing and talkative in social settings", mbtiDimension: "E/I", dimensionType: "E" },
+  { id: 10, question: "I prefer to observe before participating in group activities", mbtiDimension: "E/I", dimensionType: "I" },
+  { id: 11, question: "I enjoy being around people and feel lonely when alone for too long", mbtiDimension: "E/I", dimensionType: "E" },
+  { id: 12, question: "I process my thoughts internally before sharing them", mbtiDimension: "E/I", dimensionType: "I" },
+  { id: 13, question: "I am comfortable speaking in front of groups", mbtiDimension: "E/I", dimensionType: "E" },
+  { id: 14, question: "I prefer written communication over verbal when possible", mbtiDimension: "E/I", dimensionType: "I" },
+  { id: 15, question: "I enjoy being part of multiple social groups", mbtiDimension: "E/I", dimensionType: "E" },
+  { id: 16, question: "I need time to reflect before making important decisions", mbtiDimension: "E/I", dimensionType: "I" },
+  { id: 17, question: "I am energized by external activities and interactions", mbtiDimension: "E/I", dimensionType: "E" },
+  { id: 18, question: "I prefer working independently rather than in teams", mbtiDimension: "E/I", dimensionType: "I" },
+  { id: 19, question: "I enjoy being spontaneous and trying new social activities", mbtiDimension: "E/I", dimensionType: "E" },
+  { id: 20, question: "I value my privacy and personal space", mbtiDimension: "E/I", dimensionType: "I" },
+  
+  // Sensing (S) vs Intuition (N) - Questions 21-40
+  { id: 21, question: "I focus on facts and concrete details rather than abstract concepts", mbtiDimension: "S/N", dimensionType: "S" },
+  { id: 22, question: "I enjoy thinking about future possibilities and potential", mbtiDimension: "S/N", dimensionType: "N" },
+  { id: 23, question: "I prefer step-by-step instructions and clear procedures", mbtiDimension: "S/N", dimensionType: "S" },
+  { id: 24, question: "I see patterns and connections that others might miss", mbtiDimension: "S/N", dimensionType: "N" },
+  { id: 25, question: "I trust my past experiences and proven methods", mbtiDimension: "S/N", dimensionType: "S" },
+  { id: 26, question: "I enjoy brainstorming and generating new ideas", mbtiDimension: "S/N", dimensionType: "N" },
+  { id: 27, question: "I pay attention to details and notice small changes", mbtiDimension: "S/N", dimensionType: "S" },
+  { id: 28, question: "I am interested in theories and abstract thinking", mbtiDimension: "S/N", dimensionType: "N" },
+  { id: 29, question: "I prefer practical, hands-on learning experiences", mbtiDimension: "S/N", dimensionType: "S" },
+  { id: 30, question: "I enjoy exploring different perspectives and possibilities", mbtiDimension: "S/N", dimensionType: "N" },
+  { id: 31, question: "I focus on what is happening in the present moment", mbtiDimension: "S/N", dimensionType: "S" },
+  { id: 32, question: "I think about the big picture and long-term implications", mbtiDimension: "S/N", dimensionType: "N" },
+  { id: 33, question: "I prefer concrete examples over abstract explanations", mbtiDimension: "S/N", dimensionType: "S" },
+  { id: 34, question: "I enjoy reading between the lines and finding hidden meanings", mbtiDimension: "S/N", dimensionType: "N" },
+  { id: 35, question: "I trust what I can see, hear, and experience directly", mbtiDimension: "S/N", dimensionType: "S" },
+  { id: 36, question: "I am drawn to innovative and unconventional ideas", mbtiDimension: "S/N", dimensionType: "N" },
+  { id: 37, question: "I prefer established methods that have worked before", mbtiDimension: "S/N", dimensionType: "S" },
+  { id: 38, question: "I enjoy thinking about what could be rather than what is", mbtiDimension: "S/N", dimensionType: "N" },
+  { id: 39, question: "I notice and remember specific details and facts", mbtiDimension: "S/N", dimensionType: "S" },
+  { id: 40, question: "I am interested in understanding underlying principles and concepts", mbtiDimension: "S/N", dimensionType: "N" },
+  
+  // Thinking (T) vs Feeling (F) - Questions 41-60
+  { id: 41, question: "I make decisions based on logical analysis rather than personal values", mbtiDimension: "T/F", dimensionType: "T" },
+  { id: 42, question: "I consider how decisions will affect people's feelings", mbtiDimension: "T/F", dimensionType: "F" },
+  { id: 43, question: "I prioritize truth and accuracy over harmony", mbtiDimension: "T/F", dimensionType: "T" },
+  { id: 44, question: "I value empathy and understanding in my interactions", mbtiDimension: "T/F", dimensionType: "F" },
+  { id: 45, question: "I focus on objective criteria when evaluating situations", mbtiDimension: "T/F", dimensionType: "T" },
+  { id: 46, question: "I am sensitive to the emotional atmosphere in a room", mbtiDimension: "T/F", dimensionType: "F" },
+  { id: 47, question: "I prefer to be direct and straightforward in communication", mbtiDimension: "T/F", dimensionType: "T" },
+  { id: 48, question: "I consider personal values and relationships when making choices", mbtiDimension: "T/F", dimensionType: "F" },
+  { id: 49, question: "I enjoy debating and analyzing different viewpoints", mbtiDimension: "T/F", dimensionType: "T" },
+  { id: 50, question: "I prioritize maintaining positive relationships", mbtiDimension: "T/F", dimensionType: "F" },
+  { id: 51, question: "I make decisions based on what makes the most sense logically", mbtiDimension: "T/F", dimensionType: "T" },
+  { id: 52, question: "I am good at understanding and responding to others' emotions", mbtiDimension: "T/F", dimensionType: "F" },
+  { id: 53, question: "I value fairness and consistency in my approach", mbtiDimension: "T/F", dimensionType: "T" },
+  { id: 54, question: "I consider the impact of my actions on others' well-being", mbtiDimension: "T/F", dimensionType: "F" },
+  { id: 55, question: "I prefer to solve problems using systematic analysis", mbtiDimension: "T/F", dimensionType: "T" },
+  { id: 56, question: "I am motivated by helping others and making a positive difference", mbtiDimension: "T/F", dimensionType: "F" },
+  { id: 57, question: "I can be critical and analytical when evaluating ideas", mbtiDimension: "T/F", dimensionType: "T" },
+  { id: 58, question: "I value personal connections and authentic relationships", mbtiDimension: "T/F", dimensionType: "F" },
+  { id: 59, question: "I focus on efficiency and effectiveness in my work", mbtiDimension: "T/F", dimensionType: "T" },
+  { id: 60, question: "I am attuned to the needs and feelings of those around me", mbtiDimension: "T/F", dimensionType: "F" },
+  
+  // Judging (J) vs Perceiving (P) - Questions 61-80
+  { id: 61, question: "I prefer to have things planned and organized in advance", mbtiDimension: "J/P", dimensionType: "J" },
+  { id: 62, question: "I enjoy keeping my options open and staying flexible", mbtiDimension: "J/P", dimensionType: "P" },
+  { id: 63, question: "I like to make decisions quickly and stick to them", mbtiDimension: "J/P", dimensionType: "J" },
+  { id: 64, question: "I prefer to gather more information before making decisions", mbtiDimension: "J/P", dimensionType: "P" },
+  { id: 65, question: "I work best with clear deadlines and structured schedules", mbtiDimension: "J/P", dimensionType: "J" },
+  { id: 66, question: "I enjoy adapting to new situations and changing plans", mbtiDimension: "J/P", dimensionType: "P" },
+  { id: 67, question: "I feel stressed when things are disorganized or unfinished", mbtiDimension: "J/P", dimensionType: "J" },
+  { id: 68, question: "I prefer to work on multiple projects and switch between them", mbtiDimension: "J/P", dimensionType: "P" },
+  { id: 69, question: "I like to complete tasks before starting new ones", mbtiDimension: "J/P", dimensionType: "J" },
+  { id: 70, question: "I enjoy the process of exploring and discovering", mbtiDimension: "J/P", dimensionType: "P" },
+  { id: 71, question: "I prefer to have a clear plan and know what to expect", mbtiDimension: "J/P", dimensionType: "J" },
+  { id: 72, question: "I am comfortable with uncertainty and last-minute changes", mbtiDimension: "J/P", dimensionType: "P" },
+  { id: 73, question: "I like to set goals and work systematically toward them", mbtiDimension: "J/P", dimensionType: "J" },
+  { id: 74, question: "I enjoy spontaneity and going with the flow", mbtiDimension: "J/P", dimensionType: "P" },
+  { id: 75, question: "I prefer to finish projects well before deadlines", mbtiDimension: "J/P", dimensionType: "J" },
+  { id: 76, question: "I work well under pressure and can meet deadlines when needed", mbtiDimension: "J/P", dimensionType: "P" },
+  { id: 77, question: "I like to have a sense of closure and completion", mbtiDimension: "J/P", dimensionType: "J" },
+  { id: 78, question: "I enjoy exploring different options and possibilities", mbtiDimension: "J/P", dimensionType: "P" },
+  { id: 79, question: "I prefer structured routines and consistent schedules", mbtiDimension: "J/P", dimensionType: "J" },
+  { id: 80, question: "I am comfortable with open-ended situations and ambiguity", mbtiDimension: "J/P", dimensionType: "P" }
+];
 
 /**
  * Normalize score to 0-100 scale
@@ -74,7 +109,7 @@ const normalizeScore = (rawScore, maxPossibleScore) => {
 };
 
 /**
- * Get Personality Test Questions
+ * Get Personality Test Questions (MBTI)
  */
 exports.getPersonalityQuestions = async (req, res) => {
   try {
@@ -82,10 +117,12 @@ exports.getPersonalityQuestions = async (req, res) => {
       success: true,
       count: personalityQuestions.length,
       testType: "personality",
+      testName: "MBTI",
       questions: personalityQuestions.map(q => ({
         id: q.id,
         question: q.question,
-        riasecType: q.riasecType
+        mbtiDimension: q.mbtiDimension,
+        dimensionType: q.dimensionType
       }))
     });
   } catch (error) {
@@ -94,68 +131,102 @@ exports.getPersonalityQuestions = async (req, res) => {
 };
 
 /**
- * Submit Personality Test
+ * Submit Personality Test (MBTI)
  */
 exports.submitPersonalityTest = async (req, res) => {
   try {
     const { responses } = req.body; // Array of {questionId, answer}
     
-    // Initialize RIASEC scores
-    const riasecScores = {
-      Realistic: 0,
-      Investigative: 0,
-      Artistic: 0,
-      Social: 0,
-      Enterprising: 0,
-      Conventional: 0
+    // MBTI Scoring: Strongly Agree=1, Agree=0.75, Neutral=0.5, Disagree=0.25, Strongly Disagree=0
+    const scoreMap = { 
+      "Strongly Agree": 1, 
+      "Agree": 0.75, 
+      "Neutral": 0.5, 
+      "Disagree": 0.25, 
+      "Strongly Disagree": 0 
     };
 
-    // Scoring: Strongly Agree=5, Agree=4, Neutral=3, Disagree=2, Strongly Disagree=1
-    const scoreMap = { 
-      "Strongly Agree": 5, 
-      "Agree": 4, 
-      "Neutral": 3, 
-      "Disagree": 2, 
-      "Strongly Disagree": 1 
-    };
+    // Initialize dimension scores (tracking both sides of each dimension)
+    let extroversionScore = 0;  // E dimension (questions 1-20)
+    let introversionScore = 0;  // I dimension (questions 1-20)
+    let sensingScore = 0;       // S dimension (questions 21-40)
+    let intuitionScore = 0;     // N dimension (questions 21-40)
+    let thinkingScore = 0;      // T dimension (questions 41-60)
+    let feelingScore = 0;       // F dimension (questions 41-60)
+    let judgingScore = 0;       // J dimension (questions 61-80)
+    let perceivingScore = 0;    // P dimension (questions 61-80)
 
     const processedResponses = responses.map(r => {
       const question = personalityQuestions.find(q => q.id === r.questionId);
-      let score = scoreMap[r.answer] || 3;
+      if (!question) return null;
       
-      if (question && question.riasecType) {
-        riasecScores[question.riasecType] += score;
+      let score = scoreMap[r.answer] || 0.5;
+      
+      // Calculate scores for each dimension based on question range and type
+      if (question.id >= 1 && question.id <= 20) {
+        // E/I dimension
+        if (question.dimensionType === "E") {
+          extroversionScore += score;
+        } else if (question.dimensionType === "I") {
+          introversionScore += score;
+        }
+      } else if (question.id >= 21 && question.id <= 40) {
+        // S/N dimension
+        if (question.dimensionType === "S") {
+          sensingScore += score;
+        } else if (question.dimensionType === "N") {
+          intuitionScore += score;
+        }
+      } else if (question.id >= 41 && question.id <= 60) {
+        // T/F dimension
+        if (question.dimensionType === "T") {
+          thinkingScore += score;
+        } else if (question.dimensionType === "F") {
+          feelingScore += score;
+        }
+      } else if (question.id >= 61 && question.id <= 80) {
+        // J/P dimension
+        if (question.dimensionType === "J") {
+          judgingScore += score;
+        } else if (question.dimensionType === "P") {
+          perceivingScore += score;
+        }
       }
       
       return { questionId: r.questionId, answer: r.answer, score };
-    });
+    }).filter(r => r !== null);
 
-    // Calculate max possible score per RIASEC type (6 questions × 5 = 30)
-    const maxScorePerType = 6 * 5; // 30
-    
-    // Normalize scores to 0-100
-    const normalizedScores = {};
-    Object.keys(riasecScores).forEach(type => {
-      normalizedScores[type] = normalizeScore(riasecScores[type], maxScorePerType);
-    });
+    // Determine MBTI type (each dimension has 20 questions, max score = 20)
+    // If score > 10, choose first option; else choose second option
+    const mbtiType = 
+      (extroversionScore > introversionScore ? "E" : "I") +
+      (sensingScore > intuitionScore ? "S" : "N") +
+      (thinkingScore > feelingScore ? "T" : "F") +
+      (judgingScore > perceivingScore ? "J" : "P");
 
     const results = {
-      riasecScores: riasecScores, // Raw scores
-      normalizedScores: normalizedScores, // Normalized 0-100
-      careerFields: {}
+      mbtiType: mbtiType,
+      dimensionScores: {
+        extroversion: extroversionScore,
+        introversion: introversionScore,
+        sensing: sensingScore,
+        intuition: intuitionScore,
+        thinking: thinkingScore,
+        feeling: feelingScore,
+        judging: judgingScore,
+        perceiving: perceivingScore
+      },
+      rawScores: {
+        E: extroversionScore,
+        I: introversionScore,
+        S: sensingScore,
+        N: intuitionScore,
+        T: thinkingScore,
+        F: feelingScore,
+        J: judgingScore,
+        P: perceivingScore
+      }
     };
-
-    // Map RIASEC types to career fields
-    Object.keys(normalizedScores).forEach(riasecType => {
-      const fields = riasecCareerMapping[riasecType] || [];
-      fields.forEach(field => {
-        if (!results.careerFields[field]) {
-          results.careerFields[field] = 0;
-        }
-        // Add normalized score to career field (can accumulate from multiple RIASEC types)
-        results.careerFields[field] = Math.max(results.careerFields[field], normalizedScores[riasecType]);
-      });
-    });
 
     // Save personality test results
     let assessment = await AssessmentResponse.findOne({ user: req.user.id }).sort({ createdAt: -1 });
@@ -174,16 +245,160 @@ exports.submitPersonalityTest = async (req, res) => {
     // Check if all tests are complete and auto-aggregate
     await checkAndAggregate(assessment);
 
-    console.log(`Personality test completed by user: ${req.user.email}`);
+    console.log(`MBTI test completed by user: ${req.user.email}, Type: ${mbtiType}`);
 
     res.status(201).json({
       success: true,
-      message: 'Personality test submitted successfully',
+      message: 'MBTI personality test submitted successfully',
       testType: "personality",
+      mbtiType: mbtiType,
       results: results
     });
   } catch (error) {
-    console.error('Personality test error:', error.message);
+    console.error('MBTI test error:', error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/**
+ * Get MBTI Details using Gemini API
+ */
+exports.getMBTIDetails = async (req, res) => {
+  try {
+    const { mbtiType } = req.params;
+    
+    if (!mbtiType || mbtiType.length !== 4) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid MBTI type. Must be 4 characters (e.g., ESTJ)' 
+      });
+    }
+
+    // Check if Gemini API key is configured
+    if (!process.env.GEMINI_API_KEY) {
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Gemini API key not configured. Please configure GEMINI_API_KEY in environment variables.' 
+      });
+    }
+
+    // Use Gemini API REST API directly
+    // First, get list of available models, then use the first available one
+    try {
+      const apiKey = process.env.GEMINI_API_KEY;
+      
+      // First, try to get list of available models
+      let availableModel = null;
+      try {
+        const listModelsUrl = `https://generativelanguage.googleapis.com/v1/models?key=${apiKey}`;
+        const listResponse = await fetch(listModelsUrl);
+        
+        if (listResponse.ok) {
+          const modelsData = await listResponse.json();
+          // Find first model that supports generateContent
+          const supportedModel = modelsData.models?.find(model => 
+            model.supportedGenerationMethods?.includes('generateContent')
+          );
+          if (supportedModel) {
+            availableModel = supportedModel.name.replace('models/', '');
+            console.log(`Found available model: ${availableModel}`);
+          }
+        }
+      } catch (listError) {
+        console.log('Could not list models, will try default models');
+      }
+      
+      // If we found an available model, use it; otherwise try common model names
+      const modelsToTry = availableModel 
+        ? [availableModel]
+        : [
+            'gemini-2.5-flash',
+            'gemini-1.5-flash-latest',
+            'gemini-1.5-pro-latest',
+            'gemini-1.5-flash',
+            'gemini-1.5-pro',
+            'gemini-pro'
+          ];
+      
+      const dimensionNames = {
+        'E': 'Extraversion', 'I': 'Introversion',
+        'S': 'Sensing', 'N': 'Intuition',
+        'T': 'Thinking', 'F': 'Feeling',
+        'J': 'Judging', 'P': 'Perceiving'
+      };
+
+      const prompt = `Describe the MBTI personality type ${mbtiType} in a simple, natural way. Write like a human, not like AI. Format EXACTLY like this:
+
+${mbtiType[0]} -> ${dimensionNames[mbtiType[0]]}
+${mbtiType[1]} -> ${dimensionNames[mbtiType[1]]}
+${mbtiType[2]} -> ${dimensionNames[mbtiType[2]]}
+${mbtiType[3]} -> ${dimensionNames[mbtiType[3]]}
+
+Then you MUST write exactly 4 bullet points. Each bullet point should be 1-2 lines. Use plain text only - NO asterisks, NO bold, NO special formatting. Write casually like a friend explaining it. Keep it short. Start each bullet point on a new line.`;
+
+      let lastError = null;
+      
+      for (const modelName of modelsToTry) {
+        try {
+          // Remove 'models/' prefix if present
+          const cleanModelName = modelName.replace('models/', '');
+          const apiUrl = `https://generativelanguage.googleapis.com/v1/models/${cleanModelName}:generateContent?key=${apiKey}`;
+          
+          const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              contents: [{
+                parts: [{
+                  text: prompt
+                }]
+              }]
+            })
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            
+            if (text && text.trim().length > 0) {
+              console.log(`Successfully used model: ${cleanModelName}`);
+              return res.status(200).json({
+                success: true,
+                mbtiType: mbtiType,
+                details: text
+              });
+            }
+          } else {
+            const errorData = await response.json().catch(() => ({}));
+            lastError = `Model ${cleanModelName}: ${response.status} ${response.statusText}. ${JSON.stringify(errorData)}`;
+            console.log(`Model ${cleanModelName} failed, trying next...`);
+            continue; // Try next model
+          }
+        } catch (modelError) {
+          lastError = `Model ${modelName} error: ${modelError.message}`;
+          console.log(`Model ${modelName} error, trying next...`);
+          continue; // Try next model
+        }
+      }
+      
+      // If all models failed
+      throw new Error(`All Gemini models failed. Last error: ${lastError}`);
+    } catch (geminiError) {
+      console.error('Gemini API error:', geminiError);
+      console.error('Gemini API error details:', geminiError.message);
+      
+      // Return detailed error message
+      const errorMessage = geminiError.message || 'Unknown error occurred';
+      
+      return res.status(500).json({ 
+        success: false, 
+        message: `Failed to generate MBTI details using Gemini API: ${errorMessage}. Please check your API key and try again.`
+      });
+    }
+  } catch (error) {
+    console.error('Get MBTI details error:', error.message);
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -1006,13 +1221,17 @@ exports.getAssessmentStatus = async (req, res) => {
           aptitude: false,
           interest: false,
           allCompleted: false
-        }
+        },
+        mbtiType: null
       });
     }
 
     const allCompleted = assessment.testsCompleted?.personality && 
                         assessment.testsCompleted?.aptitude && 
                         assessment.testsCompleted?.interest;
+
+    // Get MBTI type from personality results
+    const mbtiType = assessment.personalityResults?.mbtiType || null;
 
     res.status(200).json({
       success: true,
@@ -1022,7 +1241,8 @@ exports.getAssessmentStatus = async (req, res) => {
         interest: assessment.testsCompleted?.interest || false,
         allCompleted: allCompleted
       },
-      hasAggregatedResults: !!assessment.aggregatedResults
+      hasAggregatedResults: !!assessment.aggregatedResults,
+      mbtiType: mbtiType
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

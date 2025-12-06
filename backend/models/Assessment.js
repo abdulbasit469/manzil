@@ -14,6 +14,20 @@ const assessmentResponseSchema = new mongoose.Schema({
   }],
   // New: Individual test results
   personalityResults: {
+    // MBTI Results
+    mbtiType: String,
+    dimensionScores: {
+      extroversion: Number,
+      introversion: Number,
+      sensing: Number,
+      intuition: Number,
+      thinking: Number,
+      feeling: Number,
+      judging: Number,
+      perceiving: Number
+    },
+    rawScores: mongoose.Schema.Types.Mixed,
+    // Legacy RIASEC Results (for backward compatibility)
     riasecScores: {
       Realistic: Number,
       Investigative: Number,

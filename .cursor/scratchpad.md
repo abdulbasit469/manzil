@@ -5,6 +5,14 @@
 ### Project Overview
 Manzil is a web + mobile portal designed to help Pakistani students make informed decisions about their higher education journey after intermediate (FSc, FA, ICS, ICOM). The platform addresses the critical gap in career counseling and centralized educational guidance in Pakistan.
 
+### NEW REQUIREMENT: Student Community & Discussion Forum Module
+Based on FYP proposal, implementing a peer-to-peer platform where students can:
+- Interact and ask questions
+- Share experiences
+- Discuss topics: Admissions, Hostel Facilities, Accommodation, Test Preparation
+- Foster collaborative learning environment
+- Get guidance from current university students
+
 ### Core Problem
 - Pakistani students lack professional career counseling at matric and intermediate levels
 - No centralized platform for HEC-recognized universities, programs, and admissions
@@ -863,6 +871,155 @@ The initial 40% milestone will focus on establishing a complete full-stack found
 
 ---
 
+## NEW MODULE: Student Community & Discussion Forum
+
+### Background (From FYP Proposal)
+**Module Description**: A peer-to-peer platform where students interact, ask questions, and share experiences. It supports discussions on admissions, hostel facilities, accommodation, and test preparation, fostering a collaborative learning environment.
+
+**Assigned To**: ABDUL BASIT ATTIQUE (CIIT/FA22-BCS-105/WAH)
+
+### Key Features Required:
+1. **Discussion Posts**: Students can create posts with titles, content, and categories
+2. **Categories/Topics**: 
+   - Admissions
+   - Hostel Facilities
+   - Accommodation
+   - Test Preparation
+   - General Discussion
+3. **Comments/Replies**: Students can comment on posts and reply to comments
+4. **User Interaction**: 
+   - View posts by category
+   - Search posts
+   - See post author information
+   - View comment counts
+5. **Peer-to-Peer Learning**: Students share experiences and get guidance from current university students
+
+### High-level Task Breakdown
+
+#### Phase 12: Backend - Discussion Forum Module
+
+**Task 12.1**: Design Database Schema
+- Create `Post` model with fields:
+  - title (String, required)
+  - content (String, required)
+  - category (Enum: 'admissions', 'hostel', 'accommodation', 'test-prep', 'general')
+  - author (ObjectId ref to User)
+  - comments (Array of ObjectId refs to Comment)
+  - likes/upvotes (Array of ObjectId refs to User) - optional
+  - views (Number, default 0)
+  - isPinned (Boolean, default false) - for admin
+  - createdAt, updatedAt (timestamps)
+- Create `Comment` model with fields:
+  - content (String, required)
+  - post (ObjectId ref to Post)
+  - author (ObjectId ref to User)
+  - parentComment (ObjectId ref to Comment) - for nested replies
+  - likes (Array of ObjectId refs to User) - optional
+  - createdAt, updatedAt (timestamps)
+- **Success Criteria**: Models created, relationships established, validation in place
+
+**Task 12.2**: Create Post API Endpoints
+- POST /api/community/posts - Create new post (authenticated)
+- GET /api/community/posts - List all posts with pagination, filtering, search
+- GET /api/community/posts/:id - Get single post with comments
+- PUT /api/community/posts/:id - Update post (author only)
+- DELETE /api/community/posts/:id - Delete post (author or admin)
+- GET /api/community/posts/category/:category - Get posts by category
+- GET /api/community/posts/search?q=query - Search posts
+- **Success Criteria**: All endpoints work, proper authorization, pagination implemented
+
+**Task 12.3**: Create Comment API Endpoints
+- POST /api/community/posts/:postId/comments - Add comment to post
+- GET /api/community/posts/:postId/comments - Get all comments for a post
+- PUT /api/community/comments/:id - Update comment (author only)
+- DELETE /api/community/comments/:id - Delete comment (author or admin)
+- POST /api/community/comments/:id/reply - Reply to a comment (nested)
+- **Success Criteria**: Comments can be created, updated, deleted, nested replies work
+
+**Task 12.4**: Add Like/Upvote Functionality (Optional Enhancement)
+- POST /api/community/posts/:id/like - Toggle like on post
+- POST /api/community/comments/:id/like - Toggle like on comment
+- GET /api/community/posts/:id/likes - Get like count
+- **Success Criteria**: Users can like/unlike posts and comments
+
+**Task 12.5**: Add View Count Tracking
+- Increment view count when post is viewed
+- GET /api/community/posts/:id - Automatically increment views
+- **Success Criteria**: View counts track correctly
+
+#### Phase 13: Frontend - Discussion Forum UI
+
+**Task 13.1**: Create Community Forum Main Page
+- Display list of posts with:
+  - Post title
+  - Author name and avatar
+  - Category badge
+  - Comment count
+  - View count
+  - Time posted
+  - Excerpt/preview
+- Add category filter tabs/buttons
+- Add search bar
+- Add pagination
+- Add "Create New Post" button
+- **Success Criteria**: Page displays posts, filtering and search work
+
+**Task 13.2**: Create Post Detail Page
+- Display full post content
+- Show author information
+- Display all comments in threaded format
+- Add comment form at bottom
+- Show reply option for each comment
+- Add like/upvote buttons (if implemented)
+- Add edit/delete buttons for own posts
+- **Success Criteria**: Post details display correctly, comments show in threads
+
+**Task 13.3**: Create Create/Edit Post Component
+- Form with:
+  - Title input
+  - Category dropdown/select
+  - Content textarea (rich text or markdown support optional)
+  - Submit button
+- Validation (title and content required)
+- Success/error notifications
+- Redirect to post detail after creation
+- **Success Criteria**: Users can create and edit posts successfully
+
+**Task 13.4**: Create Comment Component
+- Display comment with author info
+- Show reply button
+- Nested replies display indented
+- Edit/delete buttons for own comments
+- Like button (if implemented)
+- **Success Criteria**: Comments display correctly, nested replies work
+
+**Task 13.5**: Add Routing and Navigation
+- Add route: /community or /forum
+- Add navigation link in Navbar/Sidebar
+- Update App.jsx with new routes
+- **Success Criteria**: Users can navigate to community forum from main navigation
+
+**Task 13.6**: Add Styling and UI Polish
+- Match app theme colors
+- Responsive design (mobile, tablet, desktop)
+- Loading states
+- Empty states (no posts, no comments)
+- Error handling UI
+- **Success Criteria**: UI is polished, matches app design, responsive
+
+### Implementation Order:
+1. Backend: Database models (Task 12.1)
+2. Backend: Post endpoints (Task 12.2)
+3. Backend: Comment endpoints (Task 12.3)
+4. Frontend: Main forum page (Task 13.1)
+5. Frontend: Post detail page (Task 13.2)
+6. Frontend: Create post component (Task 13.3)
+7. Frontend: Comment component (Task 13.4)
+8. Frontend: Routing and polish (Tasks 13.5, 13.6)
+9. Optional: Like/upvote functionality (Task 12.4)
+
+---
+
 ## Executor's Feedback or Assistance Requests
 
 ### Current Priority: 3-Test Career Counseling Module
@@ -960,6 +1117,37 @@ All 28 tasks completed successfully. The 3-Test Career Counseling Module is full
 - MongoDB's flexible schema allows us to evolve data structures as needed
 - 3-test system aligns with FYP proposal requirements
 - Weighted aggregation ensures balanced recommendations (not relying on single test)
+
+---
+
+## Analysis: MBTI "Show Details" Feature - Gemini Only (No Static Fallback)
+
+### Implementation Update (Executor Mode)
+
+**Status**: ✅ **COMPLETED** - Static fallback removed, only Gemini-generated content
+
+#### Technical Implementation:
+
+**Method - Gemini API Only** (Updated in `assessmentController.js`):
+- Function: `getMBTIDetails`
+- Process:
+  - Gemini API key validation (required)
+  - Gemini package check (required)
+  - Gemini API call with detailed prompt
+  - Model: `gemini-pro`
+  - Response: Dynamic, AI-generated content based on MBTI type
+- **NO STATIC FALLBACK** - If Gemini fails, returns error message instead
+
+#### Error Handling:
+- If Gemini API key not configured: Returns error message asking to configure key
+- If Gemini package not installed: Returns error message with installation instructions
+- If Gemini API call fails: Returns error message asking user to try again later
+- **No static template fallback** - Ensures only Gemini-generated content is shown
+
+#### Current Behavior:
+- **Always Gemini-generated**: Dynamic, personalized, detailed content
+- **If Gemini unavailable**: User sees error message (no static content)
+- Ensures quality: Only AI-generated, personalized content is displayed
 
 ---
 
