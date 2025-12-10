@@ -188,12 +188,21 @@ userSchema.methods.generateOTP = function() {
 // Verify OTP
 userSchema.methods.verifyOTP = function(enteredOTP) {
   if (!this.otp || !this.otpExpiry) {
+    console.log('OTP verification failed: No OTP or expiry set');
     return false;
   }
   if (Date.now() > this.otpExpiry) {
+    console.log('OTP verification failed: OTP expired');
     return false; // OTP expired
   }
-  return this.otp === enteredOTP;
+  // Convert both to strings and trim for comparison
+  const storedOTP = String(this.otp).trim();
+  const enteredOTPString = String(enteredOTP).trim();
+  const isValid = storedOTP === enteredOTPString;
+  if (!isValid) {
+    console.log(`OTP mismatch: stored="${storedOTP}", entered="${enteredOTPString}"`);
+  }
+  return isValid;
 };
 
 // Generate password reset token

@@ -209,13 +209,19 @@ exports.verifyOTP = async (req, res, next) => {
       });
     }
 
-    // Verify OTP
-    const isValid = user.verifyOTP(otp);
+    // Verify OTP - convert to string for comparison
+    const otpString = String(otp).trim();
+    const isValid = user.verifyOTP(otpString);
 
     if (!isValid) {
+      console.log(`❌ OTP verification failed for ${email}`);
+      console.log(`   Expected OTP: ${user.otp}`);
+      console.log(`   Received OTP: ${otpString}`);
+      console.log(`   OTP Expiry: ${user.otpExpiry}`);
+      console.log(`   Current Time: ${new Date()}`);
       return res.status(400).json({
         success: false,
-        message: 'Invalid or expired OTP'
+        message: 'Invalid or expired OTP. Please check and try again.'
       });
     }
 
@@ -355,20 +361,113 @@ exports.forgotPassword = async (req, res, next) => {
     }
 
     // Find user
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email }).select('+otp +otpExpiry');
 
     if (!user) {
       // Don't reveal if user exists or not for security
       return res.status(200).json({
         success: true,
-        message: 'If an account with that email exists, a password reset link has been sent.'
+        message: 'If an account with that email exists, a password reset OTP has been sent.'
       });
     }
 
-    // Generate reset token
+    // Generate OTP for password reset
+    const otp = user.generateOTP();
+    await user.save({ validateBeforeSave: false });
+
+    try {
+      await sendOTPEmail(user.email, otp, user.name);
+      
+      console.log(`✅ Password reset OTP sent to: ${email}`);
+      
+      res.status(200).json({
+        success: true,
+        message: 'Password reset OTP has been sent to your email. Please check your inbox.',
+        developmentMode: false
+      });
+    } catch (emailError) {
+      console.error('❌ Email error caught:', emailError.message);
+      
+      // Log OTP to console for development/debugging
+      if (emailError.message === 'EMAIL_SEND_FAILED' || 
+          emailError.message.includes('Email service not configured')) {
+        console.log(`\n⚠️  Email service not working. Password reset OTP for ${email}:`);
+        console.log(`   OTP: ${otp}\n`);
+        
+        res.status(200).json({
+          success: true,
+          message: 'Password reset OTP has been sent to your email. Please check your inbox.',
+          otp: otp,
+          developmentMode: true
+        });
+      } else {
+        console.log(`\n⚠️  Email sending failed. Password reset OTP for ${email}:`);
+        console.log(`   OTP: ${otp}\n`);
+        
+        res.status(200).json({
+          success: true,
+          message: 'Password reset OTP has been sent to your email. Please check your inbox.',
+          otp: otp,
+          developmentMode: true
+        });
+      }
+    }
+
+  } catch (error) {
+    console.error('❌ Forgot password error:', error.message);
+    console.error('❌ Error stack:', error.stack);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to process password reset request'
+    });
+  }
+};
+
+/**
+ * @desc    Verify OTP for password reset
+ * @route   POST /api/auth/verify-forgot-password-otp
+ * @access  Public
+ */
+exports.verifyForgotPasswordOTP = async (req, res, next) => {
+  try {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide email and OTP'
+      });
+    }
+
+    // Find user with OTP fields
+    const user = await User.findOne({ email }).select('+otp +otpExpiry');
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Verify OTP - convert to string for comparison
+    const otpString = String(otp).trim();
+    const isValid = user.verifyOTP(otpString);
+
+    if (!isValid) {
+      console.log(`❌ Password reset OTP verification failed for ${email}`);
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired OTP. Please check and try again.'
+      });
+    }
+
+    // Generate reset token after OTP verification
     let resetToken;
     try {
       resetToken = user.getResetPasswordToken();
+      // Clear OTP fields
+      user.otp = undefined;
+      user.otpExpiry = undefined;
       await user.save({ validateBeforeSave: false });
     } catch (tokenError) {
       console.error('❌ Error generating reset token:', tokenError);
@@ -378,45 +477,90 @@ exports.forgotPassword = async (req, res, next) => {
       });
     }
 
-    // Create reset URL
-    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password/${resetToken}`;
+    console.log(`✅ Password reset OTP verified for: ${email}`);
 
-    try {
-      await sendPasswordResetEmail(user.email, resetToken, user.name);
-      
-      console.log(`✅ Password reset email sent to: ${email}`);
-      
-      res.status(200).json({
-        success: true,
-        message: 'Password reset link has been sent to your email. Please check your inbox.'
-      });
-    } catch (emailError) {
-      console.error('❌ Email error caught:', emailError.message);
-      
-      // Log reset link to console for development/debugging
-      if (emailError.message === 'EMAIL_SEND_FAILED' || 
-          emailError.message.includes('Email service not configured')) {
-        console.log(`\n⚠️  Email service not working. Reset link for ${email}:`);
-        console.log(`   ${resetUrl}\n`);
-      } else {
-        console.log(`\n⚠️  Email sending failed. Reset link for ${email}:`);
-        console.log(`   ${resetUrl}\n`);
-      }
-      
-      // Always return success message - don't reveal email issues to user
-      // In production, email should work. In development, check server console for link
-      res.status(200).json({
-        success: true,
-        message: 'Password reset link has been sent to your email. Please check your inbox.'
+    res.status(200).json({
+      success: true,
+      message: 'OTP verified successfully. You can now reset your password.',
+      resetToken: resetToken
+    });
+
+  } catch (error) {
+    console.error('❌ Verify forgot password OTP error:', error.message);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Verification failed'
+    });
+  }
+};
+
+/**
+ * @desc    Resend OTP for password reset
+ * @route   POST /api/auth/resend-forgot-password-otp
+ * @access  Public
+ */
+exports.resendForgotPasswordOTP = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide email'
       });
     }
 
+    const user = await User.findOne({ email }).select('+otp +otpExpiry');
+
+    if (!user) {
+      // Don't reveal if user exists or not for security
+      return res.status(200).json({
+        success: true,
+        message: 'If an account with that email exists, a password reset OTP has been sent.'
+      });
+    }
+
+    // Generate and send new OTP
+    const otp = user.generateOTP();
+    await user.save({ validateBeforeSave: false });
+    
+    try {
+      await sendOTPEmail(email, otp, user.name);
+      console.log(`✅ Password reset OTP resent to: ${email}`);
+
+      res.status(200).json({
+        success: true,
+        message: 'OTP sent to your email',
+        developmentMode: false
+      });
+    } catch (emailError) {
+      const errorMsg = emailError.message || '';
+      if (errorMsg.includes('Email service not configured') || 
+          errorMsg.includes('not configured') || 
+          errorMsg === 'EMAIL_SEND_FAILED') {
+        console.log(`⚠️  Email not working. Password reset OTP for ${email}: ${otp}`);
+        res.status(200).json({
+          success: true,
+          message: 'OTP sent to your email',
+          otp: otp,
+          developmentMode: true
+        });
+      } else {
+        console.log(`⚠️  Email failed. Password reset OTP for ${email}: ${otp}`);
+        res.status(200).json({
+          success: true,
+          message: 'OTP sent to your email',
+          otp: otp,
+          developmentMode: true
+        });
+      }
+    }
+
   } catch (error) {
-    console.error('❌ Forgot password error:', error.message);
-    console.error('❌ Error stack:', error.stack);
+    console.error('❌ Resend forgot password OTP error:', error.message);
     res.status(500).json({
       success: false,
-      message: error.message || 'Failed to process password reset request'
+      message: error.message || 'Failed to resend OTP'
     });
   }
 };

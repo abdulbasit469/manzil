@@ -51,6 +51,9 @@ const universitySchema = new mongoose.Schema({
   logo: {
     type: String // URL to logo image
   },
+  image: {
+    type: String // URL to main university image
+  },
   isActive: {
     type: Boolean,
     default: true

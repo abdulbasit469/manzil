@@ -1,6 +1,7 @@
 const UniversityCriteria = require('../models/UniversityCriteria');
 const University = require('../models/University');
 const Program = require('../models/Program');
+const UserActivity = require('../models/UserActivity');
 
 /**
  * @desc    Calculate merit percentage for a student
@@ -82,12 +83,56 @@ exports.calculateMerit = async (req, res) => {
 
     // Entry test marks contribution
     if (entryTestMarks && criteria.entryTestWeight > 0) {
-      const entryTestPercentage = (entryTestMarks / criteria.entryTestTotalMarks) * 100;
-      meritPercentage += (entryTestPercentage * criteria.entryTestWeight) / 100;
+      // Determine the correct max marks to use
+      let entryTestMaxMarks = 200; // Default fallback
+      
+      // First, check if entryTestTotalMarks is set and valid
+      if (criteria.entryTestTotalMarks && criteria.entryTestTotalMarks > 0) {
+        entryTestMaxMarks = criteria.entryTestTotalMarks;
+      } else if (criteria.entryTestName) {
+        // Fallback: use default values based on entry test name
+        const testName = criteria.entryTestName.toUpperCase();
+        if (testName.includes('ECAT') || testName === 'ECAT') {
+          entryTestMaxMarks = 400;
+        } else if (testName.includes('NET') || testName === 'NET') {
+          entryTestMaxMarks = 200;
+        } else if (testName.includes('NAT') || testName === 'NAT' || testName.includes('NTS')) {
+          entryTestMaxMarks = 100;
+        } else if (testName.includes('SAT') || testName === 'SAT') {
+          entryTestMaxMarks = 1600;
+        } else if (testName.includes('MDCAT')) {
+          entryTestMaxMarks = 200;
+        }
+      }
+      
+      // Calculate entry test percentage and contribution
+      if (entryTestMaxMarks > 0) {
+        const entryTestPercentage = (entryTestMarks / entryTestMaxMarks) * 100;
+        meritPercentage += (entryTestPercentage * criteria.entryTestWeight) / 100;
+      }
     }
 
     // Round to 2 decimal places
     meritPercentage = Math.round(meritPercentage * 100) / 100;
+
+    // Log user activity for Merit Calculator (estimate 5 minutes per calculation)
+    try {
+      await UserActivity.create({
+        user: req.user.id,
+        section: 'Merit Calculator',
+        duration: 5, // 5 minutes per calculation
+        activityType: 'calculation',
+        metadata: {
+          university: criteria.university.name,
+          program: criteria.program.name,
+          meritPercentage: meritPercentage,
+          admissionProbability: null // Will be set below
+        }
+      });
+    } catch (activityError) {
+      // Don't fail the calculation if activity logging fails
+      console.error('Error logging merit calculator activity:', activityError.message);
+    }
 
     // Calculate admission probability based on past merit trends
     let admissionProbability = null;
@@ -120,6 +165,55 @@ exports.calculateMerit = async (req, res) => {
       }
     }
 
+    // Update the activity metadata with admission probability
+    if (admissionProbability) {
+      try {
+        await UserActivity.findOneAndUpdate(
+          {
+            user: req.user.id,
+            section: 'Merit Calculator',
+            'metadata.meritPercentage': meritPercentage
+          },
+          {
+            $set: {
+              'metadata.admissionProbability': admissionProbability
+            }
+          },
+          {
+            sort: { createdAt: -1 },
+            limit: 1
+          }
+        );
+      } catch (updateError) {
+        // Silent fail - activity already logged
+        console.error('Error updating activity metadata:', updateError.message);
+      }
+    }
+
+    // Determine correct entryTestTotalMarks to return (use calculated value if criteria doesn't have it)
+    let entryTestTotalMarks = criteria.entryTestTotalMarks;
+    if (!entryTestTotalMarks || entryTestTotalMarks <= 0) {
+      // Use default values based on entry test name
+      if (criteria.entryTestName) {
+        const testName = criteria.entryTestName.toUpperCase();
+        if (testName.includes('ECAT') || testName === 'ECAT') {
+          entryTestTotalMarks = 400;
+        } else if (testName.includes('NET') || testName === 'NET') {
+          entryTestTotalMarks = 200;
+        } else if (testName.includes('NAT') || testName === 'NAT' || testName.includes('NTS')) {
+          entryTestTotalMarks = 100;
+        } else if (testName.includes('SAT') || testName === 'SAT') {
+          entryTestTotalMarks = 1600;
+        } else if (testName.includes('MDCAT')) {
+          entryTestTotalMarks = 200;
+        } else {
+          entryTestTotalMarks = 200; // Default fallback
+        }
+      } else {
+        entryTestTotalMarks = 200; // Default fallback
+      }
+    }
+
     res.status(200).json({
       success: true,
       data: {
@@ -131,6 +225,7 @@ exports.calculateMerit = async (req, res) => {
           program: criteria.program.name,
           entryTestName: criteria.entryTestName,
           entryTestRequired: criteria.entryTestRequired,
+          entryTestTotalMarks: entryTestTotalMarks, // Use calculated/default value
           weights: {
             matric: criteria.matricWeight,
             firstYear: criteria.firstYearWeight,

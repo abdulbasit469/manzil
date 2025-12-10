@@ -5,12 +5,19 @@ const {
   updateUserRole,
   deleteUser,
   getStats,
+  getRecentActivities,
   getAllAssessments,
   getAllMeritCriteria,
   getMeritCriteria,
   createMeritCriteria,
   updateMeritCriteria,
-  deleteMeritCriteria
+  deleteMeritCriteria,
+  getPendingPosts,
+  approvePost,
+  rejectPost,
+  getSettings,
+  updateSettings,
+  updateAdminPassword
 } = require('../controllers/adminController');
 const {
   createProgram,
@@ -34,7 +41,14 @@ router.get('/users/:id', getUser);
 router.put('/users/:id/role', updateUserRole);
 router.delete('/users/:id', deleteUser);
 router.get('/stats', getStats);
+router.get('/recent-activities', getRecentActivities);
 router.get('/assessments', getAllAssessments);
+router.get('/pending-posts', getPendingPosts);
+router.put('/posts/:id/approve', approvePost);
+router.put('/posts/:id/reject', rejectPost);
+router.get('/settings', getSettings);
+router.put('/settings', updateSettings);
+router.put('/password', updateAdminPassword);
 
 // Merit Criteria routes
 router.get('/merit-criteria', getAllMeritCriteria);

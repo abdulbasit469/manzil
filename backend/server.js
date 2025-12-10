@@ -12,7 +12,34 @@ dotenv.config();
 const app = express();
 
 // Connect to MongoDB
-connectDB();
+const mongoose = require('mongoose');
+let isDBConnected = false;
+
+// Helper function to check connection state
+const checkConnectionState = () => {
+  return mongoose.connection.readyState === 1; // 1 = connected
+};
+
+// Set up connection state tracking
+mongoose.connection.on('connected', () => {
+  isDBConnected = true;
+  console.log('✅ MongoDB connection established');
+});
+
+mongoose.connection.on('disconnected', () => {
+  isDBConnected = false;
+  console.warn('⚠️  MongoDB connection lost');
+});
+
+// Check initial connection state (in case connection happens synchronously)
+isDBConnected = checkConnectionState();
+
+// Connect to MongoDB (async, but don't await to allow server to start)
+connectDB().then(() => {
+  isDBConnected = checkConnectionState();
+}).catch(() => {
+  isDBConnected = false;
+});
 
 // CORS configuration - Allow multiple origins for development
 const allowedOrigins = [
@@ -106,6 +133,7 @@ app.use('/api/community', require('./routes/communityRoutes'));
 app.use('/api/programs', require('./routes/programRoutes'));
 app.use('/api/assessment', require('./routes/assessmentRoutes'));
 app.use('/api/merit', require('./routes/meritRoutes'));
+app.use('/api/notifications', require('./routes/notificationRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
 
 // 404 Handler - Route not found
@@ -128,13 +156,56 @@ app.use((err, req, res, next) => {
   });
 });
 
+// Backup scheduler - runs every 10 minutes
+const performBackup = async () => {
+  // Check if MongoDB is connected before attempting backup
+  const isConnected = checkConnectionState();
+  if (!isConnected) {
+    console.log('⏳ Skipping backup - MongoDB not connected yet');
+    return;
+  }
+
+  try {
+    const Settings = require('./models/Settings');
+    const settings = await Settings.getSettings();
+    settings.lastBackup = new Date();
+    await settings.save();
+    console.log(`💾 Backup timestamp updated: ${settings.lastBackup.toLocaleString()}`);
+  } catch (error) {
+    console.error(`❌ Backup timestamp update failed: ${error.message}`);
+  }
+};
+
 // Start server
 const PORT = process.env.PORT || 5000;
 const server = app.listen(PORT, () => {
   console.log(`\n🚀 Manzil Server is running on port ${PORT}`);
   console.log(`📍 Environment: ${process.env.NODE_ENV}`);
   console.log(`🌐 API URL: http://localhost:${PORT}`);
-  console.log(`💚 Health Check: http://localhost:${PORT}/api/health\n`);
+  console.log(`💚 Health Check: http://localhost:${PORT}/api/health`);
+  
+  // Wait for MongoDB connection before performing initial backup
+  const waitForConnection = async () => {
+    let attempts = 0;
+    const maxAttempts = 30; // Wait up to 30 seconds (30 * 1 second)
+    
+    while (!checkConnectionState() && attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+      attempts++;
+    }
+    
+    if (checkConnectionState()) {
+      performBackup();
+    } else {
+      console.log('⏳ Initial backup delayed - MongoDB connection pending');
+    }
+  };
+  
+  waitForConnection();
+  
+  // Schedule backups every 10 minutes (600000 ms)
+  setInterval(performBackup, 10 * 60 * 1000);
+  console.log(`💾 Automatic backups scheduled every 10 minutes\n`);
 });
 
 // Handle unhandled promise rejections

@@ -17,8 +17,8 @@ const postSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Category is required'],
     enum: {
-      values: ['admissions', 'hostel', 'accommodation', 'test-prep', 'general'],
-      message: 'Category must be one of: admissions, hostel, accommodation, test-prep, general'
+      values: ['Test Preparation', 'Universities', 'Scholarships', 'Admissions', 'General'],
+      message: 'Category must be one of: Test Preparation, Universities, Scholarships, Admissions, General'
     }
   },
   author: {
@@ -41,6 +41,11 @@ const postSchema = new mongoose.Schema({
   isLocked: {
     type: Boolean,
     default: false // For admin to lock discussions
+  },
+  status: {
+    type: String,
+    enum: ['pending', 'approved', 'rejected'],
+    default: 'pending' // Posts need admin approval
   },
   images: [{
     type: String, // URLs or paths to image files

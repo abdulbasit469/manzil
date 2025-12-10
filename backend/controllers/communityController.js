@@ -22,12 +22,28 @@ exports.createPost = async (req, res) => {
       });
     }
 
+    // Normalize category (handle case-insensitive matching)
+    const categoryMap = {
+      'test preparation': 'Test Preparation',
+      'universities': 'Universities',
+      'scholarships': 'Scholarships',
+      'admissions': 'Admissions',
+      'general': 'General',
+      'Test Preparation': 'Test Preparation',
+      'Universities': 'Universities',
+      'Scholarships': 'Scholarships',
+      'Admissions': 'Admissions',
+      'General': 'General'
+    };
+    
+    const normalizedCategory = categoryMap[category] || categoryMap[category.toLowerCase()];
+    
     // Validate category
-    const validCategories = ['admissions', 'hostel', 'accommodation', 'test-prep', 'general'];
-    if (!validCategories.includes(category)) {
+    const validCategories = ['Test Preparation', 'Universities', 'Scholarships', 'Admissions', 'General'];
+    if (!normalizedCategory || !validCategories.includes(normalizedCategory)) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid category. Must be one of: admissions, hostel, accommodation, test-prep, general'
+        message: 'Invalid category. Must be one of: Test Preparation, Universities, Scholarships, Admissions, General'
       });
     }
 
@@ -68,13 +84,19 @@ exports.createPost = async (req, res) => {
     console.log('Processed images:', images);
     console.log('Processed videos:', videos);
 
+    // Check if auto-approve is enabled
+    const Settings = require('../models/Settings');
+    const settings = await Settings.getSettings().catch(() => ({ autoApprove: false }));
+    const postStatus = settings.autoApprove ? 'approved' : 'pending';
+
     const post = new Post({
       title,
       content,
-      category,
+      category: normalizedCategory,
       author: userId,
       images,
-      videos
+      videos,
+      status: postStatus
     });
 
     await post.save();
@@ -82,8 +104,11 @@ exports.createPost = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: 'Post created successfully',
-      post
+      message: settings.autoApprove 
+        ? 'Post created and approved successfully' 
+        : 'Post created successfully and is pending approval',
+      post,
+      status: postStatus
     });
   } catch (error) {
     console.error('Create post error:', error);
@@ -110,17 +135,60 @@ exports.getAllPosts = async (req, res) => {
     // Build query
     let query = {};
 
+    // Only show approved posts to regular users (admins see all posts including pending)
+    // Check if user is admin - try to get user from request
+    let isAdmin = false;
+    if (req.user) {
+      // User is authenticated, check role
+      isAdmin = req.user.role === 'admin';
+    } else if (req.headers.authorization) {
+      // Try to decode token if present but user not populated (for optional auth routes)
+      try {
+        const jwt = require('jsonwebtoken');
+        const token = req.headers.authorization.replace('Bearer ', '');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const User = require('../models/User');
+        const user = await User.findById(decoded.id).select('role');
+        isAdmin = user && user.role === 'admin';
+      } catch (error) {
+        // Token invalid or expired, treat as non-admin
+        isAdmin = false;
+      }
+    }
+    
+    // Build status filter for non-admins
+    if (!isAdmin) {
+      // For non-admins, show approved posts OR posts without status (for backward compatibility)
+      query.$or = [
+        { status: 'approved' },
+        { status: { $exists: false } }
+      ];
+    }
+    // Admins see all posts (no status filter)
+
     // Filter by category
     if (category && category !== 'all') {
       query.category = category;
     }
 
     // Search in title and content (case-insensitive regex if text index not available)
+    // If we already have $or (from status filter), we need to combine with $and
     if (search) {
-      query.$or = [
+      const searchConditions = [
         { title: { $regex: search, $options: 'i' } },
         { content: { $regex: search, $options: 'i' } }
       ];
+      
+      if (query.$or) {
+        // Combine status filter and search filter using $and
+        query.$and = [
+          { $or: query.$or },
+          { $or: searchConditions }
+        ];
+        delete query.$or;
+      } else {
+        query.$or = searchConditions;
+      }
     }
 
     // Build sort object for aggregation
@@ -298,14 +366,30 @@ exports.updatePost = async (req, res) => {
     if (title) post.title = title;
     if (content) post.content = content;
     if (category) {
-      const validCategories = ['admissions', 'hostel', 'accommodation', 'test-prep', 'general'];
-      if (!validCategories.includes(category)) {
+      // Normalize category (handle case-insensitive matching)
+      const categoryMap = {
+        'test preparation': 'Test Preparation',
+        'universities': 'Universities',
+        'scholarships': 'Scholarships',
+        'admissions': 'Admissions',
+        'general': 'General',
+        'Test Preparation': 'Test Preparation',
+        'Universities': 'Universities',
+        'Scholarships': 'Scholarships',
+        'Admissions': 'Admissions',
+        'General': 'General'
+      };
+      
+      const normalizedCategory = categoryMap[category] || categoryMap[category.toLowerCase()];
+      const validCategories = ['Test Preparation', 'Universities', 'Scholarships', 'Admissions', 'General'];
+      
+      if (!normalizedCategory || !validCategories.includes(normalizedCategory)) {
         return res.status(400).json({
           success: false,
-          message: 'Invalid category'
+          message: 'Invalid category. Must be one of: Test Preparation, Universities, Scholarships, Admissions, General'
         });
       }
-      post.category = category;
+      post.category = normalizedCategory;
     }
 
     await post.save();
@@ -673,6 +757,109 @@ exports.toggleLikeComment = async (req, res) => {
     res.status(500).json({
       success: false,
       message: error.message || 'Failed to toggle like'
+    });
+  }
+};
+
+/**
+ * Get category statistics
+ */
+exports.getCategoryStats = async (req, res) => {
+  try {
+    const categories = ['Test Preparation', 'Universities', 'Scholarships', 'Admissions', 'General'];
+    
+    // Category normalization map for case-insensitive matching
+    const categoryNormalizeMap = {
+      'general': 'General',
+      'General': 'General',
+      'test preparation': 'Test Preparation',
+      'Test Preparation': 'Test Preparation',
+      'universities': 'Universities',
+      'Universities': 'Universities',
+      'scholarships': 'Scholarships',
+      'Scholarships': 'Scholarships',
+      'admissions': 'Admissions',
+      'Admissions': 'Admissions',
+      'study abroad': 'Admissions',
+      'Study Abroad': 'Admissions'
+    };
+    
+    const stats = await Post.aggregate([
+      {
+        $group: {
+          _id: '$category',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    // Create a map of category counts (normalize case)
+    const categoryMap = {};
+    stats.forEach(stat => {
+      const normalizedCategory = categoryNormalizeMap[stat._id] || categoryNormalizeMap[stat._id?.toLowerCase()] || stat._id;
+      if (categoryMap[normalizedCategory]) {
+        categoryMap[normalizedCategory] += stat.count;
+      } else {
+        categoryMap[normalizedCategory] = stat.count;
+      }
+    });
+
+    // Build response with all categories (including 0 counts)
+    const categoryStats = categories.map(category => ({
+      name: category,
+      count: categoryMap[category] || 0
+    }));
+
+    // Calculate total
+    const total = Object.values(categoryMap).reduce((sum, count) => sum + count, 0);
+
+    res.status(200).json({
+      success: true,
+      categories: categoryStats,
+      total
+    });
+  } catch (error) {
+    console.error('Get category stats error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to fetch category statistics'
+    });
+  }
+};
+
+/**
+ * Get pending posts for current user (student)
+ */
+exports.getMyPendingPosts = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    const posts = await Post.find({
+      author: userId,
+      status: 'pending'
+    })
+      .populate('author', 'name email profilePicture')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // Add like and comment counts
+    const postsWithCounts = await Promise.all(posts.map(async (post) => {
+      const commentCount = await Comment.countDocuments({ post: post._id });
+      return {
+        ...post,
+        likeCount: post.likes?.length || 0,
+        commentCount
+      };
+    }));
+
+    res.status(200).json({
+      success: true,
+      posts: postsWithCounts
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
     });
   }
 };

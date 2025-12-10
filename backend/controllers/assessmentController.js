@@ -364,10 +364,32 @@ Then you MUST write exactly 4 bullet points. Each bullet point should be 1-2 lin
             
             if (text && text.trim().length > 0) {
               console.log(`Successfully used model: ${cleanModelName}`);
+              
+              // Parse the text to extract description paragraphs
+              // Remove dimension mapping lines (E -> Extraversion format)
+              let cleanText = text;
+              const lines = cleanText.split('\n');
+              const descriptionLines = lines.filter(line => {
+                const trimmed = line.trim();
+                // Skip dimension mappings and empty lines
+                return trimmed.length > 0 && !trimmed.match(/^[A-Z]\s*->/) && !trimmed.match(/^[A-Z]\s*->/);
+              });
+              
+              // Join lines back, split by double newlines or bullet points
+              let description = descriptionLines.join('\n');
+              
+              // Split by bullets or paragraphs
+              const paragraphs = description
+                .split(/\n\s*\n|^\s*[-•*]\s*/m)
+                .map(p => p.trim())
+                .filter(p => p.length > 0 && !p.match(/^[A-Z]\s*->/));
+              
               return res.status(200).json({
                 success: true,
                 mbtiType: mbtiType,
-                details: text
+                details: {
+                  description: paragraphs.length > 0 ? paragraphs : [text.trim()]
+                }
               });
             }
           } else {
