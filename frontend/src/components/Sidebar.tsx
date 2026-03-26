@@ -9,7 +9,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Users,
-  BookOpen
+  BookOpen,
+  TrendingUp,
+  GitCompareArrows
 } from 'lucide-react';
 import { Button } from './ui/button';
 
@@ -25,6 +27,8 @@ const menuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', page: 'dashboard' },
   { icon: GraduationCap, label: 'Universities', page: 'universities' },
   { icon: Briefcase, label: 'Career Assessment', page: 'career' },
+  { icon: TrendingUp, label: 'Degree & Career Scope', page: 'degree-scope' },
+  { icon: GitCompareArrows, label: 'Compare', page: 'compare' },
   { icon: Calculator, label: 'Merit Calculator', page: 'merit' },
   { icon: BookOpen, label: 'Mock Test', page: 'mocktest' },
   { icon: Users, label: 'Community', page: 'community' },
@@ -50,7 +54,8 @@ export function Sidebar({ isOpen, onToggle, currentPage, onPageChange, onLogout 
             onClick={() => onPageChange(item.page)}
             title={!isOpen ? item.label : ''}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
-              currentPage === item.page
+              currentPage === item.page ||
+              (item.page === 'universities' && currentPage === 'university-detail')
                 ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-500/30'
                 : 'text-blue-200 hover:bg-[#1a2d4a] hover:text-white'
             }`}

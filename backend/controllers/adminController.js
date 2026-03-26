@@ -187,6 +187,8 @@ exports.getStats = async (req, res) => {
     const totalStudents = await User.countDocuments({ role: 'student' });
     const totalAdmins = await User.countDocuments({ role: 'admin' });
     const totalUniversities = await University.countDocuments();
+    const universitiesPublic = await University.countDocuments({ type: 'Public' });
+    const universitiesPrivate = await University.countDocuments({ type: 'Private' });
     const totalPrograms = await Program.countDocuments();
     const totalAssessments = await AssessmentResponse.countDocuments();
     const totalPosts = await Post.countDocuments();
@@ -306,6 +308,8 @@ exports.getStats = async (req, res) => {
         engagementRate: engagementRate
       },
       universities: totalUniversities,
+      universitiesPublic,
+      universitiesPrivate,
       programs: totalPrograms,
       assessments: totalAssessments,
       posts: totalPosts,

@@ -57,6 +57,15 @@ Manzil addresses the critical gap in career counseling and centralized education
    FRONTEND_URL=http://localhost:3000
    ```
 
+   **AI Career Counselor (optional, proposal-aligned NLP):** Add a Google Gemini API key so open-ended questions get natural-language answers (FAQs still match first for accuracy):
+
+   ```env
+   GEMINI_API_KEY=your_key_from_ai.google.dev
+   # Optional: GEMINI_MODEL=gemini-1.5-flash
+   ```
+
+   Get a key: [Google AI Studio](https://aistudio.google.com/apikey). Without this key, the chatbot still works using the expanded FAQ + token-overlap matching.
+
 4. **Start MongoDB**
    - Make sure MongoDB is running on your system
    - Default connection: `mongodb://localhost:27017`

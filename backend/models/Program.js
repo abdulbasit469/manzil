@@ -6,10 +6,18 @@ const programSchema = new mongoose.Schema({
     required: [true, 'Please provide program name'],
     trim: true
   },
+  /** e.g. BS, MS, BBA, LLB, MBBS, Pharm-D, B.Arch — flexible for real Pakistani offerings */
   degree: {
     type: String,
     required: [true, 'Please provide degree type'],
-    enum: ['BS', 'MS', 'PhD', 'Diploma', 'Certificate', 'BBA', 'MBA', 'BE', 'M.Phil', 'BA', 'BA-LLB', 'Pharm-D']
+    trim: true,
+    maxlength: 40
+  },
+  /** Display grouping from source lists: Engineering, Computing, Medical, etc. */
+  programGroup: {
+    type: String,
+    trim: true,
+    maxlength: 120
   },
   university: {
     type: mongoose.Schema.Types.ObjectId,
@@ -18,11 +26,11 @@ const programSchema = new mongoose.Schema({
   },
   duration: {
     type: String,
-    required: true // e.g., "4 years", "2 years"
+    default: '4 years'
   },
   feePerSemester: {
     type: Number,
-    required: true,
+    default: 0,
     min: 0
   },
   totalFee: {
@@ -44,7 +52,9 @@ const programSchema = new mongoose.Schema({
   },
   category: {
     type: String,
-    enum: ['Engineering', 'Medical', 'Business', 'Computer Science', 'Social Sciences', 'Arts', 'Law', 'Other']
+    trim: true,
+    default: 'Other',
+    maxlength: 80
   },
   isActive: {
     type: Boolean,

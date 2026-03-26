@@ -63,7 +63,7 @@ const userSchema = new mongoose.Schema({
   },
   intermediateType: {
     type: String,
-    enum: ['FSc Pre-Engineering', 'FSc Pre-Medical', 'ICS', 'ICOM', 'FA', 'Other'],
+    enum: ['FSc Pre-Engineering', 'FSc Pre-Medical', 'ICS', 'ICOM', 'FA', 'A-Levels', 'Other'],
   },
   firstYearMarks: {
     type: Number,

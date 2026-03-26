@@ -1,4 +1,34 @@
 const mongoose = require('mongoose');
+const dns = require('dns');
+
+if (typeof dns.setDefaultResultOrder === 'function') {
+  dns.setDefaultResultOrder('ipv4first');
+}
+
+/**
+ * Prefer MONGODB_URI; fall back to MONGO_URI (same as seed scripts).
+ * Append Atlas-friendly defaults if missing (helps driver + Atlas).
+ */
+function resolveMongoUri() {
+  const raw = (process.env.MONGODB_URI || process.env.MONGO_URI || '').trim();
+  if (!raw) return '';
+  let uri = raw;
+  const hasQuery = uri.includes('?');
+  const needsRetry = !/[\?&]retryWrites=/i.test(uri);
+  const needsW = !/[\?&]w=/i.test(uri);
+  if (needsRetry || needsW) {
+    const parts = [];
+    if (needsRetry) parts.push('retryWrites=true');
+    if (needsW) parts.push('w=majority');
+    uri += (hasQuery ? '&' : '?') + parts.join('&');
+  }
+  return uri;
+}
+
+function maskUri(uri) {
+  if (!uri) return '(empty)';
+  return uri.replace(/\/\/([^:]+):([^@]+)@/, '//***:***@');
+}
 
 /**
  * Connect to MongoDB database
@@ -6,27 +36,27 @@ const mongoose = require('mongoose');
  */
 const connectDB = async () => {
   try {
-    if (!process.env.MONGODB_URI) {
-      throw new Error('MONGODB_URI is not defined in environment variables');
+    const mongoUri = resolveMongoUri();
+    if (!mongoUri) {
+      throw new Error('Set MONGODB_URI or MONGO_URI in .env');
     }
 
     console.log('🔌 Connecting to MongoDB...');
-    
-    // Connection options to help with DNS timeout issues
+
     const options = {
-      serverSelectionTimeoutMS: 30000,  // Increase timeout to 30 seconds
+      serverSelectionTimeoutMS: 30000,
       socketTimeoutMS: 45000,
-      connectTimeoutMS: 30000,  // Connection timeout
-      family: 4,  // Force IPv4 (helps with DNS issues)
+      connectTimeoutMS: 30000,
+      family: 4,
+      maxPoolSize: 10,
     };
 
-    const conn = await mongoose.connect(process.env.MONGODB_URI, options);
+    const conn = await mongoose.connect(mongoUri, options);
 
     console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
     console.log(`📊 Database: ${conn.connection.name}`);
-    console.log(`🔗 Connection String: ${process.env.MONGODB_URI.replace(/\/\/[^:]+:[^@]+@/, '//***:***@')}`);
+    console.log(`🔗 Connection String: ${maskUri(mongoUri)}`);
 
-    // Handle connection events (these will work even if set up after connection)
     mongoose.connection.on('error', (err) => {
       console.error(`❌ MongoDB Connection Error: ${err.message}`);
     });
@@ -39,9 +69,7 @@ const connectDB = async () => {
       console.log('✅ MongoDB reconnected successfully');
     });
 
-    // Return connection state
     return true;
-
   } catch (error) {
     console.error(`❌ MongoDB Connection Error: ${error.message}`);
     console.error(`💡 Possible fixes:`);
@@ -49,19 +77,9 @@ const connectDB = async () => {
     console.error(`   2. Make sure your IP is whitelisted in MongoDB Atlas`);
     console.error(`   3. Try using Google DNS (8.8.8.8) or Cloudflare DNS (1.1.1.1)`);
     console.error(`   4. Check if a VPN or firewall is blocking the connection`);
+    console.error(`   5. If password has @ # : etc., URL-encode it in the URI`);
     console.error(`\n⚠️  Server will continue running but database operations will fail until connection is established.`);
-    // Don't exit - let the server run and attempt reconnection
   }
 };
 
 module.exports = connectDB;
-
-
-
-
-
-
-
-
-
-

@@ -2,6 +2,7 @@ const UniversityCriteria = require('../models/UniversityCriteria');
 const University = require('../models/University');
 const Program = require('../models/Program');
 const UserActivity = require('../models/UserActivity');
+const { sanitizeUniversityFields } = require('../utils/sanitizeUniversityStrings');
 
 /**
  * @desc    Calculate merit percentage for a student
@@ -33,6 +34,11 @@ exports.calculateMerit = async (req, res) => {
         message: 'Merit criteria not found for this university and program combination'
       });
     }
+
+    const displayUniversityName = sanitizeUniversityFields({
+      name: criteria.university.name,
+      city: criteria.university.city,
+    }).name || criteria.university.name;
 
     // Validate minimum requirements
     const errors = [];
@@ -102,6 +108,10 @@ exports.calculateMerit = async (req, res) => {
           entryTestMaxMarks = 1600;
         } else if (testName.includes('MDCAT')) {
           entryTestMaxMarks = 200;
+        } else if (testName.includes('GIKI')) {
+          entryTestMaxMarks = 200;
+        } else if (testName.includes('PIEAS')) {
+          entryTestMaxMarks = 200;
         }
       }
       
@@ -123,7 +133,7 @@ exports.calculateMerit = async (req, res) => {
         duration: 5, // 5 minutes per calculation
         activityType: 'calculation',
         metadata: {
-          university: criteria.university.name,
+          university: displayUniversityName,
           program: criteria.program.name,
           meritPercentage: meritPercentage,
           admissionProbability: null // Will be set below
@@ -221,7 +231,7 @@ exports.calculateMerit = async (req, res) => {
         admissionProbability,
         probabilityMessage,
         criteria: {
-          university: criteria.university.name,
+          university: displayUniversityName,
           program: criteria.program.name,
           entryTestName: criteria.entryTestName,
           entryTestRequired: criteria.entryTestRequired,
@@ -271,9 +281,14 @@ exports.getCriteria = async (req, res) => {
       });
     }
 
+    const c = criteria.toObject();
+    if (c.university && typeof c.university === 'object') {
+      c.university = sanitizeUniversityFields(c.university);
+    }
+
     res.status(200).json({
       success: true,
-      criteria
+      criteria: c
     });
 
   } catch (error) {

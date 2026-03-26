@@ -8,7 +8,14 @@
     "dev": "nodemon backend/server.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "scrape:hec": "node backend/scripts/scrapeHECUniversities.js",
-    "scrape:test": "node backend/scripts/testHECScraper.js"
+    "scrape:test": "node backend/scripts/testHECScraper.js",
+    "enrich:universities": "node backend/scripts/enrichUniversitiesFromWebsites.js",
+    "import:programs": "node backend/scripts/importUniversityProgramsBulk.js",
+    "merge:universities": "node backend/scripts/mergeDuplicateUniversities.js",
+    "fix:unknown-universities": "node backend/scripts/removeUnknownUniversityPlaceholders.js",
+    "fill:zero-programs": "node backend/scripts/fillZeroProgramUniversities.js",
+    "fill:zero-programs:dry": "node backend/scripts/fillZeroProgramUniversities.js --dry-run",
+    "seed:indicative-fees": "node backend/scripts/seedIndicativeUniversityFees.js"
   },
   "repository": {
     "type": "git",

@@ -38,11 +38,14 @@ import {
   Legend,
   ResponsiveContainer
 } from 'recharts';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import { toast } from 'sonner';
-import { MapPin, ExternalLink, Building2 } from 'lucide-react';
+import { universityNameLabel, stripUnknownUniversityText } from '../utils/universityDisplay';
+import { MapPin, Building2 } from 'lucide-react';
+import { TestCalendar2026 } from './dashboard/TestCalendar2026';
 
 interface DashboardContentProps {
   sidebarOpen: boolean;
@@ -57,12 +60,15 @@ export function DashboardContent({ sidebarOpen, onPageChange }: DashboardContent
   const [savedUniversitiesList, setSavedUniversitiesList] = useState<any[]>([]);
   const [loadingSavedUniversities, setLoadingSavedUniversities] = useState(false);
   
-  // Debug: Log modal state changes
-  useEffect(() => {
-    console.log('showSavedUniversitiesModal changed to:', showSavedUniversitiesModal);
-  }, [showSavedUniversitiesModal]);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
+  const bellButtonRef = useRef<HTMLButtonElement>(null);
+  const [notifPanelStyle, setNotifPanelStyle] = useState<{
+    top: number;
+    right: number;
+    width: number;
+    maxHeight: number;
+  }>({ top: 0, right: 16, width: 720, maxHeight: 620 });
 
   // Dashboard data state
   const [dashboardData, setDashboardData] = useState<{
@@ -75,6 +81,19 @@ export function DashboardContent({ sidebarOpen, onPageChange }: DashboardContent
     recentActivity: { type: string; action: string; detail: string; timestamp: string; icon: string }[];
     universitiesProgress: { week: string; universities: number }[];
     universitiesThisWeek?: number;
+    careerSuggestions?: {
+      topCareers: { career: string; score: number; description: string }[];
+      recommendedDegrees: { degree: string; field: string; match: number }[];
+      allMainTestsDone: boolean;
+      message: string;
+    };
+    timelines?: {
+      disclaimer: string;
+      admissionWindows: { id: string; title: string; typicalPeriod: string; detail: string }[];
+      entryTests: { id: string; name: string; typicalPeriod: string; body: string; manzilTip: string }[];
+      testCalendar2026?: Record<string, unknown>;
+    };
+    profileGaps?: { field: string; label: string }[];
   }>({
     profileCompletion: 0,
     savedUniversities: 0,
@@ -87,19 +106,47 @@ export function DashboardContent({ sidebarOpen, onPageChange }: DashboardContent
   });
 
   useEffect(() => {
-    // Fetch data in parallel for faster initial load
-    Promise.all([
-      fetchDashboardData(),
-      fetchNotifications()
-    ]);
-    
-    // Refresh dashboard data every 30 seconds for real-time updates
+    // Dashboard API syncs test-calendar → DB notifications; load dashboard first, then bell.
+    (async () => {
+      await fetchDashboardData();
+      await fetchNotifications();
+    })();
+
     const interval = setInterval(() => {
-      fetchDashboardData();
-    }, 30000); // 30 seconds for real-time updates
-    
+      fetchDashboardData().then(() => fetchNotifications());
+    }, 30000);
+
     return () => clearInterval(interval);
   }, []);
+
+  const updateNotificationPanelPosition = () => {
+    const el = bellButtonRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const margin = 12;
+    const panelWidth = Math.min(720, Math.max(320, window.innerWidth - margin * 2));
+    const idealMax = Math.min(window.innerHeight * 0.75, 620);
+    const spaceBelow = window.innerHeight - r.bottom - margin;
+    const maxHeight = Math.max(220, Math.min(idealMax, spaceBelow));
+    setNotifPanelStyle({
+      top: r.bottom + 8,
+      right: Math.max(margin, window.innerWidth - r.right),
+      width: panelWidth,
+      maxHeight,
+    });
+  };
+
+  useLayoutEffect(() => {
+    if (!showNotifications) return;
+    updateNotificationPanelPosition();
+    const onResize = () => updateNotificationPanelPosition();
+    window.addEventListener('resize', onResize);
+    window.addEventListener('scroll', onResize, true);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('scroll', onResize, true);
+    };
+  }, [showNotifications]);
 
   const fetchNotifications = async () => {
     try {
@@ -166,10 +213,7 @@ export function DashboardContent({ sidebarOpen, onPageChange }: DashboardContent
     try {
       setLoadingSavedUniversities(true);
       const response = await api.get('/saved-universities');
-      console.log('Saved universities response:', response);
-      console.log('Response data:', response.data);
       const universities = response.data?.savedUniversities || response.data?.universities || [];
-      console.log('Setting universities list:', universities);
       setSavedUniversitiesList(universities);
     } catch (error: any) {
       console.error('Error fetching saved universities:', error);
@@ -265,7 +309,10 @@ export function DashboardContent({ sidebarOpen, onPageChange }: DashboardContent
         assessmentScores: assessmentScores,
         universitiesProgress: universitiesProgress,
         universitiesThisWeek: data.stats?.universitiesThisWeek || 0,
-        recentActivity: data.recentActivity || []
+        recentActivity: data.recentActivity || [],
+        careerSuggestions: data.careerSuggestions,
+        timelines: data.timelines,
+        profileGaps: data.profileGaps,
       });
     } catch (error: any) {
       console.error('Error fetching dashboard data:', error);
@@ -333,9 +380,7 @@ export function DashboardContent({ sidebarOpen, onPageChange }: DashboardContent
       bgColor: 'bg-amber-50',
       gradient: 'from-amber-500 to-amber-600',
       onClick: () => {
-        console.log('Saved Universities card clicked, opening modal...');
         setShowSavedUniversitiesModal(true);
-        console.log('Modal state set to true, fetching universities...');
         fetchSavedUniversities();
       },
     },
@@ -365,8 +410,109 @@ export function DashboardContent({ sidebarOpen, onPageChange }: DashboardContent
     );
   }
 
+  const notificationPanel =
+    showNotifications && typeof document !== 'undefined'
+      ? createPortal(
+          <>
+            <button
+              type="button"
+              className="fixed inset-0 z-[140] cursor-default bg-black/20"
+              aria-label="Close notifications"
+              onClick={() => setShowNotifications(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="fixed z-[150] flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl"
+              style={{
+                top: notifPanelStyle.top,
+                right: notifPanelStyle.right,
+                width: notifPanelStyle.width,
+                height: notifPanelStyle.maxHeight,
+                maxHeight: notifPanelStyle.maxHeight,
+              }}
+            >
+              <div className="flex shrink-0 items-center justify-between border-b border-slate-200 bg-white p-4">
+                <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900">
+                  <Bell className="h-4 w-4 text-slate-700" />
+                  Notifications ({notifications.length})
+                </h3>
+                <button
+                  type="button"
+                  onClick={clearAllNotifications}
+                  className="text-xs font-medium text-blue-600 transition-colors hover:text-blue-700"
+                >
+                  Clear All
+                </button>
+              </div>
+              <div
+                className="notification-panel-scroll w-full overscroll-contain"
+                style={{
+                  height: `calc(${notifPanelStyle.maxHeight}px - 64px)`,
+                  maxHeight: `calc(${notifPanelStyle.maxHeight}px - 64px)`,
+                }}
+              >
+                {notifications.length === 0 ? (
+                  <div className="p-12 text-center text-slate-500">
+                    <Bell className="mx-auto mb-4 h-16 w-16 text-slate-300" />
+                    <p className="text-sm text-slate-600">No notifications</p>
+                  </div>
+                ) : (
+                  notifications.map((notification) => (
+                    <div
+                      key={notification.id}
+                      className={`border-b border-slate-100 p-4 transition-colors hover:bg-slate-50 ${
+                        notification.link ? 'cursor-pointer' : ''
+                      }`}
+                      onClick={() => {
+                        if (notification.link) {
+                          const postIdMatch = notification.link.match(/\/community\/posts\/(.+)/);
+                          if (postIdMatch?.[1]) {
+                            onPageChange('community-post-detail', postIdMatch[1]);
+                            setShowNotifications(false);
+                          }
+                        }
+                      }}
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0 flex-1">
+                          <div className="mb-2 flex flex-wrap items-center gap-2">
+                            <h4 className="text-base font-bold text-slate-900">{notification.title}</h4>
+                            {notification.urgent && (
+                              <span className="rounded-full bg-red-500 px-2.5 py-0.5 text-xs font-semibold text-white">
+                                Urgent
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm leading-relaxed text-slate-700">{notification.message}</p>
+                          <span className="mt-2 block text-xs text-slate-500">{notification.time}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteNotification(notification.id);
+                          }}
+                          className="shrink-0 rounded p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+                          aria-label="Dismiss notification"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </motion.div>
+          </>,
+          document.body
+        )
+      : null;
+
   return (
-    <div className="flex-1 overflow-auto bg-slate-50">
+    <>
+      {notificationPanel}
+      <div className="flex-1 overflow-auto bg-slate-50">
       {/* Header */}
       <div className="bg-gradient-to-r from-[#0f1f3a] via-[#1e3a5f] to-amber-500 text-white p-4 md:p-8 shadow-lg">
         <div className="max-w-7xl mx-auto">
@@ -380,97 +526,39 @@ export function DashboardContent({ sidebarOpen, onPageChange }: DashboardContent
                 <p className="text-base md:text-lg text-blue-200 mb-1">Welcome</p>
                 <div className="flex items-center justify-between gap-4 w-full">
                   <h1 className="text-4xl md:text-6xl font-bold mb-0">{user?.name || 'User'}!</h1>
-                  {/* Notification Bell - Far right, aligned with user name */}
-                  <div className="relative flex items-center flex-shrink-0">
+                  {/* Notification Bell — panel opens via portal (full width, not clipped) */}
+                  <div className="flex flex-shrink-0 items-center">
                     <button
-                      onClick={() => setShowNotifications(!showNotifications)}
-                      className="relative p-3 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 hover:bg-white/20 transition-all"
+                      ref={bellButtonRef}
+                      type="button"
+                      onClick={() => {
+                        setShowNotifications((open) => {
+                          if (!open && bellButtonRef.current) {
+                            const r = bellButtonRef.current.getBoundingClientRect();
+                            const margin = 12;
+                            const w = Math.min(720, Math.max(320, window.innerWidth - margin * 2));
+                            const idealMax = Math.min(window.innerHeight * 0.75, 620);
+                            const spaceBelow = window.innerHeight - r.bottom - margin;
+                            const maxHeight = Math.max(220, Math.min(idealMax, spaceBelow));
+                            setNotifPanelStyle({
+                              top: r.bottom + 8,
+                              right: Math.max(margin, window.innerWidth - r.right),
+                              width: w,
+                              maxHeight,
+                            });
+                          }
+                          return !open;
+                        });
+                      }}
+                      className="relative rounded-xl border border-white/20 bg-white/10 p-3 backdrop-blur-sm transition-all hover:bg-white/20"
                     >
-                      <Bell className="w-5 h-5 md:w-6 md:h-6 text-white" />
+                      <Bell className="h-5 w-5 text-white md:h-6 md:w-6" />
                       {notifications.length > 0 && (
-                        <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-xs flex items-center justify-center">
+                        <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs">
                           {notifications.length}
                         </span>
                       )}
                     </button>
-
-                    {/* Notifications Dropdown */}
-                    {showNotifications && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="absolute right-0 top-full mt-2 w-[320px] md:w-[360px] bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden z-[100]"
-                  >
-                    {/* Header - White background with bell icon and clear all button */}
-                    <div className="bg-white p-4 border-b border-slate-200 flex items-center justify-between">
-                      <h3 className="text-slate-900 text-sm font-bold flex items-center gap-2">
-                        <Bell className="w-4 h-4 text-slate-700" />
-                        Notifications ({notifications.length})
-                      </h3>
-                      <button
-                        onClick={clearAllNotifications}
-                        className="text-blue-600 text-xs hover:text-blue-700 transition-colors font-medium"
-                      >
-                        Clear All
-                      </button>
-                    </div>
-
-                    {/* Scrollable Content */}
-                    <div className="max-h-[450px] overflow-y-auto">
-                      {notifications.length === 0 ? (
-                        <div className="p-12 text-center text-slate-500">
-                          <Bell className="w-16 h-16 mx-auto mb-4 text-slate-300" />
-                          <p className="text-slate-600 text-sm">No notifications</p>
-                        </div>
-                      ) : (
-                        notifications.map((notification) => (
-                          <div
-                            key={notification.id}
-                            className={`p-4 border-b border-slate-100 hover:bg-slate-50 transition-colors ${
-                              notification.link ? 'cursor-pointer' : ''
-                            }`}
-                            onClick={() => {
-                              if (notification.link) {
-                                // Extract post ID from link like /community/posts/123
-                                const postIdMatch = notification.link.match(/\/community\/posts\/(.+)/);
-                                if (postIdMatch && postIdMatch[1]) {
-                                  // Navigate to post detail page
-                                  onPageChange('community-post-detail', postIdMatch[1]);
-                                  setShowNotifications(false);
-                                }
-                              }
-                            }}
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-2 flex-wrap">
-                                  <h4 className="text-sm font-bold text-slate-900">{notification.title}</h4>
-                                  {notification.urgent && (
-                                    <span className="text-xs bg-red-500 text-white px-2.5 py-0.5 rounded-full font-semibold">
-                                      Urgent
-                                    </span>
-                                  )}
-                                </div>
-                                <p className="text-xs text-slate-700 mb-1.5 leading-relaxed">{notification.message}</p>
-                                <span className="text-xs text-slate-500">{notification.time}</span>
-                              </div>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDeleteNotification(notification.id);
-                                }}
-                                className="text-slate-400 hover:text-slate-600 transition-colors flex-shrink-0 p-1 hover:bg-slate-100 rounded"
-                                aria-label="Dismiss notification"
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                      </motion.div>
-                    )}
                   </div>
                 </div>
                 <p className="text-sm md:text-base text-blue-100 mt-0 mb-0">
@@ -532,6 +620,127 @@ export function DashboardContent({ sidebarOpen, onPageChange }: DashboardContent
               </motion.div>
             ))}
           </div>
+        </motion.div>
+
+        {/* Personalized hub — career suggestions, admissions & tests (proposal) */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.35 }}
+          className="mb-6 md:mb-8"
+        >
+          <h2 className="text-lg md:text-xl font-semibold text-slate-800 mb-4 flex items-center gap-2">
+            <Target className="w-6 h-6 text-amber-600" />
+            Your personalized hub
+          </h2>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+            {/* Career suggestions */}
+            <Card className="p-4 md:p-5 border-l-4 border-amber-500 shadow-sm">
+              <div className="flex items-center gap-2 mb-3">
+                <Sparkles className="w-5 h-5 text-amber-600" />
+                <h3 className="font-semibold text-slate-900">Career & degree suggestions</h3>
+              </div>
+              <p className="text-xs text-slate-600 mb-3">{dashboardData.careerSuggestions?.message}</p>
+              {(dashboardData.careerSuggestions?.topCareers?.length ?? 0) > 0 ? (
+                <ul className="space-y-2 mb-3">
+                  {dashboardData.careerSuggestions!.topCareers.slice(0, 4).map((c, i) => (
+                    <li key={i} className="text-sm text-slate-700 flex justify-between gap-2">
+                      <span className="font-medium truncate">{c.career}</span>
+                      <span className="text-amber-700 shrink-0">{c.score}%</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              {(dashboardData.careerSuggestions?.recommendedDegrees?.length ?? 0) > 0 ? (
+                <div>
+                  <p className="text-xs font-medium text-slate-500 mb-1">Recommended degrees</p>
+                  <ul className="space-y-1">
+                    {dashboardData.careerSuggestions!.recommendedDegrees.slice(0, 4).map((d, i) => (
+                      <li key={i} className="text-sm text-slate-700">
+                        {d.degree}
+                        <span className="text-slate-400"> · {d.field}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              <div className="flex flex-col gap-2 mt-4">
+                <Button
+                  variant="outline"
+                  className="w-full border-[#1e3a5f] text-[#1e3a5f] hover:bg-[#1e3a5f]/5"
+                  onClick={() => onPageChange('career')}
+                >
+                  Open career assessment
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="w-full text-sm text-slate-600"
+                  onClick={() => onPageChange('degree-scope')}
+                >
+                  Degree & career scope
+                </Button>
+              </div>
+            </Card>
+
+            {/* Entry tests — short index; full dates in calendar below */}
+            <Card className="p-4 md:p-5 border-l-4 border-emerald-600 shadow-sm">
+              <div className="flex items-center gap-2 mb-3">
+                <FileCheck className="w-5 h-5 text-emerald-600" />
+                <h3 className="font-semibold text-slate-900">Entry tests & schedule</h3>
+              </div>
+              <p className="text-[10px] text-slate-500 mb-3">
+                Typical Pakistan timelines — verify each year on official sites.
+              </p>
+              <ul className="space-y-3 max-h-[240px] overflow-y-auto">
+                {(dashboardData.timelines?.entryTests || []).map((t) => (
+                  <li key={t.id} className="text-sm border-b border-slate-100 pb-2 last:border-0">
+                    <p className="font-medium text-slate-800">{t.name}</p>
+                    <p className="text-xs text-emerald-700">{t.typicalPeriod}</p>
+                    <p className="text-xs text-slate-500">{t.body}</p>
+                    <p className="text-[11px] text-slate-600 mt-1">{t.manzilTip}</p>
+                  </li>
+                ))}
+              </ul>
+              <Button
+                variant="outline"
+                className="w-full mt-3 border-slate-300"
+                onClick={() => onPageChange('mocktest')}
+              >
+                Practice (mock tests)
+              </Button>
+            </Card>
+          </div>
+
+          {dashboardData.timelines?.testCalendar2026 && (
+            <div className="mt-6">
+              <TestCalendar2026 calendar={dashboardData.timelines.testCalendar2026} />
+            </div>
+          )}
+
+          {(dashboardData.profileGaps?.length ?? 0) > 0 && (
+            <Card className="mt-4 p-4 bg-blue-50/80 border border-blue-100">
+              <p className="text-sm font-medium text-slate-800 mb-2">Complete your profile for better recommendations</p>
+              <div className="flex flex-wrap gap-2">
+                {dashboardData.profileGaps!.slice(0, 6).map((g) => (
+                  <span
+                    key={g.field}
+                    className="text-xs px-2 py-1 rounded-full bg-white border border-blue-200 text-slate-700"
+                  >
+                    {g.label}
+                  </span>
+                ))}
+              </div>
+              <Button
+                size="sm"
+                className="mt-3 bg-[#1e3a5f] hover:bg-[#0f1f3a]"
+                onClick={() => onPageChange('profile')}
+              >
+                Finish profile
+              </Button>
+            </Card>
+          )}
         </motion.div>
 
         {/* Analytics Dashboard - Graphs Section */}
@@ -851,31 +1060,28 @@ export function DashboardContent({ sidebarOpen, onPageChange }: DashboardContent
                               className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-lg hover:border-amber-500 hover:bg-amber-50 transition-all"
                             >
                   <div className="flex-1 min-w-0">
-                                <h4 className="text-base font-semibold text-slate-800 mb-1">{university.name}</h4>
-                                {university.city && (
+                                <h4 className="text-base font-semibold text-slate-800 mb-1">
+                                  {universityNameLabel(university.name)}
+                                </h4>
+                                {stripUnknownUniversityText(university.city) && (
                                   <div className="flex items-center gap-2 text-sm text-slate-600">
                                     <MapPin className="w-4 h-4 text-amber-600" />
-                                    <span>{university.city}</span>
+                                    <span>{stripUnknownUniversityText(university.city)}</span>
                                   </div>
                                 )}
                               </div>
                               <Button
                                 onClick={() => {
-                                  if (university.website) {
-                                    let websiteUrl = university.website.trim();
-                                    if (!websiteUrl.startsWith('http://') && !websiteUrl.startsWith('https://')) {
-                                      websiteUrl = 'https://' + websiteUrl;
-                                    }
-                                    window.open(websiteUrl, '_blank', 'noopener,noreferrer');
-                                  } else {
-                                    toast.info('Website link not available for this university');
+                                  const id = university._id;
+                                  if (id) {
+                                    setShowSavedUniversitiesModal(false);
+                                    onPageChange('university-detail', String(id));
                                   }
                                 }}
                                 className="bg-gradient-to-r from-amber-500 to-amber-600 text-white hover:shadow-lg transition-all ml-4 flex-shrink-0"
                                 size="sm"
                               >
-                                Visit
-                                <ExternalLink className="w-4 h-4 ml-2" />
+                                View details
                               </Button>
                             </div>
                           );
@@ -911,5 +1117,6 @@ export function DashboardContent({ sidebarOpen, onPageChange }: DashboardContent
       </div>
       )}
     </div>
+    </>
   );
 }

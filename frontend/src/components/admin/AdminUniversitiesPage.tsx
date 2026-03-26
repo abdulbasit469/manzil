@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'motion/react';
-import { Search, Plus, Edit, Trash2, MapPin, Globe, Users, Loader2, X, Upload, Image as ImageIcon } from 'lucide-react';
+import { Search, Plus, Edit, Trash2, MapPin, Globe, Users, Loader2, X, Upload, Image as ImageIcon, BookOpen, Banknote } from 'lucide-react';
 import { Button } from '../ui/button';
 import api from '../../services/api';
 import { toast } from 'sonner';
+import { universityNameLabel } from '../../utils/universityDisplay';
 
 interface University {
   _id: string;
@@ -19,6 +20,20 @@ interface University {
   establishedYear?: number;
   programCount?: number;
   image?: string;
+  feeComputingEngSemester?: string;
+  feeBusinessSocialSemester?: string;
+  feeBsTypicalSemester?: string;
+  feeMbbsPerYear?: string;
+  feePublicRegularSemester?: string;
+  feePublicSelfFinanceSemester?: string;
+}
+
+interface EditProgramRow {
+  _id: string;
+  name: string;
+  degree: string;
+  programGroup?: string;
+  category?: string;
 }
 
 export function AdminUniversitiesPage() {
@@ -31,6 +46,7 @@ export function AdminUniversitiesPage() {
     totalPrograms: 0
   });
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
@@ -38,6 +54,15 @@ export function AdminUniversitiesPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingUniversity, setEditingUniversity] = useState<University | null>(null);
+  const [editPrograms, setEditPrograms] = useState<EditProgramRow[]>([]);
+  const [programsLoading, setProgramsLoading] = useState(false);
+  const [newProgram, setNewProgram] = useState({
+    name: '',
+    degree: 'BS',
+    programGroup: '',
+    category: 'Other',
+  });
+  const [addingProgram, setAddingProgram] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     city: '',
@@ -49,7 +74,13 @@ export function AdminUniversitiesPage() {
     description: '',
     hecRanking: '',
     establishedYear: '',
-    image: ''
+    image: '',
+    feeComputingEngSemester: '',
+    feeBusinessSocialSemester: '',
+    feeBsTypicalSemester: '',
+    feeMbbsPerYear: '',
+    feePublicRegularSemester: '',
+    feePublicSelfFinanceSemester: '',
   });
   const [universityImage, setUniversityImage] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
@@ -60,9 +91,9 @@ export function AdminUniversitiesPage() {
       const response = await api.get('/universities', {
         params: {
           page,
-          limit: 10, // Show 10 universities per page
-          search: searchQuery || undefined
-        }
+          limit: 10,
+          search: debouncedSearch || undefined,
+        },
       });
       if (response.data.success) {
         const uniList = response.data.universities || [];
@@ -82,32 +113,15 @@ export function AdminUniversitiesPage() {
 
   const fetchStats = async () => {
     try {
-      // Get overall university stats from backend
       const statsResponse = await api.get('/admin/stats');
-      const universitiesResponse = await api.get('/universities', {
-        params: {
-          page: 1,
-          limit: 10000 // Get all for accurate stats
-        }
-      });
-      
       if (statsResponse.data.success) {
-        setStats(prev => ({
+        const s = statsResponse.data.stats;
+        setStats((prev) => ({
           ...prev,
-          totalPrograms: statsResponse.data.stats.programs || 0
-        }));
-      }
-      
-      if (universitiesResponse.data.success) {
-        const allUnis = universitiesResponse.data.universities || [];
-        const publicUnis = allUnis.filter((u: University) => u.type === 'Public').length;
-        const privateUnis = allUnis.filter((u: University) => u.type === 'Private').length;
-        
-        setStats(prev => ({
-          ...prev,
-          total: allUnis.length,
-          public: publicUnis,
-          private: privateUnis
+          total: s.universities ?? 0,
+          public: s.universitiesPublic ?? 0,
+          private: s.universitiesPrivate ?? 0,
+          totalPrograms: s.programs ?? 0,
         }));
       }
     } catch (error) {
@@ -115,35 +129,34 @@ export function AdminUniversitiesPage() {
     }
   };
 
-  // Debounce search query - reset to page 1 when search changes
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      setPage(1);
-    }, 500);
-
-    return () => clearTimeout(timeoutId);
+    const t = setTimeout(() => {
+      const next = searchQuery.trim();
+      setDebouncedSearch((prev) => {
+        if (prev !== next) setPage(1);
+        return next;
+      });
+    }, 350);
+    return () => clearTimeout(t);
   }, [searchQuery]);
 
   useEffect(() => {
     fetchUniversities();
-    fetchStats();
-    // Scroll to top when page changes
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [page]);
+  }, [page, debouncedSearch]);
 
-  // Scroll to top when component mounts
   useEffect(() => {
+    fetchStats();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
-  // Refresh every 30 seconds
   useEffect(() => {
     const interval = setInterval(() => {
       fetchUniversities();
       fetchStats();
-    }, 30000);
+    }, 120000);
     return () => clearInterval(interval);
-  }, [page, searchQuery]);
+  }, [page, debouncedSearch]);
 
   const handleDelete = async (universityId: string) => {
     if (!window.confirm('Are you sure you want to delete this university?')) {
@@ -180,6 +193,13 @@ export function AdminUniversitiesPage() {
       if (formData.hecRanking.trim()) universityData.hecRanking = parseInt(formData.hecRanking);
       if (formData.establishedYear.trim()) universityData.establishedYear = parseInt(formData.establishedYear);
 
+      universityData.feeComputingEngSemester = formData.feeComputingEngSemester.trim();
+      universityData.feeBusinessSocialSemester = formData.feeBusinessSocialSemester.trim();
+      universityData.feeBsTypicalSemester = formData.feeBsTypicalSemester.trim();
+      universityData.feeMbbsPerYear = formData.feeMbbsPerYear.trim();
+      universityData.feePublicRegularSemester = formData.feePublicRegularSemester.trim();
+      universityData.feePublicSelfFinanceSemester = formData.feePublicSelfFinanceSemester.trim();
+
       const response = await api.post('/admin/universities', universityData);
       
       if (response.data.success) {
@@ -188,7 +208,7 @@ export function AdminUniversitiesPage() {
         setFormData({
           name: '',
           city: '',
-      type: 'Public',
+          type: 'Public',
           website: '',
           email: '',
           phone: '',
@@ -196,7 +216,13 @@ export function AdminUniversitiesPage() {
           description: '',
           hecRanking: '',
           establishedYear: '',
-          image: ''
+          image: '',
+          feeComputingEngSemester: '',
+          feeBusinessSocialSemester: '',
+          feeBsTypicalSemester: '',
+          feeMbbsPerYear: '',
+          feePublicRegularSemester: '',
+          feePublicSelfFinanceSemester: '',
         });
         setUniversityImage('');
         setShowAddModal(false);
@@ -212,6 +238,88 @@ export function AdminUniversitiesPage() {
     }
   };
 
+  const loadProgramsForEdit = useCallback(async (universityId: string) => {
+    setProgramsLoading(true);
+    try {
+      const res = await api.get(`/universities/${universityId}/programs`);
+      setEditPrograms(res.data?.programs || []);
+    } catch {
+      setEditPrograms([]);
+      toast.error('Could not load programs');
+    } finally {
+      setProgramsLoading(false);
+    }
+  }, []);
+
+  const handleAddProgramInModal = async () => {
+    if (!editingUniversity || !newProgram.name.trim()) {
+      toast.error('Please enter a program name');
+      return;
+    }
+    setAddingProgram(true);
+    try {
+      await api.post('/admin/programs', {
+        university: editingUniversity._id,
+        name: newProgram.name.trim(),
+        degree: newProgram.degree.trim() || 'BS',
+        duration: '4 years',
+        feePerSemester: 0,
+        category: newProgram.category.trim() || 'Other',
+        programGroup: newProgram.programGroup.trim() || undefined,
+        description: '',
+        isActive: true,
+      });
+      toast.success('Program added');
+      setNewProgram({ name: '', degree: 'BS', programGroup: '', category: 'Other' });
+      await loadProgramsForEdit(editingUniversity._id);
+      fetchStats();
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } };
+      toast.error(e.response?.data?.message || 'Could not add program');
+    } finally {
+      setAddingProgram(false);
+    }
+  };
+
+  const handleDeleteProgramInModal = async (programId: string, programName: string) => {
+    if (!window.confirm(`Delete "${programName}"?`)) return;
+    try {
+      await api.delete(`/admin/programs/${programId}`);
+      toast.success('Program deleted');
+      setEditPrograms((prev) => prev.filter((p) => p._id !== programId));
+      fetchStats();
+    } catch {
+      toast.error('Delete failed');
+    }
+  };
+
+  const resetEditModal = () => {
+    setShowEditModal(false);
+    setEditingUniversity(null);
+    setEditPrograms([]);
+    setNewProgram({ name: '', degree: 'BS', programGroup: '', category: 'Other' });
+    setFormData({
+      name: '',
+      city: '',
+      type: 'Public',
+      website: '',
+      email: '',
+      phone: '',
+      address: '',
+      description: '',
+      hecRanking: '',
+      establishedYear: '',
+      image: '',
+      feeComputingEngSemester: '',
+      feeBusinessSocialSemester: '',
+      feeBsTypicalSemester: '',
+      feeMbbsPerYear: '',
+      feePublicRegularSemester: '',
+      feePublicSelfFinanceSemester: '',
+    });
+    setUniversityImage('');
+  };
+
   const handleEditClick = (university: University) => {
     setEditingUniversity(university);
     setFormData({
@@ -225,7 +333,13 @@ export function AdminUniversitiesPage() {
       description: university.description || '',
       hecRanking: university.hecRanking?.toString() || '',
       establishedYear: university.establishedYear?.toString() || '',
-      image: ''
+      image: '',
+      feeComputingEngSemester: university.feeComputingEngSemester || '',
+      feeBusinessSocialSemester: university.feeBusinessSocialSemester || '',
+      feeBsTypicalSemester: university.feeBsTypicalSemester || '',
+      feeMbbsPerYear: university.feeMbbsPerYear || '',
+      feePublicRegularSemester: university.feePublicRegularSemester || '',
+      feePublicSelfFinanceSemester: university.feePublicSelfFinanceSemester || '',
     });
     // Set image preview if university has an image
     if (university.image) {
@@ -234,6 +348,33 @@ export function AdminUniversitiesPage() {
       setUniversityImage('');
     }
     setShowEditModal(true);
+    loadProgramsForEdit(university._id);
+    api
+      .get(`/universities/${university._id}`)
+      .then((res) => {
+        const u = res.data?.university;
+        if (!u) return;
+        setFormData((prev) => ({
+          ...prev,
+          website: u.website || prev.website,
+          email: u.email || '',
+          phone: u.phone || '',
+          address: u.address || '',
+          description: u.description || '',
+          hecRanking: u.hecRanking != null ? String(u.hecRanking) : prev.hecRanking,
+          establishedYear: u.establishedYear != null ? String(u.establishedYear) : prev.establishedYear,
+          feeComputingEngSemester: u.feeComputingEngSemester ?? prev.feeComputingEngSemester,
+          feeBusinessSocialSemester: u.feeBusinessSocialSemester ?? prev.feeBusinessSocialSemester,
+          feeBsTypicalSemester: u.feeBsTypicalSemester ?? prev.feeBsTypicalSemester,
+          feeMbbsPerYear: u.feeMbbsPerYear ?? prev.feeMbbsPerYear,
+          feePublicRegularSemester: u.feePublicRegularSemester ?? prev.feePublicRegularSemester,
+          feePublicSelfFinanceSemester: u.feePublicSelfFinanceSemester ?? prev.feePublicSelfFinanceSemester,
+        }));
+        if (u.image && !university.image) {
+          setUniversityImage(u.image);
+        }
+      })
+      .catch(() => {});
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -292,7 +433,14 @@ export function AdminUniversitiesPage() {
       if (formData.description.trim()) universityData.description = formData.description.trim();
       if (formData.hecRanking.trim()) universityData.hecRanking = parseInt(formData.hecRanking);
       if (formData.establishedYear.trim()) universityData.establishedYear = parseInt(formData.establishedYear);
-      
+
+      universityData.feeComputingEngSemester = formData.feeComputingEngSemester.trim();
+      universityData.feeBusinessSocialSemester = formData.feeBusinessSocialSemester.trim();
+      universityData.feeBsTypicalSemester = formData.feeBsTypicalSemester.trim();
+      universityData.feeMbbsPerYear = formData.feeMbbsPerYear.trim();
+      universityData.feePublicRegularSemester = formData.feePublicRegularSemester.trim();
+      universityData.feePublicSelfFinanceSemester = formData.feePublicSelfFinanceSemester.trim();
+
       // Include image if it was uploaded (base64 string)
       if (formData.image && formData.image.startsWith('data:image')) {
         universityData.image = formData.image;
@@ -305,24 +453,7 @@ export function AdminUniversitiesPage() {
       
       if (response.data.success) {
         toast.success('University updated successfully');
-        setShowEditModal(false);
-        setEditingUniversity(null);
-        // Reset form
-        setFormData({
-          name: '',
-          city: '',
-          type: 'Public',
-          website: '',
-          email: '',
-          phone: '',
-          address: '',
-          description: '',
-          hecRanking: '',
-          establishedYear: '',
-          image: ''
-        });
-        setUniversityImage('');
-        // Refresh universities and stats
+        resetEditModal();
         fetchUniversities();
         fetchStats();
       }
@@ -339,6 +470,95 @@ export function AdminUniversitiesPage() {
     return name.charAt(0).toUpperCase();
   };
 
+  const indicativeFeeFormSection = (
+    <div className="border-t border-slate-200 pt-4">
+      <h4 className="text-lg font-semibold mb-1 flex items-center gap-2">
+        <Banknote className="w-5 h-5 text-purple-600" />
+        Indicative fee ranges (PKR)
+      </h4>
+      <p className="text-xs text-slate-500 mb-3">
+        Optional. Rough ranges only (e.g. Rs. 197,050 or Rs. 185,000 – 210,000). Students should always confirm fees on the official website.
+      </p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">
+            BS Computing / Engineering (per semester)
+          </label>
+          <input
+            type="text"
+            value={formData.feeComputingEngSemester}
+            onChange={(e) => setFormData({ ...formData, feeComputingEngSemester: e.target.value })}
+            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+            placeholder="e.g. Rs. 185,000 – 210,000"
+            maxLength={500}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">
+            Business / Social Sciences (per semester)
+          </label>
+          <input
+            type="text"
+            value={formData.feeBusinessSocialSemester}
+            onChange={(e) => setFormData({ ...formData, feeBusinessSocialSemester: e.target.value })}
+            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+            placeholder="e.g. Rs. 160,000 – 190,000"
+            maxLength={500}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">
+            Typical BS / general programs (per semester)
+          </label>
+          <input
+            type="text"
+            value={formData.feeBsTypicalSemester}
+            onChange={(e) => setFormData({ ...formData, feeBsTypicalSemester: e.target.value })}
+            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+            placeholder="e.g. Rs. 650,000 – 720,000"
+            maxLength={500}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Medical MBBS (per year)</label>
+          <input
+            type="text"
+            value={formData.feeMbbsPerYear}
+            onChange={(e) => setFormData({ ...formData, feeMbbsPerYear: e.target.value })}
+            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+            placeholder="e.g. Rs. 1,760,000 – 2,100,000"
+            maxLength={500}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">
+            Public — regular seat (per semester)
+          </label>
+          <input
+            type="text"
+            value={formData.feePublicRegularSemester}
+            onChange={(e) => setFormData({ ...formData, feePublicRegularSemester: e.target.value })}
+            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+            placeholder="e.g. Rs. 25,000 – 40,000"
+            maxLength={500}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">
+            Public — self-finance (per semester)
+          </label>
+          <input
+            type="text"
+            value={formData.feePublicSelfFinanceSemester}
+            onChange={(e) => setFormData({ ...formData, feePublicSelfFinanceSemester: e.target.value })}
+            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+            placeholder="e.g. Rs. 65,000 – 90,000"
+            maxLength={500}
+          />
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <>
@@ -513,6 +733,8 @@ export function AdminUniversitiesPage() {
                 </div>
               </div>
 
+              {indicativeFeeFormSection}
+
               {/* Form Actions */}
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
                 <Button
@@ -552,27 +774,13 @@ export function AdminUniversitiesPage() {
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+            className="bg-white rounded-xl shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
           >
-            <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+            <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between z-10">
               <h3 className="text-2xl font-bold">Edit University</h3>
               <button
-                onClick={() => {
-                  setShowEditModal(false);
-                  setEditingUniversity(null);
-                  setFormData({
-                    name: '',
-                    city: '',
-                    type: 'Public',
-                    website: '',
-                    email: '',
-                    phone: '',
-                    address: '',
-                    description: '',
-                    hecRanking: '',
-                    establishedYear: ''
-                  });
-                }}
+                type="button"
+                onClick={resetEditModal}
                 className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
               >
                 <X className="w-5 h-5" />
@@ -640,6 +848,116 @@ export function AdminUniversitiesPage() {
                 </div>
               </div>
 
+              {/* Programs for this university */}
+              <div className="border-t border-slate-200 pt-4">
+                <h4 className="text-lg font-semibold mb-2 flex items-center gap-2">
+                  <BookOpen className="w-5 h-5 text-purple-600" />
+                  Programs (this university)
+                </h4>
+                <p className="text-sm text-slate-500 mb-3">
+                  View this university&apos;s programs, add new ones, or remove them below.
+                </p>
+
+                {programsLoading ? (
+                  <div className="flex items-center gap-2 py-6 text-slate-600">
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Loading programs…
+                  </div>
+                ) : (
+                  <div className="max-h-52 overflow-y-auto border border-slate-200 rounded-lg divide-y divide-slate-100 mb-4">
+                    {editPrograms.length === 0 ? (
+                      <p className="p-4 text-sm text-slate-500">No programs listed yet.</p>
+                    ) : (
+                      editPrograms.map((p) => (
+                        <div
+                          key={p._id}
+                          className="flex items-start justify-between gap-2 px-3 py-2.5 text-sm hover:bg-slate-50"
+                        >
+                          <div className="min-w-0">
+                            <p className="font-medium text-slate-900 truncate">{p.name}</p>
+                            <p className="text-xs text-slate-600">
+                              <span className="font-semibold text-purple-700">{p.degree}</span>
+                              {p.programGroup ? ` · ${p.programGroup}` : ''}
+                              {p.category ? ` · ${p.category}` : ''}
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="shrink-0 text-red-600 border-red-200 hover:bg-red-50"
+                            onClick={() => handleDeleteProgramInModal(p._id, p.name)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+
+                <div className="space-y-3 bg-slate-50 rounded-lg p-4 border border-slate-200">
+                  <p className="text-sm font-medium text-slate-700">Add a new program</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="sm:col-span-2">
+                      <label className="text-xs text-slate-600">Program name</label>
+                      <input
+                        className="w-full mt-0.5 px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                        value={newProgram.name}
+                        onChange={(e) => setNewProgram({ ...newProgram, name: e.target.value })}
+                        placeholder="e.g. BS Computer Science"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-600">Degree</label>
+                      <input
+                        className="w-full mt-0.5 px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                        value={newProgram.degree}
+                        onChange={(e) => setNewProgram({ ...newProgram, degree: e.target.value })}
+                        placeholder="BS, BBA, LLB…"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-600">Group / faculty</label>
+                      <input
+                        className="w-full mt-0.5 px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                        value={newProgram.programGroup}
+                        onChange={(e) => setNewProgram({ ...newProgram, programGroup: e.target.value })}
+                        placeholder="Engineering, Computing…"
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="text-xs text-slate-600">Category</label>
+                      <input
+                        className="w-full mt-0.5 px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                        value={newProgram.category}
+                        onChange={(e) => setNewProgram({ ...newProgram, category: e.target.value })}
+                        placeholder="Computer Science, Engineering, Business…"
+                      />
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    disabled={addingProgram || !newProgram.name.trim()}
+                    className="bg-purple-600 hover:bg-purple-700 text-white"
+                    size="sm"
+                    onClick={() => handleAddProgramInModal()}
+                  >
+                    {addingProgram ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Adding…
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add program
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+
               {/* Contact Information */}
               <div className="border-t border-slate-200 pt-4">
                 <h4 className="text-lg font-semibold mb-3">Contact Information</h4>
@@ -699,6 +1017,8 @@ export function AdminUniversitiesPage() {
                   </div>
                 </div>
               </div>
+
+              {indicativeFeeFormSection}
 
               {/* Additional Information */}
               <div className="border-t border-slate-200 pt-4">
@@ -788,24 +1108,7 @@ export function AdminUniversitiesPage() {
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
                 <Button
                   type="button"
-                  onClick={() => {
-                    setShowEditModal(false);
-                    setEditingUniversity(null);
-                    setFormData({
-                      name: '',
-                      city: '',
-                      type: 'Public',
-                      website: '',
-                      email: '',
-                      phone: '',
-                      address: '',
-                      description: '',
-                      hecRanking: '',
-                      establishedYear: '',
-                      image: ''
-                    });
-                    setUniversityImage('');
-                  }}
+                  onClick={resetEditModal}
                   className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-50"
                   disabled={submitting}
                 >
@@ -926,14 +1229,16 @@ export function AdminUniversitiesPage() {
           >
                 <div className="flex items-start gap-3">
                   <div className="w-10 h-10 rounded-full bg-gradient-to-r from-purple-500 to-purple-600 flex items-center justify-center text-white font-semibold flex-shrink-0">
-                    {getInitial(university.name)}
+                    {getInitial(universityNameLabel(university.name))}
                   </div>
                   
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-4 mb-2">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <h3 className="font-semibold text-base break-words">{university.name}</h3>
+                          <h3 className="font-semibold text-base break-words">
+                            {universityNameLabel(university.name)}
+                          </h3>
                           {university.type && (
                       <span
                               className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs flex-shrink-0 ${

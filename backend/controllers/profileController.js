@@ -1,4 +1,12 @@
 const User = require('../models/User');
+const { sanitizeUniversityFields } = require('../utils/sanitizeUniversityStrings');
+const {
+  DISCLAIMER: TIMELINE_DISCLAIMER,
+  UPCOMING_ADMISSION_WINDOWS,
+  UPCOMING_ENTRY_TESTS,
+} = require('../data/dashboardCurated');
+const { TEST_CALENDAR_2026 } = require('../data/testCalendar2026');
+const { ensureTestCalendarNotifications } = require('../services/testCalendarNotifications');
 
 // Helper function to calculate profile completion (for use with lean() queries)
 function calculateProfileCompletion(user) {
@@ -34,6 +42,49 @@ function calculateProfileCompletion(user) {
   return percentage;
 }
 
+const PROFILE_FIELD_LABELS = {
+  name: 'Full name',
+  email: 'Email',
+  phone: 'Phone (11 digits)',
+  city: 'City',
+  fatherName: "Father's name",
+  gender: 'Gender',
+  dateOfBirth: 'Date of birth',
+  matricMarks: 'Matric obtained marks',
+  matricMajors: 'Matric stream',
+  intermediateType: 'Intermediate type',
+  firstYearMarks: 'First year / Part-I marks',
+  intermediateMarks: 'Intermediate total obtained marks',
+};
+
+function getProfileGaps(user) {
+  const requiredFields = [
+    'name',
+    'email',
+    'phone',
+    'city',
+    'fatherName',
+    'gender',
+    'dateOfBirth',
+    'matricMarks',
+    'matricMajors',
+    'intermediateType',
+    'firstYearMarks',
+    'intermediateMarks',
+  ];
+  return requiredFields
+    .filter((field) => {
+      const value = user[field];
+      if (value === null || value === undefined || value === '') return true;
+      if (Array.isArray(value)) return value.length === 0;
+      return false;
+    })
+    .map((field) => ({
+      field,
+      label: PROFILE_FIELD_LABELS[field] || field,
+    }));
+}
+
 /**
  * @desc    Get current user profile
  * @route   GET /api/profile
@@ -43,11 +94,13 @@ exports.getProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
     const completion = user.calculateProfileCompletion();
+    const profileGaps = getProfileGaps(user.toObject());
 
     res.status(200).json({
       success: true,
       profile: user,
-      profileCompletion: completion
+      profileCompletion: completion,
+      profileGaps,
     });
   } catch (error) {
     res.status(500).json({
@@ -85,7 +138,7 @@ exports.updateProfile = async (req, res) => {
     if (matricMajors) fieldsToUpdate.matricMajors = matricMajors;
     if (profilePicture !== undefined) fieldsToUpdate.profilePicture = profilePicture;
     if (secondYearResultAvailable !== undefined) fieldsToUpdate.secondYearResultAvailable = secondYearResultAvailable;
-    if (interests) fieldsToUpdate.interests = interests;
+    if (Array.isArray(interests)) fieldsToUpdate.interests = interests;
 
     const user = await User.findByIdAndUpdate(req.user.id, fieldsToUpdate, {
       new: true,
@@ -98,11 +151,14 @@ exports.updateProfile = async (req, res) => {
 
     console.log(`✅ Profile updated for user: ${user.email}`);
 
+    const profileGaps = getProfileGaps(user.toObject());
+
     res.status(200).json({
       success: true,
       message: 'Profile updated successfully',
       profile: user,
-      profileCompletion: completion
+      profileCompletion: completion,
+      profileGaps,
     });
   } catch (error) {
     console.error('❌ Profile update error:', error.message);
@@ -159,7 +215,9 @@ exports.getDashboard = async (req, res) => {
     // Run independent queries in parallel for better performance
     const [latestAssessment, savedUniversitiesCount, applicationsCount] = await Promise.all([
       AssessmentResponse.findOne({ user: req.user.id })
-        .select('personalityResults aptitudeResults interestResults')
+        .select(
+          'personalityResults aptitudeResults interestResults aggregatedResults testsCompleted brainResults'
+        )
         .sort({ createdAt: -1 })
         .lean(),
       SavedUniversity.countDocuments({ user: req.user.id }),
@@ -277,7 +335,7 @@ exports.getDashboard = async (req, res) => {
     // Round hours to whole numbers and remove dateKey from response
     const finalActivityData = activityData.map(({ dateKey, dayIndex, ...rest }) => ({
       ...rest,
-      hours: Math.round(rest.hours)
+      hours: Math.round(rest.hours),
     }));
 
     // Calculate time spent in each section - REAL DATA from actual activities
@@ -433,10 +491,11 @@ exports.getDashboard = async (req, res) => {
     
     recentSavedUniversities.forEach(saved => {
       if (saved.university) {
+        const nm = sanitizeUniversityFields({ name: saved.university.name }).name || saved.university.name;
         recentActivities.push({
           type: 'saved_university',
           action: 'Saved university',
-          detail: saved.university.name,
+          detail: nm,
           timestamp: saved.createdAt,
           icon: 'bookmark'
         });
@@ -488,10 +547,11 @@ exports.getDashboard = async (req, res) => {
     
     recentApplications.forEach(application => {
       if (application.university) {
+        const nm = sanitizeUniversityFields({ name: application.university.name }).name || application.university.name;
         recentActivities.push({
           type: 'application',
           action: 'Submitted application',
-          detail: application.university.name,
+          detail: nm,
           timestamp: application.createdAt,
           icon: 'file'
         });
@@ -508,6 +568,29 @@ exports.getDashboard = async (req, res) => {
       icon: activity.icon
     }));
 
+    // --- Proposal: personalized hub — career suggestions from assessments ---
+    const tc = latestAssessment?.aggregatedResults?.topCareers || [];
+    const rd = latestAssessment?.aggregatedResults?.recommendedDegrees || [];
+    const testsDone = latestAssessment?.testsCompleted || {};
+    const threeForManzil =
+      testsDone.personality === true &&
+      testsDone.interest === true &&
+      (testsDone.brain === true || testsDone.aptitude === true);
+    let careerHubMessage =
+      'Complete all three career assessments (Personality, Brain Hemisphere, and Career Path Profiler) to unlock personalized degree and career suggestions on your dashboard.';
+    if (latestAssessment && !threeForManzil) {
+      const missing = [];
+      if (!testsDone.personality) missing.push('Personality');
+      if (!testsDone.brain && !testsDone.aptitude) missing.push('Brain Hemisphere');
+      if (!testsDone.interest) missing.push('Career Path Profiler');
+      careerHubMessage = `Finish your assessments to see tailored suggestions. Still pending: ${missing.join(', ') || 'one or more tests'}.`;
+    } else if (threeForManzil && tc.length === 0 && rd.length === 0) {
+      careerHubMessage =
+        'Your tests are complete. Open Career Assessment and use Refresh recommendations if suggestions do not appear yet.';
+    }
+
+    const profileGaps = getProfileGaps(user);
+
     const dashboardData = {
       user: {
         name: user.name,
@@ -521,8 +604,26 @@ exports.getDashboard = async (req, res) => {
         assessmentTaken: !!latestAssessment,
         applicationsInProgress: applicationsCount
       },
+      careerSuggestions: {
+        topCareers: (tc || []).slice(0, 5).map((c) => ({
+          career: c.career || c.category || 'Career field',
+          score: Math.round(c.score || 0),
+          description: c.description || '',
+        })),
+        recommendedDegrees: (rd || []).slice(0, 6),
+        testsCompleted: testsDone,
+        allMainTestsDone: threeForManzil,
+        message: careerHubMessage,
+      },
+      timelines: {
+        disclaimer: TIMELINE_DISCLAIMER,
+        admissionWindows: UPCOMING_ADMISSION_WINDOWS,
+        entryTests: UPCOMING_ENTRY_TESTS,
+        testCalendar2026: TEST_CALENDAR_2026,
+      },
+      profileGaps,
       graphs: {
-        weeklyActivity: activityData,
+        weeklyActivity: finalActivityData,
         assessmentScores: assessmentScores.length > 0 ? assessmentScores : [
           { category: 'Personality', score: 0 },
           { category: 'Aptitude', score: 0 },
@@ -533,6 +634,11 @@ exports.getDashboard = async (req, res) => {
       recentActivity: topRecentActivities,
       universitiesProgress: universitiesProgress
     };
+
+    // Sync upcoming test/admission milestones into in-app notifications (throttled per user / 24h)
+    await ensureTestCalendarNotifications(req.user.id).catch((err) => {
+      console.warn('[dashboard] test calendar notifications:', err?.message || err);
+    });
 
     res.status(200).json({
       success: true,

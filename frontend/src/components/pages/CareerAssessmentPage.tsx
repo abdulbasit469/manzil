@@ -1,7 +1,7 @@
 import { motion } from 'motion/react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
-import { Brain, Lightbulb, User, CheckCircle2, ArrowRight, Info, X, Loader2 } from 'lucide-react';
+import { Lightbulb, User, CheckCircle2, ArrowRight, Info, X, Loader2, Activity } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import api from '../../services/api';
 import { toast } from 'sonner';
@@ -23,7 +23,12 @@ export function CareerAssessmentPage({ onPageChange }: CareerAssessmentPageProps
     allCompleted: false
   });
   const [recommendations, setRecommendations] = useState<any[]>([]);
+  const [recommendedDegrees, setRecommendedDegrees] = useState<{ degree: string; field: string; match: number }[]>([]);
   const [mbtiType, setMbtiType] = useState<string | null>(null);
+  const [brainDominance, setBrainDominance] = useState<string | null>(null);
+  const [brainCompleted, setBrainCompleted] = useState(false);
+  const [interestTopDimensions, setInterestTopDimensions] = useState<string[] | null>(null);
+  const [loadingRecommendations, setLoadingRecommendations] = useState(false);
 
   const assessments = [
     {
@@ -34,25 +39,19 @@ export function CareerAssessmentPage({ onPageChange }: CareerAssessmentPageProps
       completed: assessmentStatus.personality,
       result: mbtiType || null,
       color: 'from-amber-500 to-amber-600',
-      isMBTI: true, // Flag to identify MBTI test
-      details: null // Will be fetched dynamically
+      isMBTI: true,
+      details: null
     },
     {
-      title: 'Aptitude Test',
-      subtitle: 'Aptitude Assessment',
-      description: 'Measure your cognitive abilities and problem-solving skills',
-      icon: Brain,
-      completed: assessmentStatus.aptitude,
-      result: assessmentStatus.aptitude ? 'Completed' : null,
-      color: 'from-blue-500 to-cyan-500',
-      details: assessmentStatus.aptitude ? {
-        title: 'Aptitude Test: Completed',
-        breakdown: null,
-        description: [
-          "Your aptitude test results help identify your cognitive strengths and problem-solving abilities.",
-          "These results are combined with your personality and interest assessments to generate personalized career recommendations.",
-        ]
-      } : null
+      title: 'Brain Hemisphere',
+      subtitle: 'OHBDS',
+      description: 'Discover whether you lean toward left-brain (logical) or right-brain (creative) thinking',
+      icon: Activity,
+      completed: brainCompleted,
+      result: brainDominance ? `${brainDominance} Brain` : null,
+      color: 'from-teal-500 to-emerald-600',
+      isBrain: true,
+      details: null
     },
     {
       title: 'Career Path Profiler',
@@ -60,20 +59,73 @@ export function CareerAssessmentPage({ onPageChange }: CareerAssessmentPageProps
       description: 'Identify your interests, motivations, and ideal career paths',
       icon: Lightbulb,
       completed: assessmentStatus.interest,
-      result: assessmentStatus.interest ? 'Completed' : null,
+      result: (interestTopDimensions?.length ? interestTopDimensions.join(', ') : null) || (assessmentStatus.interest ? 'Completed' : null),
       color: 'from-purple-500 to-pink-500',
-      details: assessmentStatus.interest ? {
-        title: 'Interest Assessment: Completed',
-        breakdown: null,
-        description: [
-          "Your interest assessment reveals what activities and fields you're naturally drawn to.",
-          "This information helps match you with careers that align with your passions and motivations.",
-        ]
-      } : null
+      isInterest: true,
+      details: null
     },
   ];
 
   const openDetailModal = async (assessment: any) => {
+    // Brain Hemisphere: fetch static details from backend
+    if (assessment.isBrain && brainDominance) {
+      setLoadingDetails(true);
+      setSelectedTest({ ...assessment, details: null });
+      setShowDetailModal(true);
+      try {
+        const response = await api.get(`/assessment/brain/${encodeURIComponent(brainDominance)}/details`);
+        const d = response.data.details;
+        setSelectedTest({
+          ...assessment,
+          details: {
+            title: d.title || `${brainDominance} Brain`,
+            breakdown: null,
+            description: Array.isArray(d.description) ? d.description : [d.description || '']
+          }
+        });
+      } catch (error: any) {
+        console.error('Error fetching brain details:', error);
+        toast.error(error.response?.data?.message || 'Failed to load details.');
+        setShowDetailModal(false);
+      } finally {
+        setLoadingDetails(false);
+      }
+      return;
+    }
+    // Career Path Profiler (Interest): fetch details from backend
+    if (assessment.isInterest && assessmentStatus.interest) {
+      setLoadingDetails(true);
+      setSelectedTest({ ...assessment, details: null });
+      setShowDetailModal(true);
+      try {
+        const response = await api.get('/assessment/interest/details');
+        const desc = response.data?.description;
+        setSelectedTest({
+          ...assessment,
+          details: {
+            title: response.data?.title || 'Career Path Profiler – Your Interests',
+            breakdown: null,
+            description: Array.isArray(desc) ? desc : [desc || 'Your interest assessment is complete.']
+          }
+        });
+      } catch (error: any) {
+        console.error('Error fetching interest details:', error);
+        setSelectedTest({
+          ...assessment,
+          details: {
+            title: 'Career Path Profiler – Your Interests',
+            breakdown: null,
+            description: [
+              'Your Career Path Profiler assessment is complete. Your results are used for degree recommendations.',
+              'If details do not load, try refreshing the page and opening Details again.'
+            ]
+          }
+        });
+      } finally {
+        setLoadingDetails(false);
+      }
+      return;
+    }
     // If it's MBTI test, fetch details from Gemini API
     if (assessment.isMBTI && mbtiType) {
       setLoadingDetails(true);
@@ -166,33 +218,75 @@ export function CareerAssessmentPage({ onPageChange }: CareerAssessmentPageProps
       const status = statusResponse.data.status;
       setAssessmentStatus(status);
       setMbtiType(statusResponse.data.mbtiType || null);
+      setBrainCompleted(!!statusResponse.data.brainCompleted);
+      setBrainDominance(statusResponse.data.brainDominance || null);
+      const fromServer = statusResponse.data.interestTopDimensions || null;
+      const fromStorage = (() => {
+        try {
+          const s = sessionStorage.getItem('manzil_interestTopDimensions');
+          if (s) {
+            sessionStorage.removeItem('manzil_interestTopDimensions');
+            const arr = JSON.parse(s);
+            return Array.isArray(arr) ? arr : null;
+          }
+        } catch (_) {}
+        return null;
+      })();
+      setInterestTopDimensions(fromServer || fromStorage || null);
 
-      // Only fetch recommendations if all tests are completed
-      if (status.allCompleted && statusResponse.data.hasAggregatedResults) {
-        const resultsResponse = await api.get('/assessment/results');
-        const aggregatedResults = resultsResponse.data.aggregated;
-        
-        if (aggregatedResults && aggregatedResults.topCareers) {
-          // Transform backend format to frontend format
-          const formattedRecommendations = aggregatedResults.topCareers.map((career: any) => ({
-            field: career.career || career.category || 'Unknown',
-            match: career.score || 0,
-            description: career.description || `Based on your assessment results in ${career.category || 'this field'}`,
-          }));
-          setRecommendations(formattedRecommendations);
+      // Fetch recommendations and degrees when all 3 tests are completed (rule-based aggregation, not AI)
+      if (status.allCompleted) {
+        let aggregatedResults: any = null;
+        try {
+          const resultsResponse = await api.get('/assessment/results');
+          aggregatedResults = resultsResponse?.data?.aggregated ?? null;
+        } catch (err: any) {
+          console.error('Fetch recommendations error:', err?.response?.status, err?.message);
+        }
+        if (aggregatedResults) {
+          if (aggregatedResults.topCareers) {
+            const formattedRecommendations = aggregatedResults.topCareers.map((career: any) => ({
+              field: career.career || career.category || 'Unknown',
+              match: career.score || 0,
+              description: career.description || `Based on your assessment results in ${career.category || 'this field'}`,
+            }));
+            setRecommendations(formattedRecommendations);
+          } else {
+            setRecommendations([]);
+          }
+          // Degree recommendations (from 3-test aggregation)
+          if (aggregatedResults.recommendedDegrees && aggregatedResults.recommendedDegrees.length > 0) {
+            setRecommendedDegrees(aggregatedResults.recommendedDegrees);
+          } else if (aggregatedResults.topCareers) {
+            const degrees: { degree: string; field: string; match: number }[] = [];
+            const seen = new Set<string>();
+            aggregatedResults.topCareers.forEach((c: any) => {
+              (c.relatedPrograms || []).forEach((deg: string) => {
+                if (!seen.has(deg)) {
+                  seen.add(deg);
+                  degrees.push({ degree: deg, field: c.category || c.career || '', match: c.score || 0 });
+                }
+              });
+            });
+            setRecommendedDegrees(degrees);
+          } else {
+            setRecommendedDegrees([]);
+          }
         } else {
           setRecommendations([]);
+          setRecommendedDegrees([]);
         }
       } else {
         setRecommendations([]);
+        setRecommendedDegrees([]);
       }
     } catch (error: any) {
       console.error('Error fetching assessment data:', error);
-      // Don't show error toast if it's just no assessment found
       if (error.response?.status !== 404) {
         toast.error('Failed to load assessment data');
       }
       setRecommendations([]);
+      setRecommendedDegrees([]);
     } finally {
       setLoading(false);
     }
@@ -273,16 +367,9 @@ export function CareerAssessmentPage({ onPageChange }: CareerAssessmentPageProps
                       <Button
                         onClick={() => {
                           if (onPageChange) {
-                            // Navigate to appropriate test page based on assessment type
-                            if (assessment.title === 'Personality Insights') {
-                              onPageChange('personality-test');
-                            } else if (assessment.title === 'Aptitude Test') {
-                              // Add aptitude test page navigation when implemented
-                              onPageChange('aptitude-test');
-                            } else if (assessment.title === 'Career Path Profiler') {
-                              // Add interest test page navigation when implemented
-                              onPageChange('interest-test');
-                            }
+                            if (assessment.title === 'Personality Insights') onPageChange('personality-test');
+                            else if (assessment.title === 'Brain Hemisphere') onPageChange('brain-test');
+                            else if (assessment.title === 'Career Path Profiler') onPageChange('interest-test');
                           }
                         }}
                         className="w-full bg-gradient-to-r from-[#1e3a5f] to-[#1e3a5f] text-white hover:shadow-lg transition-all border border-amber-500 py-2 text-sm"
@@ -293,14 +380,12 @@ export function CareerAssessmentPage({ onPageChange }: CareerAssessmentPageProps
                     ) : (
                       <Button
                         onClick={() => {
-                          if (assessment.title === 'Personality Insights') {
-                            // Navigate to personality test for this one
-                            if (onPageChange) {
-                              onPageChange('personality-test');
-                            }
-                          } else {
-                            // Show coming soon modal for Aptitude Test and Career Path Profiler
-                            setShowComingSoonModal(true);
+                          if (assessment.title === 'Personality Insights' && onPageChange) {
+                            onPageChange('personality-test');
+                          } else if (assessment.title === 'Brain Hemisphere' && onPageChange) {
+                            onPageChange('brain-test');
+                          } else if (assessment.title === 'Career Path Profiler' && onPageChange) {
+                            onPageChange('interest-test');
                           }
                         }}
                         className="w-full bg-gradient-to-r from-amber-500 to-amber-600 text-white hover:shadow-lg transition-all py-2 text-sm"
@@ -322,7 +407,7 @@ export function CareerAssessmentPage({ onPageChange }: CareerAssessmentPageProps
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6 }}
         >
-          <h2 className="mb-6">Your Career Recommendations</h2>
+          <h2 className="mb-6">Recommended Degrees</h2>
           <Card className="p-6">
             {loading ? (
               <div className="flex items-center justify-center py-12">
@@ -333,15 +418,15 @@ export function CareerAssessmentPage({ onPageChange }: CareerAssessmentPageProps
                 <Lightbulb className="w-16 h-16 mx-auto mb-4 text-slate-300" />
                 <h3 className="text-lg font-semibold text-slate-800 mb-2">Complete All Assessments</h3>
                 <p className="text-slate-600 mb-4">
-                  Complete all 3 assessments (Personality, Aptitude, and Interest) to receive personalized career recommendations.
+                  Complete all 3 assessments (Personality, Brain Hemisphere, and Interest) to get personalized degree recommendations.
                 </p>
                 <div className="flex items-center justify-center gap-2 text-sm text-slate-500">
                   <span className={assessmentStatus.personality ? 'text-green-600' : ''}>
                     {assessmentStatus.personality ? '✓' : '○'} Personality
                   </span>
                   <span>•</span>
-                  <span className={assessmentStatus.aptitude ? 'text-green-600' : ''}>
-                    {assessmentStatus.aptitude ? '✓' : '○'} Aptitude
+                  <span className={brainCompleted ? 'text-green-600' : ''}>
+                    {brainCompleted ? '✓' : '○'} Brain Hemisphere
                   </span>
                   <span>•</span>
                   <span className={assessmentStatus.interest ? 'text-green-600' : ''}>
@@ -349,31 +434,84 @@ export function CareerAssessmentPage({ onPageChange }: CareerAssessmentPageProps
                   </span>
                 </div>
               </div>
-            ) : recommendations.length === 0 ? (
+            ) : (recommendedDegrees.length === 0 && recommendations.length === 0) ? (
               <div className="text-center py-12">
                 <Lightbulb className="w-16 h-16 mx-auto mb-4 text-slate-300" />
                 <h3 className="text-lg font-semibold text-slate-800 mb-2">No Recommendations Yet</h3>
-                <p className="text-slate-600">
-                  Your career recommendations will appear here once all assessments are processed.
+                <p className="text-slate-600 mb-4">
+                  Your degree recommendations will appear here once all 3 assessments are processed. Recommendations are rule-based (weighted scores), not AI.
                 </p>
+                <Button
+                  onClick={async () => {
+                    setLoadingRecommendations(true);
+                    try {
+                      const res = await api.get('/assessment/results');
+                      const agg = res?.data?.aggregated;
+                      if (agg?.recommendedDegrees?.length) {
+                        setRecommendedDegrees(agg.recommendedDegrees);
+                      }
+                      if (agg?.topCareers?.length) {
+                        setRecommendations(agg.topCareers.map((c: any) => ({ field: c.career || c.category, match: c.score || 0, description: c.description || '' })));
+                      }
+                    } catch (e) {
+                      console.error(e);
+                      toast.error('Could not load recommendations');
+                    } finally {
+                      setLoadingRecommendations(false);
+                    }
+                  }}
+                  disabled={loadingRecommendations}
+                >
+                  {loadingRecommendations && <Loader2 className="w-4 h-4 animate-spin mr-2 inline" />}
+                  {loadingRecommendations ? 'Loading…' : 'Refresh recommendations'}
+                </Button>
               </div>
             ) : (
-              <div className="space-y-4">
-                {recommendations.map((rec, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center gap-4 p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors"
-                  >
-                    <div className="flex-1">
-                      <h3 className="mb-1 font-semibold">{rec.field}</h3>
-                      <p className="text-sm text-slate-600">{rec.description}</p>
+              <div className="space-y-6">
+                {recommendedDegrees.length > 0 && (
+                  <>
+                    <h3 className="text-base font-semibold text-slate-800">Recommended Degrees (based on your 3 tests)</h3>
+                    <div className="space-y-3">
+                      {recommendedDegrees.map((item, index) => (
+                        <div
+                          key={`${item.degree}-${index}`}
+                          className="flex items-center gap-4 p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors"
+                        >
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-slate-900">{item.degree}</h4>
+                            <p className="text-sm text-slate-600">{item.field}</p>
+                          </div>
+                          <div className="flex flex-col items-center gap-0">
+                            <span className="text-xl font-bold text-amber-600">{item.match}%</span>
+                            <span className="text-xs text-slate-500">Match</span>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                    <div className="flex flex-col items-center gap-1">
-                      <div className="text-2xl font-bold text-amber-600">{rec.match}%</div>
-                      <span className="text-xs text-slate-500">Match</span>
+                  </>
+                )}
+                {recommendations.length > 0 && (
+                  <>
+                    <h3 className="text-base font-semibold text-slate-800 pt-2">Career Fields</h3>
+                    <div className="space-y-3">
+                      {recommendations.map((rec, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center gap-4 p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors"
+                        >
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-slate-900">{rec.field}</h4>
+                            <p className="text-sm text-slate-600">{rec.description}</p>
+                          </div>
+                          <div className="flex flex-col items-center gap-0">
+                            <span className="text-xl font-bold text-amber-600">{rec.match}%</span>
+                            <span className="text-xs text-slate-500">Match</span>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  </div>
-                ))}
+                  </>
+                )}
               </div>
             )}
           </Card>
@@ -386,7 +524,7 @@ export function CareerAssessmentPage({ onPageChange }: CareerAssessmentPageProps
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto shadow-2xl"
+            className={`bg-white rounded-xl w-full shadow-2xl ${(selectedTest.isBrain || selectedTest.isInterest) ? 'max-w-md overflow-visible' : 'max-w-2xl max-h-[80vh] overflow-y-auto'}`}
           >
             <div className="sticky top-0 bg-gradient-to-r from-[#1e3a5f] to-amber-500 text-white p-6 rounded-t-xl flex items-center justify-between">
               <h2 className="text-2xl">
@@ -407,7 +545,7 @@ export function CareerAssessmentPage({ onPageChange }: CareerAssessmentPageProps
                 </div>
               ) : selectedTest.details ? (
                 <>
-                  {selectedTest.details.breakdown && (
+                  {selectedTest.details.breakdown && !selectedTest.isBrain && (
                     <div className="mb-6">
                       <div className="space-y-3">
                         {selectedTest.details.breakdown.map((item: any, index: number) => (
@@ -423,7 +561,7 @@ export function CareerAssessmentPage({ onPageChange }: CareerAssessmentPageProps
                       </div>
                     </div>
                   )}
-                  
+
                   <div className="space-y-4">
                     {selectedTest.details.description && selectedTest.details.description.length > 0 ? (
                       selectedTest.details.description.map((paragraph: string, index: number) => (

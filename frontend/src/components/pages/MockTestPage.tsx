@@ -2,7 +2,10 @@ import { motion } from 'motion/react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { BookOpen, Clock, FileText, Award, ArrowRight, Info, X, Building2, ListChecks } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { toast } from 'sonner';
+import { MockTestRunner } from '../MockTestRunner';
+import { getMockPaperPack } from '../../data/mockTestBanks';
 
 export function MockTestPage() {
   const mockTests = [
@@ -288,14 +291,21 @@ export function MockTestPage() {
     }
   ];
 
-  const [selectedTest, setSelectedTest] = useState<typeof mockTests[0] | null>(null);
-  const [showComingSoonModal, setShowComingSoonModal] = useState(false);
-  
-  // Filter out GAT test
-  const filteredTests = mockTests.filter(test => test.name !== 'GAT');
-  
-  const handleStartTest = () => {
-    setShowComingSoonModal(true);
+  const [selectedTest, setSelectedTest] = useState<(typeof mockTests)[0] | null>(null);
+  const [runnerTest, setRunnerTest] = useState<(typeof mockTests)[0] | null>(null);
+
+  const filteredTests = mockTests;
+
+  const runnerPack = useMemo(() => (runnerTest ? getMockPaperPack(runnerTest.name) : null), [runnerTest]);
+
+  const handleStartTest = (test: (typeof mockTests)[0]) => {
+    const p = getMockPaperPack(test.name);
+    if (!p) {
+      toast.error('Practice MCQs are not available for this test yet.');
+      return;
+    }
+    setSelectedTest(null);
+    setRunnerTest(test);
   };
 
   return (
@@ -359,8 +369,8 @@ export function MockTestPage() {
                   </div>
 
                   <div className="flex gap-3 mt-auto">
-                    <Button 
-                      onClick={handleStartTest}
+                    <Button
+                      onClick={() => handleStartTest(test)}
                       className="flex-1 bg-gradient-to-r from-amber-500 to-amber-600 text-white hover:shadow-lg transition-all"
                     >
                       Start Test
@@ -529,8 +539,8 @@ export function MockTestPage() {
 
               {/* Action Buttons */}
               <div className="flex gap-3">
-                <Button 
-                  onClick={handleStartTest}
+                <Button
+                  onClick={() => selectedTest && handleStartTest(selectedTest)}
                   className="flex-1 bg-gradient-to-r from-amber-500 to-amber-600 text-white hover:shadow-lg transition-all"
                 >
                   Start Practice Test
@@ -549,54 +559,9 @@ export function MockTestPage() {
         </div>
       )}
 
-      {/* Coming Soon Modal */}
-      {showComingSoonModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            className="bg-white rounded-2xl max-w-md w-full shadow-2xl"
-          >
-            {/* Modal Header */}
-            <div className="bg-gradient-to-r from-amber-500 to-amber-600 p-6 text-white rounded-t-2xl">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h2 className="text-2xl mb-1 flex items-center gap-2">
-                    <Info className="w-6 h-6" />
-                    Notice
-                  </h2>
-                </div>
-                <button
-                  onClick={() => setShowComingSoonModal(false)}
-                  className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-
-            {/* Modal Content */}
-            <div className="p-6">
-              <div className="text-center py-4">
-                <p className="text-slate-700 text-lg">
-                  This will be implemented in the 8th semester.
-                </p>
-              </div>
-              
-              {/* Action Button */}
-              <div className="flex justify-end mt-6">
-                <Button 
-                  onClick={() => setShowComingSoonModal(false)}
-                  className="bg-gradient-to-r from-amber-500 to-amber-600 text-white hover:shadow-lg transition-all"
-                >
-                  Understood
-                </Button>
-              </div>
-            </div>
-          </motion.div>
-        </div>
+      {runnerTest && runnerPack && (
+        <MockTestRunner pack={runnerPack} gradientClass={runnerTest.color} onClose={() => setRunnerTest(null)} />
       )}
-    </div>
+   </div>
   );
 }

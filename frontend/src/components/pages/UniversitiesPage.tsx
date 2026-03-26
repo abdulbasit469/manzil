@@ -1,11 +1,13 @@
 import { motion } from 'motion/react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
-import { Search, MapPin, Bookmark, ExternalLink, Loader2 } from 'lucide-react';
+import { Search, MapPin, Bookmark, ChevronRight, Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import { toast } from 'sonner';
+import { getUniversityImage } from '../../utils/universityImage';
+import { universityNameLabel, universityCityLabel } from '../../utils/universityDisplay';
 
 interface University {
   _id: string;
@@ -19,63 +21,17 @@ interface University {
   [key: string]: any;
 }
 
-// Helper function to get university image
-const getUniversityImage = (university: University): string => {
-  if (university.image) return university.image;
-  
-  // Map specific universities to their images
-  const name = university.name.toLowerCase();
-  
-  if (name.includes('nust') || name.includes('national university of sciences')) {
-    return 'https://images.unsplash.com/photo-1562774053-701939374585?w=800&h=500&fit=crop';
-  }
-  if (name.includes('lums') || name.includes('lahore university of management')) {
-    return 'https://images.unsplash.com/photo-1541339907198-e08756dedf3f?w=800&h=500&fit=crop';
-  }
-  if (name.includes('fast') || name.includes('computer & emerging sciences')) {
-    return 'https://images.unsplash.com/photo-1498243691581-b145c3f54a5a?w=800&h=500&fit=crop';
-  }
-  if (name.includes('uet') || name.includes('university of engineering & technology')) {
-    return 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=800&h=500&fit=crop';
-  }
-  if (name.includes('pieas') || name.includes('pakistan institute of engineering')) {
-    return 'https://images.unsplash.com/photo-1607237138185-eedd9c632b0b?w=800&h=500&fit=crop';
-  }
-  if (name.includes('comsats')) {
-    return 'https://images.unsplash.com/photo-1519452635265-7b1fbfd1e4e0?w=800&h=500&fit=crop';
-  }
-  if (name.includes('aiou') || name.includes('allama iqbal open')) {
-    return 'https://images.unsplash.com/photo-1571260899304-425eee4c7efc?w=800&h=500&fit=crop';
-  }
-  if (name.includes('bahria')) {
-    return 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=800&h=500&fit=crop';
-  }
-  if (name.includes('iba') || name.includes('institute of business administration')) {
-    return 'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=800&h=500&fit=crop';
-  }
-  if (name.includes('giki') || name.includes('ghulam ishaq khan')) {
-    return 'https://images.unsplash.com/photo-1509062522246-3755977927d7?w=800&h=500&fit=crop';
-  }
-  if (name.includes('aga khan')) {
-    return 'https://images.unsplash.com/photo-1551601651-2a8555f1a136?w=800&h=500&fit=crop';
-  }
-  if (name.includes('air university')) {
-    return 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=800&h=500&fit=crop';
-  }
-  if (name.includes('bzu') || name.includes('bahauddin zakariya')) {
-    return 'https://images.unsplash.com/photo-1571260899304-425eee4c7efc?w=800&h=500&fit=crop';
-  }
-  
-  // Default university image
-  return 'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=800&h=500&fit=crop';
-};
+interface UniversitiesPageProps {
+  onOpenUniversityDetail?: (universityId: string) => void;
+}
 
-export function UniversitiesPage() {
+export function UniversitiesPage({ onOpenUniversityDetail }: UniversitiesPageProps) {
   const { isAuthenticated } = useAuth();
   const [universities, setUniversities] = useState<University[]>([]);
   const [loading, setLoading] = useState(true);
   const [savedUniversities, setSavedUniversities] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedCity, setSelectedCity] = useState('All Cities');
   const [selectedType, setSelectedType] = useState('All Types');
   const [cities, setCities] = useState<string[]>([]);
@@ -87,10 +43,24 @@ export function UniversitiesPage() {
     fetchCities();
   }, []);
 
-  // Fetch universities when filters change
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const next = searchQuery.trim();
+      setDebouncedSearch((prev) => {
+        if (prev !== next) setCurrentPage(1);
+        return next;
+      });
+    }, 400);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedCity, selectedType]);
+
   useEffect(() => {
     fetchUniversities();
-  }, [currentPage, searchQuery, selectedCity, selectedType]);
+  }, [currentPage, debouncedSearch, selectedCity, selectedType]);
 
   // Fetch saved universities on mount and when auth changes
   useEffect(() => {
@@ -119,8 +89,8 @@ export function UniversitiesPage() {
         limit: 12
       };
       
-      if (searchQuery.trim()) {
-        params.search = searchQuery.trim();
+      if (debouncedSearch) {
+        params.search = debouncedSearch;
       }
       
       if (selectedCity && selectedCity.trim() !== '' && selectedCity !== 'All Cities') {
@@ -141,12 +111,6 @@ export function UniversitiesPage() {
           ...uni,
           type: uni.type || 'Public' // Default to Public if type is missing
         }));
-        
-        // Debug: Log first university to check data structure
-        if (universitiesWithType.length > 0) {
-          console.log('Sample university data:', universitiesWithType[0]);
-          console.log('University type:', universitiesWithType[0].type);
-        }
         
         setUniversities(universitiesWithType);
         setTotalPages(response.data.totalPages || 1);
@@ -305,7 +269,7 @@ export function UniversitiesPage() {
         ) : (
           <>
         {/* Universities Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 items-stretch">
               {universities.map((university) => {
                 const isSaved = savedUniversities.has(university._id);
                 const universityImage = getUniversityImage(university);
@@ -314,17 +278,18 @@ export function UniversitiesPage() {
                 return (
             <motion.div
                     key={university._id}
+                    className="h-full flex"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3 }}
                     whileHover={{ y: -4 }}
             >
-                    <Card className="overflow-hidden hover:shadow-xl transition-all duration-300 h-full flex flex-col">
+                    <Card className="overflow-hidden hover:shadow-xl transition-all duration-300 h-full w-full flex flex-col">
                       {/* University Image */}
                       <div className="relative h-48 bg-gradient-to-br from-slate-200 to-slate-300 overflow-hidden">
                   <img
                           src={universityImage}
-                    alt={university.name}
+                    alt={universityNameLabel(university.name)}
                     className="w-full h-full object-cover"
                           onError={(e) => {
                             // Fallback to default image
@@ -349,16 +314,16 @@ export function UniversitiesPage() {
                         </button>
                   </div>
 
-                      {/* University Info */}
-                <div className="p-5 flex flex-col flex-1">
-                        <h3 className="text-lg font-bold mb-2 text-slate-800 line-clamp-2 min-h-[3.5rem]">
-                          {university.name}
+                      {/* University Info — fixed title block height so location + CTA align across the row */}
+                <div className="p-5 flex flex-col flex-1 min-h-0">
+                        <h3 className="text-lg font-bold text-slate-800 line-clamp-2 leading-snug h-[4.5rem] flex items-start shrink-0">
+                          {universityNameLabel(university.name)}
                         </h3>
                         
-                        <div className="flex items-center justify-between gap-2 text-sm text-slate-600 mb-4">
+                        <div className="flex items-center justify-between gap-2 text-sm text-slate-600 mt-3 mb-3 shrink-0">
                           <div className="flex items-center gap-2 flex-1 min-w-0">
                     <MapPin className="w-4 h-4 text-amber-600 flex-shrink-0" />
-                            <span className="truncate">{university.city || 'N/A'}</span>
+                            <span className="truncate">{universityCityLabel(university.city)}</span>
                   </div>
                           <button
                             onClick={() => handleSaveUniversity(university._id)}
@@ -375,23 +340,17 @@ export function UniversitiesPage() {
 
                         <Button
                           onClick={() => {
-                            if (university.website) {
-                              // Ensure website URL has protocol
-                              let websiteUrl = university.website.trim();
-                              if (!websiteUrl.startsWith('http://') && !websiteUrl.startsWith('https://')) {
-                                websiteUrl = 'https://' + websiteUrl;
-                              }
-                              // Open university website in new tab
-                              window.open(websiteUrl, '_blank', 'noopener,noreferrer');
+                            if (onOpenUniversityDetail) {
+                              onOpenUniversityDetail(university._id);
                             } else {
-                              toast.info('Website link not available for this university');
+                              toast.error('Navigation not available');
                             }
                           }}
-                          className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white mt-auto"
+                          className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white mt-auto shrink-0"
                         >
-                    View Details
-                    <ExternalLink className="w-4 h-4 ml-2" />
-                  </Button>
+                          View Details
+                          <ChevronRight className="w-4 h-4 ml-2" />
+                        </Button>
                 </div>
               </Card>
             </motion.div>

@@ -1,12 +1,18 @@
-const express = require('express');
 const dotenv = require('dotenv');
+// Load .env before anything that reads process.env (Mongo URI, etc.)
+dotenv.config();
+
+const dns = require('dns');
+// Helps Node resolve mongodb+srv on some Windows/network setups (querySrv issues)
+if (typeof dns.setDefaultResultOrder === 'function') {
+  dns.setDefaultResultOrder('ipv4first');
+}
+
+const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const path = require('path');
 const connectDB = require('./config/db');
-
-// Load environment variables
-dotenv.config();
 
 // Initialize Express app
 const app = express();
@@ -131,8 +137,11 @@ app.use('/api/applications', require('./routes/applicationRoutes'));
 app.use('/api/universities', require('./routes/universityRoutes'));
 app.use('/api/community', require('./routes/communityRoutes'));
 app.use('/api/programs', require('./routes/programRoutes'));
+app.use('/api/degree-scope', require('./routes/degreeScopeRoutes'));
 app.use('/api/assessment', require('./routes/assessmentRoutes'));
+app.use('/api/chatbot', require('./routes/chatbotRoutes'));
 app.use('/api/merit', require('./routes/meritRoutes'));
+app.use('/api/comparison', require('./routes/comparisonRoutes'));
 app.use('/api/notifications', require('./routes/notificationRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
 

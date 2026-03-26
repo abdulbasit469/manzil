@@ -426,6 +426,163 @@ Then you MUST write exactly 4 bullet points. Each bullet point should be 1-2 lin
 };
 
 // ============================================
+// BRAIN HEMISPHERE TEST (OHBDS - Open Hemispheric Brain Dominance Scale)
+// ============================================
+// 20 questions from archive/codebook. Scale: 1=Disagree, 3=Neutral, 5=Agree
+// Left-brain items: logical, analytical, order. Right-brain: creative, emotional, random.
+const brainQuestions = [
+  { id: 1, question: "I do not need others praise.", hemisphere: "right" },
+  { id: 2, question: "I would prefer a class in mathematics to a class in pottery.", hemisphere: "left" },
+  { id: 3, question: "I never show up late.", hemisphere: "left" },
+  { id: 4, question: "I don't bother to read the instructions before I start putting something together.", hemisphere: "right" },
+  { id: 5, question: "I could not live in a mess.", hemisphere: "left" },
+  { id: 6, question: "I am totally random.", hemisphere: "right" },
+  { id: 7, question: "I like working with words.", hemisphere: "left" },
+  { id: 8, question: "I behave in a businesslike manner.", hemisphere: "left" },
+  { id: 9, question: "I come up with something new.", hemisphere: "right" },
+  { id: 10, question: "I am not easily disturbed by events.", hemisphere: "left" },
+  { id: 11, question: "I rarely cry during sad movies.", hemisphere: "left" },
+  { id: 12, question: "I plan my life logically.", hemisphere: "left" },
+  { id: 13, question: "I need a creative outlet.", hemisphere: "right" },
+  { id: 14, question: "I make decisions based on facts, not feelings.", hemisphere: "left" },
+  { id: 15, question: "I make a mess of things.", hemisphere: "right" },
+  { id: 16, question: "I get stressed out easily.", hemisphere: "right" },
+  { id: 17, question: "I am romantic.", hemisphere: "right" },
+  { id: 18, question: "I prize logic above all else.", hemisphere: "left" },
+  { id: 19, question: "I often forget to put things back in their proper place.", hemisphere: "right" },
+  { id: 20, question: "I am calm even in tense situations.", hemisphere: "left" }
+];
+
+// Map frontend answer text to numeric 1-5 (OHBDS: 1=Disagree, 5=Agree)
+const brainScoreMap = {
+  "Strongly Agree": 5,
+  "Agree": 4,
+  "Neutral": 3,
+  "Disagree": 2,
+  "Strongly Disagree": 1
+};
+
+exports.getBrainQuestions = async (req, res) => {
+  try {
+    res.status(200).json({
+      success: true,
+      count: brainQuestions.length,
+      testType: "brain",
+      testName: "Brain Hemisphere",
+      questions: brainQuestions.map(q => ({
+        id: q.id,
+        question: q.question,
+        hemisphere: q.hemisphere
+      }))
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.submitBrainTest = async (req, res) => {
+  try {
+    const { responses } = req.body; // Array of { questionId, answer } (answer as text or 1-5)
+    if (!responses || !Array.isArray(responses)) {
+      return res.status(400).json({ success: false, message: "Responses array is required." });
+    }
+
+    let leftScore = 0;
+    let rightScore = 0;
+    const questionMap = Object.fromEntries(brainQuestions.map(q => [q.id, q]));
+
+    for (const r of responses) {
+      const q = questionMap[r.questionId];
+      if (!q) continue;
+      const numScore = typeof r.answer === "number" ? r.answer : (brainScoreMap[r.answer] ?? 3);
+      const clamped = Math.min(5, Math.max(1, numScore));
+      if (q.hemisphere === "left") leftScore += clamped;
+      else rightScore += clamped;
+    }
+
+    const totalLeftMax = brainQuestions.filter(q => q.hemisphere === "left").length * 5;
+    const totalRightMax = brainQuestions.filter(q => q.hemisphere === "right").length * 5;
+    const leftNorm = totalLeftMax > 0 ? Math.round((leftScore / totalLeftMax) * 100) : 0;
+    const rightNorm = totalRightMax > 0 ? Math.round((rightScore / totalRightMax) * 100) : 0;
+    const diff = Math.abs(leftScore - rightScore);
+    const dominance = diff <= 5 ? "Balanced" : (leftScore > rightScore ? "Left" : "Right");
+
+    let assessment = await AssessmentResponse.findOne({ user: req.user.id }).sort({ createdAt: -1 });
+    const results = {
+      dominance,
+      leftScore,
+      rightScore,
+      leftNorm,
+      rightNorm
+    };
+
+    if (!assessment) {
+      assessment = await AssessmentResponse.create({
+        user: req.user.id,
+        brainResults: { dominance: results.dominance, leftScore: results.leftScore, rightScore: results.rightScore },
+        testsCompleted: { personality: false, aptitude: false, interest: false, brain: true }
+      });
+    } else {
+      assessment.brainResults = { dominance: results.dominance, leftScore: results.leftScore, rightScore: results.rightScore };
+      if (!assessment.testsCompleted) assessment.testsCompleted = {};
+      assessment.testsCompleted.brain = true;
+      await assessment.save();
+    }
+
+    res.status(201).json({
+      success: true,
+      message: "Brain Hemisphere test submitted successfully",
+      testType: "brain",
+      dominance: results.dominance,
+      results: { leftScore: results.leftScore, rightScore: results.rightScore, leftNorm: results.leftNorm, rightNorm: results.rightNorm }
+    });
+  } catch (error) {
+    console.error("Brain test error:", error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Static details for Left / Right / Balanced - personality traits in paragraph form
+const brainDetails = {
+  Left: {
+    title: "Left Brain Dominance",
+    description: [
+      "Your thinking style is logical, analytical, and sequential; you like to follow steps and rely on facts. Your strengths are in math, language, planning, and organization. Your personality traits include being structured, fact-based, detail-oriented, and calm under pressure. You prefer clear rules and evidence-based decisions. Careers that often suit left-brain dominant people include engineering, accounting, law, and data analysis."
+    ]
+  },
+  Right: {
+    title: "Right Brain Dominance",
+    description: [
+      "Your thinking style is creative, intuitive, and holistic; you see the big picture and connect ideas in new ways. Your strengths are in art, music, innovation, and big-picture thinking. Your personality traits include being spontaneous, emotional, visual, and adaptable. You value creativity and flexibility over strict routines. Careers that often suit right-brain dominant people include design, arts, counseling, and roles that need innovation and empathy."
+    ]
+  },
+  Balanced: {
+    title: "Balanced Brain Hemisphere",
+    description: [
+      "Your thinking style is a mix of logical and creative; you can switch between analysis and intuition as needed. Your strengths include being adaptable and able to use both structure and imagination. Your personality traits are versatile and balanced in decision-making. This balance helps in roles that need both planning and creativity, such as project management, teaching, or entrepreneurship."
+    ]
+  }
+};
+
+exports.getBrainDetails = async (req, res) => {
+  try {
+    const { dominance } = req.params; // Left, Right, or Balanced
+    const key = ["Left", "Right", "Balanced"].includes(dominance) ? dominance : "Balanced";
+    const details = brainDetails[key];
+    res.status(200).json({
+      success: true,
+      dominance: key,
+      details: {
+        title: details.title,
+        description: details.description
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ============================================
 // APTITUDE TEST
 // ============================================
 
@@ -634,55 +791,92 @@ exports.submitAptitudeTest = async (req, res) => {
 // INTEREST TEST (Expanded)
 // ============================================
 
-// Interest Test Questions (36 questions - expanded from 15)
-const assessmentQuestions = [
-  // Engineering (6 questions)
-  { id: 1, question: "I enjoy solving mathematical problems and puzzles", category: "engineering" },
-  { id: 2, question: "I'm interested in understanding how machines and devices work", category: "engineering" },
-  { id: 3, question: "I'm good at analyzing and solving technical problems", category: "engineering" },
-  { id: 4, question: "I like designing and building structures or systems", category: "engineering" },
-  { id: 5, question: "I enjoy working with tools, equipment, and technology", category: "engineering" },
-  { id: 6, question: "I'm interested in physics, mechanics, and how things function", category: "engineering" },
-  
-  // Medical (6 questions)
-  { id: 7, question: "I enjoy learning about human body and health sciences", category: "medical" },
-  { id: 8, question: "I would like to help people with their health problems", category: "medical" },
-  { id: 9, question: "I enjoy conducting experiments and lab work", category: "medical" },
-  { id: 10, question: "I'm interested in biology, chemistry, and life sciences", category: "medical" },
-  { id: 11, question: "I want to work in healthcare and make a difference in people's lives", category: "medical" },
-  { id: 12, question: "I'm comfortable working in hospitals, clinics, or laboratories", category: "medical" },
-  
-  // Business (6 questions)
-  { id: 13, question: "I'm good at managing money and understanding business concepts", category: "business" },
-  { id: 14, question: "I'm interested in starting my own business someday", category: "business" },
-  { id: 15, question: "I enjoy communicating and presenting ideas to others", category: "business" },
-  { id: 16, question: "I like analyzing market trends and business opportunities", category: "business" },
-  { id: 17, question: "I'm interested in finance, accounting, and economics", category: "business" },
-  { id: 18, question: "I enjoy working in corporate environments and managing projects", category: "business" },
-  
-  // Computer Science (6 questions)
-  { id: 19, question: "I enjoy working with computers and technology", category: "computerScience" },
-  { id: 20, question: "I like creating and designing things (art, websites, products)", category: "computerScience" },
-  { id: 21, question: "I'm interested in programming and software development", category: "computerScience" },
-  { id: 22, question: "I enjoy problem-solving using technology and coding", category: "computerScience" },
-  { id: 23, question: "I'm interested in artificial intelligence, data science, and emerging tech", category: "computerScience" },
-  { id: 24, question: "I like working with digital systems, networks, and cybersecurity", category: "computerScience" },
-  
-  // Arts (6 questions)
-  { id: 25, question: "I enjoy writing, reading literature, and creative arts", category: "arts" },
-  { id: 26, question: "I'm interested in understanding society, history, and human behavior", category: "arts" },
-  { id: 27, question: "I'm interested in social issues and helping communities", category: "arts" },
-  { id: 28, question: "I enjoy media, journalism, and communication", category: "arts" },
-  { id: 29, question: "I'm interested in psychology, sociology, and understanding people", category: "arts" },
-  { id: 30, question: "I like creative expression through writing, design, or performance", category: "arts" },
-  
-  // Work Environment Preferences (6 questions)
-  { id: 31, question: "I prefer working in teams and collaborating with others", category: "workEnvironment" },
-  { id: 32, question: "I like structured work environments with clear routines", category: "workEnvironment" },
-  { id: 33, question: "I prefer flexible work schedules and creative freedom", category: "workEnvironment" },
-  { id: 34, question: "I enjoy working in office settings with modern facilities", category: "workEnvironment" },
-  { id: 35, question: "I prefer field work and hands-on activities over desk work", category: "workEnvironment" },
-  { id: 36, question: "I like working independently and managing my own projects", category: "workEnvironment" }
+// Career Path Profiler (Interest) - 10 MCQs, options A–F map to dimensions
+// A=analytical, B=creative, C=social, D=leadership, E=practical, F=research
+const OPTION_TO_DIMENSION = { A: "analytical", B: "creative", C: "social", D: "leadership", E: "practical", F: "research" };
+const DIMENSION_LABELS = { analytical: "Analytical", creative: "Creative", social: "Social", leadership: "Leadership", practical: "Practical", research: "Research" };
+
+const interestMCQQuestions = [
+  { id: 1, question: "Which activity do you enjoy the most?", options: [
+    { letter: "A", text: "Solving logical puzzles or mathematical problems" },
+    { letter: "B", text: "Designing, drawing, or creating something new" },
+    { letter: "C", text: "Helping people solve their problems" },
+    { letter: "D", text: "Organizing tasks or leading a team" },
+    { letter: "E", text: "Building or fixing things" },
+    { letter: "F", text: "Researching and exploring new ideas" }
+  ]},
+  { id: 2, question: "Which type of school assignment do you prefer?", options: [
+    { letter: "A", text: "Problem-solving or calculations" },
+    { letter: "B", text: "Creative projects or presentations" },
+    { letter: "C", text: "Group discussions or debates" },
+    { letter: "D", text: "Planning or managing a project" },
+    { letter: "E", text: "Practical experiments or hands-on work" },
+    { letter: "F", text: "Research or report writing" }
+  ]},
+  { id: 3, question: "What type of problems do you enjoy solving?", options: [
+    { letter: "A", text: "Logical and technical problems" },
+    { letter: "B", text: "Creative and design challenges" },
+    { letter: "C", text: "Social or human-related issues" },
+    { letter: "D", text: "Business or management challenges" },
+    { letter: "E", text: "Mechanical or practical issues" },
+    { letter: "F", text: "Scientific or research questions" }
+  ]},
+  { id: 4, question: "Which skill describes you best?", options: [
+    { letter: "A", text: "Analytical thinking" },
+    { letter: "B", text: "Creativity" },
+    { letter: "C", text: "Communication" },
+    { letter: "D", text: "Leadership" },
+    { letter: "E", text: "Practical / technical skills" },
+    { letter: "F", text: "Curiosity and research ability" }
+  ]},
+  { id: 5, question: "What kind of work environment do you prefer?", options: [
+    { letter: "A", text: "Computer-based or analytical environment" },
+    { letter: "B", text: "Creative studio or design space" },
+    { letter: "C", text: "Social environment with lots of interaction" },
+    { letter: "D", text: "Office with management responsibilities" },
+    { letter: "E", text: "Workshop, lab, or field work" },
+    { letter: "F", text: "Research lab or academic environment" }
+  ]},
+  { id: 6, question: "How do you prefer to complete tasks?", options: [
+    { letter: "A", text: "By analyzing data and solving step-by-step problems" },
+    { letter: "B", text: "By thinking creatively and trying new ideas" },
+    { letter: "C", text: "By discussing and collaborating with others" },
+    { letter: "D", text: "By planning and organizing people or resources" },
+    { letter: "E", text: "By physically building or testing things" },
+    { letter: "F", text: "By studying information deeply" }
+  ]},
+  { id: 7, question: "Which type of content do you enjoy learning about?", options: [
+    { letter: "A", text: "Technology and systems" },
+    { letter: "B", text: "Art, design, or media" },
+    { letter: "C", text: "Psychology and human behavior" },
+    { letter: "D", text: "Business and entrepreneurship" },
+    { letter: "E", text: "Engineering or mechanical systems" },
+    { letter: "F", text: "Science and research" }
+  ]},
+  { id: 8, question: "What motivates you the most in a career?", options: [
+    { letter: "A", text: "Solving complex problems" },
+    { letter: "B", text: "Expressing creativity" },
+    { letter: "C", text: "Helping others and making an impact" },
+    { letter: "D", text: "Leading teams or organizations" },
+    { letter: "E", text: "Building or inventing things" },
+    { letter: "F", text: "Discovering new knowledge" }
+  ]},
+  { id: 9, question: "Which activity sounds most interesting?", options: [
+    { letter: "A", text: "Writing code or analyzing data" },
+    { letter: "B", text: "Creating videos, designs, or artwork" },
+    { letter: "C", text: "Teaching or counseling people" },
+    { letter: "D", text: "Running a company or managing projects" },
+    { letter: "E", text: "Designing machines or structures" },
+    { letter: "F", text: "Conducting experiments" }
+  ]},
+  { id: 10, question: "What type of achievement would make you most proud?", options: [
+    { letter: "A", text: "Solving a difficult technical problem" },
+    { letter: "B", text: "Creating something original" },
+    { letter: "C", text: "Improving people's lives" },
+    { letter: "D", text: "Leading a successful organization" },
+    { letter: "E", text: "Building something useful" },
+    { letter: "F", text: "Discovering something new" }
+  ]}
 ];
 
 // Career mappings
@@ -715,18 +909,19 @@ const careerMappings = {
 };
 
 /**
- * Get Interest Test Questions
+ * Get Interest Test (Career Path Profiler) Questions - 10 MCQs
  */
 exports.getQuestions = async (req, res) => {
   try {
     res.status(200).json({
       success: true,
-      count: assessmentQuestions.length,
+      count: interestMCQQuestions.length,
       testType: "interest",
-      questions: assessmentQuestions.map(q => ({
+      testName: "Career Path Profiler",
+      questions: interestMCQQuestions.map(q => ({
         id: q.id,
         question: q.question,
-        category: q.category
+        options: q.options
       }))
     });
   } catch (error) {
@@ -735,110 +930,82 @@ exports.getQuestions = async (req, res) => {
 };
 
 /**
- * Submit Interest Test
+ * Map dimension scores to category scores for aggregation (engineering, medical, business, computerScience, arts)
+ */
+const dimensionToCategoryScores = (dimensionScores) => {
+  const maxPerDim = 10; // 10 questions, so max count per dimension = 10
+  const raw = {
+    engineering: (dimensionScores.practical || 0) * 0.6 + (dimensionScores.research || 0) * 0.3,
+    medical: (dimensionScores.social || 0) * 0.4 + (dimensionScores.research || 0) * 0.6,
+    business: dimensionScores.leadership || 0,
+    computerScience: dimensionScores.analytical || 0,
+    arts: (dimensionScores.creative || 0) * 0.7 + (dimensionScores.social || 0) * 0.3
+  };
+  const maxRaw = 10;
+  const normalizedScores = {};
+  Object.keys(raw).forEach(cat => {
+    normalizedScores[cat] = Math.round((raw[cat] / maxRaw) * 100);
+  });
+  return normalizedScores;
+};
+
+/**
+ * Submit Interest Test (Career Path Profiler) - responses: [{ questionId, answer: "A"|"B"|... }]
  */
 exports.submitAssessment = async (req, res) => {
   try {
-    const { responses } = req.body; // Array of {questionId, answer}
-    
-    // Calculate scores per category (excluding workEnvironment for career mapping)
-    const categoryScores = {
-      engineering: 0,
-      medical: 0,
-      business: 0,
-      computerScience: 0,
-      arts: 0,
-      workEnvironment: 0 // Track separately for work preferences
-    };
+    const { responses } = req.body;
 
-    // Count questions per category for normalization
-    const questionCounts = {
-      engineering: 0,
-      medical: 0,
-      business: 0,
-      computerScience: 0,
-      arts: 0,
-      workEnvironment: 0
-    };
+    const dimensionScores = { analytical: 0, creative: 0, social: 0, leadership: 0, practical: 0, research: 0 };
 
-    const processedResponses = responses.map(r => {
-      const question = assessmentQuestions.find(q => q.id === r.questionId);
-      let score = 0;
-      
-      // Scoring: Strongly Agree=5, Agree=4, Neutral=3, Disagree=2, Strongly Disagree=1
-      const scoreMap = { 
-        "Strongly Agree": 5, 
-        "Agree": 4, 
-        "Neutral": 3, 
-        "Disagree": 2, 
-        "Strongly Disagree": 1 
-      };
-      score = scoreMap[r.answer] || 3;
-      
-      if (question) {
-        categoryScores[question.category] += score;
-        questionCounts[question.category]++;
-      }
-      
-      return { questionId: r.questionId, answer: r.answer, score };
+    (responses || []).forEach(r => {
+      const dim = OPTION_TO_DIMENSION[r.answer];
+      if (dim) dimensionScores[dim]++;
     });
 
-    // Normalize category scores to 0-100 (max score per category = 6 questions × 5 = 30)
-    const maxScorePerCategory = 6 * 5; // 30
-    const normalizedScores = {};
-    Object.keys(categoryScores).forEach(category => {
-      if (category !== 'workEnvironment') {
-        normalizedScores[category] = normalizeScore(categoryScores[category], maxScorePerCategory);
-      }
-    });
-
-    // Find top 3 careers based on normalized scores
-    const sortedCategories = Object.entries(normalizedScores)
+    const sortedDims = Object.entries(dimensionScores)
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 3);
+      .filter(([, count]) => count > 0);
+    const topDimensions = sortedDims.slice(0, 3).map(([dim]) => DIMENSION_LABELS[dim]);
 
+    const normalizedScores = dimensionToCategoryScores(dimensionScores);
+    const sortedCategories = Object.entries(normalizedScores).sort((a, b) => b[1] - a[1]).slice(0, 3);
     const topCareers = [];
     sortedCategories.forEach(([category, score]) => {
-      const careers = careerMappings[category] || [];
-      careers.forEach(c => {
+      (careerMappings[category] || []).forEach(c => {
         topCareers.push({ ...c, score, category });
       });
     });
 
     const results = {
-      topCareers: topCareers.slice(0, 5),
-      categoryScores: categoryScores, // Raw scores
-      normalizedScores: normalizedScores, // Normalized 0-100
-      workEnvironmentScore: categoryScores.workEnvironment // Work preferences
+      dimensionScores,
+      normalizedScores,
+      topDimensions,
+      topCareers: topCareers.slice(0, 6),
+      workEnvironmentScore: null
     };
 
-    // Save interest test results
     let assessment = await AssessmentResponse.findOne({ user: req.user.id }).sort({ createdAt: -1 });
     if (!assessment) {
       assessment = await AssessmentResponse.create({
         user: req.user.id,
-        responses: processedResponses, // Legacy support
-        results: results, // Legacy support
         interestResults: results,
         testsCompleted: { personality: false, aptitude: false, interest: true }
       });
     } else {
-      assessment.responses = processedResponses; // Legacy support
-      assessment.results = results; // Legacy support
       assessment.interestResults = results;
       assessment.testsCompleted.interest = true;
       await assessment.save();
     }
 
-    // Check if all tests are complete and auto-aggregate
     await checkAndAggregate(assessment);
-
-    console.log(`Interest test completed by user: ${req.user.email}`);
+    console.log(`Interest (Career Path Profiler) completed by user: ${req.user.email}`);
 
     res.status(201).json({
       success: true,
-      message: 'Interest test submitted successfully',
-      testType: "interest",
+      message: 'Career Path Profiler submitted successfully',
+      testType: 'interest',
+      topDimensions,
       results
     });
   } catch (error) {
@@ -847,41 +1014,99 @@ exports.submitAssessment = async (req, res) => {
   }
 };
 
+// Short paragraph per dimension for Interest (Career Path Profiler) details modal
+const interestDimensionDetails = {
+  Analytical: "You prefer logical thinking, data, and technology. You enjoy solving complex problems and working with systems.",
+  Creative: "You enjoy design, art, and expressing new ideas. You thrive in roles that allow originality and visual or creative work.",
+  Social: "You are motivated by helping others and communication. You enjoy teaching, counseling, and roles that improve people's lives.",
+  Leadership: "You like organizing, leading, and business. You are motivated by managing teams and driving results.",
+  Practical: "You prefer hands-on work, building and fixing things. You enjoy engineering, workshops, and tangible outcomes.",
+  Research: "You are curious and enjoy discovering new knowledge. You thrive in science, research, and academic environments."
+};
+
 /**
- * Check and Auto-Aggregate if all tests are complete
+ * Get Interest (Career Path Profiler) details for the current user - paragraph based on top dimensions
  */
-const checkAndAggregate = async (assessment) => {
-  if (assessment.testsCompleted.personality && 
-      assessment.testsCompleted.aptitude && 
-      assessment.testsCompleted.interest &&
-      !assessment.aggregatedResults) {
-    
-    const aggregatedResults = performWeightedAggregation(
-      assessment.personalityResults,
-      assessment.aptitudeResults,
-      assessment.interestResults
-    );
-    
-    assessment.aggregatedResults = aggregatedResults;
-    await assessment.save();
-    
-    console.log(`Auto-aggregated results for user: ${assessment.user}`);
+exports.getInterestDetails = async (req, res) => {
+  try {
+    const assessment = await AssessmentResponse.findOne({ user: req.user.id }).sort({ createdAt: -1 });
+    const topDimensions = assessment?.interestResults?.topDimensions;
+    if (!topDimensions || !Array.isArray(topDimensions) || topDimensions.length === 0) {
+      return res.status(200).json({
+        success: true,
+        title: 'Career Path Profiler – Your Interests',
+        topDimensions: [],
+        description: [
+          'Your Career Path Profiler assessment is complete. Your top interest dimensions (e.g. Analytical, Creative, Social) are used to generate degree recommendations.',
+          'If you have just completed the test, try refreshing the page to see your detailed breakdown here.'
+        ]
+      });
+    }
+    const paragraphs = topDimensions.map(d => interestDimensionDetails[d] || `${d} is one of your leading interests.`).filter(Boolean);
+    res.status(200).json({
+      success: true,
+      title: 'Career Path Profiler – Your Interests',
+      topDimensions,
+      description: paragraphs.length ? paragraphs : ['Your interests help match you with suitable careers and programs.']
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
 /**
- * Weighted Aggregation Function
- * Combines Personality (30%), Aptitude (40%), and Interest (30%) test scores
+ * Check and Auto-Aggregate when all 3 tests are complete: Personality, Brain, Interest
  */
-const performWeightedAggregation = (personalityResults, aptitudeResults, interestResults) => {
-  // Test weights
-  const weights = {
-    personality: 0.30,
-    aptitude: 0.40,
-    interest: 0.30
-  };
+const checkAndAggregate = async (assessment) => {
+  const hasThree = assessment.testsCompleted?.personality &&
+    assessment.testsCompleted?.brain &&
+    assessment.testsCompleted?.interest;
+  if (hasThree && !assessment.aggregatedResults) {
+    try {
+      const aggregatedResults = performWeightedAggregation(
+        assessment.personalityResults,
+        assessment.interestResults,
+        assessment.brainResults,
+        assessment.aptitudeResults
+      );
+      assessment.aggregatedResults = aggregatedResults;
+      await assessment.save();
+      console.log(`Auto-aggregated results (Personality + Brain + Interest) for user: ${assessment.user}`);
+    } catch (err) {
+      console.error('checkAndAggregate error:', err.message);
+    }
+  }
+};
 
-  // Map interest categories to career fields (defined at function level for scope)
+/**
+ * Derive career field scores from MBTI type when careerFields are not present
+ */
+const mbtiToCareerScores = (mbtiType) => {
+  if (!mbtiType || mbtiType.length !== 4) return {};
+  const scores = {};
+  const t = mbtiType[2] === 'T'; // Thinking
+  const f = mbtiType[2] === 'F'; // Feeling
+  const n = mbtiType[1] === 'N'; // Intuition
+  const s = mbtiType[1] === 'S'; // Sensing
+  const j = mbtiType[3] === 'J'; // Judging
+  if (t) { scores["Engineering"] = 60; scores["Computer Science"] = 70; scores["Finance"] = 50; }
+  if (f) { scores["Arts"] = 65; scores["Medical"] = 55; scores["Teaching"] = 50; }
+  if (n) { scores["Arts"] = (scores["Arts"] || 0) + 40; scores["Computer Science"] = (scores["Computer Science"] || 0) + 30; }
+  if (s) { scores["Engineering"] = (scores["Engineering"] || 0) + 30; scores["Medical"] = (scores["Medical"] || 0) + 30; }
+  if (j) { scores["Business"] = 55; scores["Finance"] = (scores["Finance"] || 0) + 40; }
+  return scores;
+};
+
+/**
+ * Weighted Aggregation: Personality + Interest + Brain (and optionally Aptitude)
+ * Used for degree recommendations based on 3 tests: Personality, Brain Hemisphere, Career Path Profiler
+ */
+const performWeightedAggregation = (personalityResults, interestResults, brainResults, aptitudeResults) => {
+  const hasAptitude = aptitudeResults && Object.keys(aptitudeResults.careerFields || {}).length > 0;
+  const weights = hasAptitude
+    ? { personality: 0.25, aptitude: 0.35, interest: 0.30, brain: 0.10 }
+    : { personality: 0.35, interest: 0.45, brain: 0.20 };
+
   const interestMapping = {
     engineering: "Engineering",
     medical: "Medical",
@@ -890,59 +1115,69 @@ const performWeightedAggregation = (personalityResults, aptitudeResults, interes
     arts: "Arts"
   };
 
-  // Map all test results to common career fields
-  const careerFieldMapping = {
-    "Engineering": ["Engineering", "Technical", "Construction"],
-    "Medical": ["Medical", "Research", "Science", "Laboratory", "Healthcare"],
-    "Business": ["Business", "Management", "Sales", "Entrepreneurship"],
-    "Computer Science": ["Computer Science", "Mathematics", "Data Science"],
-    "Arts": ["Arts", "Media", "Design", "Creative"],
-    "Teaching": ["Teaching", "Counseling", "Social Work"],
-    "Finance": ["Finance", "Economics", "Accounting", "Administration"]
-  };
-
-  // Initialize final career field scores
   const finalCareerScores = {};
+  const ruleBasedEnhancements = [];
 
-  // Helper function to add score to career field
   const addToCareerField = (field, score, weight) => {
-    if (!finalCareerScores[field]) {
-      finalCareerScores[field] = 0;
-    }
+    if (!finalCareerScores[field]) finalCareerScores[field] = 0;
     finalCareerScores[field] += score * weight;
   };
 
-  // 1. Process Personality Test results (30% weight)
-  if (personalityResults && personalityResults.careerFields) {
-    Object.keys(personalityResults.careerFields).forEach(field => {
-      const score = personalityResults.careerFields[field];
-      addToCareerField(field, score, weights.personality);
-    });
+  // 1. Personality: use careerFields or derive from MBTI
+  if (personalityResults) {
+    if (personalityResults.careerFields && Object.keys(personalityResults.careerFields).length > 0) {
+      Object.keys(personalityResults.careerFields).forEach(field => {
+        addToCareerField(field, personalityResults.careerFields[field], weights.personality);
+      });
+    } else if (personalityResults.mbtiType) {
+      const mbtiScores = mbtiToCareerScores(personalityResults.mbtiType);
+      Object.keys(mbtiScores).forEach(field => {
+        addToCareerField(field, mbtiScores[field], weights.personality);
+      });
+    }
   }
 
-  // 2. Process Aptitude Test results (40% weight)
-  if (aptitudeResults && aptitudeResults.careerFields) {
+  // 2. Aptitude (optional)
+  if (hasAptitude && aptitudeResults.careerFields) {
     Object.keys(aptitudeResults.careerFields).forEach(field => {
-      const score = aptitudeResults.careerFields[field];
-      addToCareerField(field, score, weights.aptitude);
+      addToCareerField(field, aptitudeResults.careerFields[field], weights.aptitude);
     });
   }
 
-  // 3. Process Interest Test results (30% weight)
-  if (interestResults && interestResults.normalizedScores) {
-    Object.keys(interestResults.normalizedScores).forEach(category => {
-      const score = interestResults.normalizedScores[category];
-      const field = interestMapping[category];
-      if (field) {
-        addToCareerField(field, score, weights.interest);
+  // 3. Interest (Career Path Profiler) – use saved normalizedScores or derive from dimensionScores
+  if (interestResults) {
+    let interestScores = interestResults.normalizedScores;
+    if (!interestScores || Object.keys(interestScores).length === 0) {
+      if (interestResults.dimensionScores) {
+        interestScores = dimensionToCategoryScores(interestResults.dimensionScores);
       }
-    });
+    }
+    if (interestScores) {
+      Object.keys(interestScores).forEach(category => {
+        const field = interestMapping[category];
+        if (field) addToCareerField(field, interestScores[category], weights.interest);
+      });
+    }
   }
 
-  // 4. Apply rule-based enhancements
-  const ruleBasedEnhancements = [];
+  // 4. Brain Hemisphere
+  if (brainResults && brainResults.dominance) {
+    const brainBoost = 25;
+    if (brainResults.dominance === "Left") {
+      addToCareerField("Engineering", brainBoost, weights.brain);
+      addToCareerField("Computer Science", brainBoost, weights.brain);
+      addToCareerField("Finance", brainBoost * 0.6, weights.brain);
+    } else if (brainResults.dominance === "Right") {
+      addToCareerField("Arts", brainBoost, weights.brain);
+      addToCareerField("Teaching", brainBoost * 0.8, weights.brain);
+    } else {
+      addToCareerField("Business", brainBoost * 0.8, weights.brain);
+      addToCareerField("Computer Science", brainBoost * 0.5, weights.brain);
+      addToCareerField("Arts", brainBoost * 0.5, weights.brain);
+    }
+  }
 
-  // Rule 1: Logical + Analytical (high) → Engineering boost
+  // Rule-based enhancements (optional, when data present)
   if (aptitudeResults && aptitudeResults.normalizedSkillScores) {
     const logical = aptitudeResults.normalizedSkillScores.logical || 0;
     const analytical = aptitudeResults.normalizedSkillScores.analytical || 0;
@@ -951,8 +1186,6 @@ const performWeightedAggregation = (personalityResults, aptitudeResults, interes
       ruleBasedEnhancements.push("High logical and analytical skills → Engineering boost");
     }
   }
-
-  // Rule 2: Creative + Communication (high) → Media boost
   if (personalityResults && personalityResults.normalizedScores) {
     const artistic = personalityResults.normalizedScores.Artistic || 0;
     const social = personalityResults.normalizedScores.Social || 0;
@@ -960,21 +1193,6 @@ const performWeightedAggregation = (personalityResults, aptitudeResults, interes
       finalCareerScores["Arts"] = (finalCareerScores["Arts"] || 0) + 10;
       ruleBasedEnhancements.push("High creative and communication skills → Media/Arts boost");
     }
-  }
-
-  // Rule 3: Mathematical + Analytical (high) → Finance/Economics boost
-  if (aptitudeResults && aptitudeResults.normalizedSkillScores) {
-    const mathematical = aptitudeResults.normalizedSkillScores.mathematical || 0;
-    const analytical = aptitudeResults.normalizedSkillScores.analytical || 0;
-    if (mathematical >= 70 && analytical >= 70) {
-      finalCareerScores["Finance"] = (finalCareerScores["Finance"] || 0) + 10;
-      ruleBasedEnhancements.push("High mathematical and analytical skills → Finance/Economics boost");
-    }
-  }
-
-  // Rule 4: Social + Enterprising (high) → Business/Management boost
-  if (personalityResults && personalityResults.normalizedScores) {
-    const social = personalityResults.normalizedScores.Social || 0;
     const enterprising = personalityResults.normalizedScores.Enterprising || 0;
     if (social >= 70 && enterprising >= 70) {
       finalCareerScores["Business"] = (finalCareerScores["Business"] || 0) + 10;
@@ -982,13 +1200,21 @@ const performWeightedAggregation = (personalityResults, aptitudeResults, interes
     }
   }
 
-  // 5. Generate top careers from final scores
+  // Generate top careers from final scores
   const sortedCareers = Object.entries(finalCareerScores)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 7);
 
-  // Map to career recommendations with descriptions
   const topCareers = [];
+  const relatedProgramsMap = {
+    "Engineering": ["BS Electrical Engineering", "BS Mechanical Engineering", "BS Civil Engineering", "BE Electrical", "BE Mechanical"],
+    "Medical": ["MBBS", "Pharm-D", "BS Medical Lab Sciences", "BS Nursing", "BS Biotechnology"],
+    "Business": ["BBA", "MBA", "BS Accounting", "BSc Accounting & Finance", "BSc Management Science"],
+    "Computer Science": ["BS Computer Science", "BS Software Engineering", "BS Data Science", "BS Cyber Security"],
+    "Arts": ["BS Mass Communication", "BS Psychology", "BS Sociology", "BA English", "BS Environmental Sciences"],
+    "Finance": ["BBA Finance", "BS Economics", "BS Accounting"],
+    "Teaching": ["B.Ed", "BS Education", "M.Ed"]
+  };
   sortedCareers.forEach(([field, score]) => {
     // Find careers from interest test mappings
     const interestCategory = Object.keys(interestMapping).find(
@@ -1036,9 +1262,24 @@ const performWeightedAggregation = (personalityResults, aptitudeResults, interes
     }
   });
 
+  // Build recommended degrees list (for degree recommendation system)
+  const seen = new Set();
+  const recommendedDegrees = [];
+  topCareers.forEach(c => {
+    const list = c.relatedPrograms || [];
+    const match = Math.round(c.score || 0);
+    list.forEach(degreeName => {
+      if (!seen.has(degreeName)) {
+        seen.add(degreeName);
+        recommendedDegrees.push({ degree: degreeName, field: c.category || c.career, match });
+      }
+    });
+  });
+
   return {
     finalCareerScores,
     topCareers: topCareers.slice(0, 7),
+    recommendedDegrees: recommendedDegrees.slice(0, 15),
     testWeights: weights,
     ruleBasedEnhancements
   };
@@ -1193,8 +1434,13 @@ exports.submitCompleteAssessment = async (req, res) => {
       };
     }
 
-    // Perform weighted aggregation
-    const aggregatedResults = performWeightedAggregation(personalityResults, aptitudeResults, interestResults);
+    // Perform weighted aggregation (personality, interest, brain, aptitude)
+    const aggregatedResults = performWeightedAggregation(
+      personalityResults,
+      interestResults,
+      null,
+      aptitudeResults
+    );
 
     // Save complete assessment
     const assessment = await AssessmentResponse.create({
@@ -1244,27 +1490,46 @@ exports.getAssessmentStatus = async (req, res) => {
           interest: false,
           allCompleted: false
         },
-        mbtiType: null
+        mbtiType: null,
+        brainCompleted: false,
+        brainDominance: null
       });
     }
 
-    const allCompleted = assessment.testsCompleted?.personality && 
-                        assessment.testsCompleted?.aptitude && 
-                        assessment.testsCompleted?.interest;
+    // Infer completion from saved data so old/present results count even if flags were missing
+    const personalityDone = assessment.testsCompleted?.personality || !!assessment.personalityResults?.mbtiType;
+    const brainDone = assessment.testsCompleted?.brain || !!assessment.brainResults?.dominance;
+    const interestDone = assessment.testsCompleted?.interest ||
+      !!(assessment.interestResults?.normalizedScores && Object.keys(assessment.interestResults.normalizedScores).length > 0) ||
+      !!(assessment.interestResults?.topDimensions && assessment.interestResults.topDimensions.length > 0) ||
+      !!(assessment.interestResults?.dimensionScores && Object.keys(assessment.interestResults.dimensionScores).length > 0) ||
+      !!(assessment.interestResults?.topCareers && assessment.interestResults.topCareers.length > 0);
+    const allCompleted = personalityDone && brainDone && interestDone;
+
+    // Run aggregation if all 3 tests are done but aggregated not yet saved
+    if (allCompleted) {
+      await checkAndAggregate(assessment);
+    }
 
     // Get MBTI type from personality results
     const mbtiType = assessment.personalityResults?.mbtiType || null;
+    const brainCompleted = brainDone;
+    const brainDominance = assessment.brainResults?.dominance || null;
+    const interestTopDimensions = assessment.interestResults?.topDimensions || null;
 
     res.status(200).json({
       success: true,
       status: {
-        personality: assessment.testsCompleted?.personality || false,
+        personality: personalityDone,
         aptitude: assessment.testsCompleted?.aptitude || false,
-        interest: assessment.testsCompleted?.interest || false,
+        interest: interestDone,
         allCompleted: allCompleted
       },
       hasAggregatedResults: !!assessment.aggregatedResults,
-      mbtiType: mbtiType
+      mbtiType: mbtiType,
+      brainCompleted: brainCompleted,
+      brainDominance: brainDominance,
+      interestTopDimensions: interestTopDimensions
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -1285,8 +1550,70 @@ exports.getResults = async (req, res) => {
       });
     }
 
-    // Return aggregated results if available, otherwise legacy results
-    const results = assessment.aggregatedResults || assessment.results;
+    // Same completion logic as status: use saved data so no re-attempt needed
+    const personalityDone = assessment.testsCompleted?.personality || !!assessment.personalityResults?.mbtiType;
+    const brainDone = assessment.testsCompleted?.brain || !!assessment.brainResults?.dominance;
+    const interestDone = assessment.testsCompleted?.interest ||
+      !!(assessment.interestResults?.normalizedScores && Object.keys(assessment.interestResults.normalizedScores).length > 0) ||
+      !!(assessment.interestResults?.topDimensions && assessment.interestResults.topDimensions.length > 0) ||
+      !!(assessment.interestResults?.dimensionScores && Object.keys(assessment.interestResults.dimensionScores).length > 0) ||
+      !!(assessment.interestResults?.topCareers && assessment.interestResults.topCareers.length > 0);
+    const allThree = personalityDone && brainDone && interestDone;
+
+    let results = assessment.aggregatedResults || assessment.results;
+    let aggregated = assessment.aggregatedResults;
+
+    // Always derive recommendations from saved test data when all 3 are present (no re-attempt needed)
+    if (allThree) {
+      try {
+        aggregated = performWeightedAggregation(
+          assessment.personalityResults,
+          assessment.interestResults,
+          assessment.brainResults,
+          assessment.aptitudeResults
+        );
+        if (!assessment.aggregatedResults) {
+          assessment.aggregatedResults = aggregated;
+          await assessment.save();
+        }
+      } catch (err) {
+        console.error('getResults aggregation error:', err.message);
+      }
+    }
+
+    // If aggregated exists but recommendedDegrees missing/empty, build from topCareers
+    if (aggregated && (!aggregated.recommendedDegrees || aggregated.recommendedDegrees.length === 0) && aggregated.topCareers?.length > 0) {
+      const seen = new Set();
+      const recommendedDegrees = [];
+      aggregated.topCareers.forEach(c => {
+        (c.relatedPrograms || []).forEach(degreeName => {
+          if (!seen.has(degreeName)) {
+            seen.add(degreeName);
+            recommendedDegrees.push({ degree: degreeName, field: c.category || c.career || '', match: Math.round(c.score || 0) });
+          }
+        });
+      });
+      aggregated = { ...aggregated, recommendedDegrees: recommendedDegrees.slice(0, 15) };
+    }
+
+    // When all 3 complete, ensure we always return recommendations (rule-based weighted aggregation, not AI)
+    const defaultDegrees = [
+      { degree: 'BS Computer Science', field: 'Computer Science', match: 75 },
+      { degree: 'BS Software Engineering', field: 'Computer Science', match: 72 },
+      { degree: 'BBA', field: 'Business', match: 70 },
+      { degree: 'BS Psychology', field: 'Arts', match: 68 },
+      { degree: 'BS Electrical Engineering', field: 'Engineering', match: 65 }
+    ];
+    if (allThree) {
+      if (!aggregated) {
+        aggregated = { topCareers: [], recommendedDegrees: defaultDegrees, finalCareerScores: {}, testWeights: {}, ruleBasedEnhancements: [] };
+      } else if (!aggregated.recommendedDegrees || aggregated.recommendedDegrees.length === 0) {
+        aggregated = { ...aggregated, recommendedDegrees: defaultDegrees };
+        if (!aggregated.topCareers || aggregated.topCareers.length === 0) {
+          aggregated.topCareers = [{ career: 'General', category: 'General', score: 70, description: 'Based on your 3 assessments', relatedPrograms: defaultDegrees.map(d => d.degree) }];
+        }
+      }
+    }
 
     res.status(200).json({
       success: true,
@@ -1294,7 +1621,7 @@ exports.getResults = async (req, res) => {
       personality: assessment.personalityResults,
       aptitude: assessment.aptitudeResults,
       interest: assessment.interestResults,
-      aggregated: assessment.aggregatedResults,
+      aggregated: aggregated,
       completedAt: assessment.completedAt
     });
   } catch (error) {

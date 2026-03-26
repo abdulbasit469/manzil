@@ -57,7 +57,56 @@ const universitySchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
-  }
+  },
+  /** Optional: filled by admin or `npm run enrich:universities` (homepage scrape) */
+  scrapedSummary: {
+    type: String,
+    maxlength: 8000
+  },
+  scrapedHighlights: [{
+    type: String,
+    maxlength: 500
+  }],
+  scrapedAt: {
+    type: Date
+  },
+  scrapedSourceUrl: {
+    type: String,
+    trim: true
+  },
+  /** Indicative PKR fee ranges (per semester unless noted) — admin-maintained; confirm on official site */
+  feeComputingEngSemester: {
+    type: String,
+    trim: true,
+    maxlength: 500,
+  },
+  feeBusinessSocialSemester: {
+    type: String,
+    trim: true,
+    maxlength: 500,
+  },
+  /** Typical BS / general per-semester range (premium, private chains, distance, etc.) */
+  feeBsTypicalSemester: {
+    type: String,
+    trim: true,
+    maxlength: 500,
+  },
+  /** Medical MBBS (per year) */
+  feeMbbsPerYear: {
+    type: String,
+    trim: true,
+    maxlength: 500,
+  },
+  feePublicRegularSemester: {
+    type: String,
+    trim: true,
+    maxlength: 500,
+  },
+  feePublicSelfFinanceSemester: {
+    type: String,
+    trim: true,
+    maxlength: 500,
+  },
 }, {
   timestamps: true
 });

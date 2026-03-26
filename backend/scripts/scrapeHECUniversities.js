@@ -519,7 +519,7 @@ async function saveUniversity(uniData) {
       'Peshawar': 'Khyber Pakhtunkhwa'
     };
     
-    let province = 'Unknown';
+    let province = 'Not specified';
     for (const [cityName, prov] of Object.entries(provinceMap)) {
       if (location.includes(cityName)) {
         province = prov;
@@ -542,7 +542,7 @@ async function saveUniversity(uniData) {
     // Create new university
     const university = await University.create({
       name: uniData.name,
-      city: city || 'Unknown',
+      city: city || 'Not specified',
       type: 'Public', // Default, can be updated later
       website: uniData.link || '',
       description: `HEC Recognized University located in ${location || city}`

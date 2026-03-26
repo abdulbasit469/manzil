@@ -108,7 +108,7 @@ async function importUniversities() {
       seenNames.add(nameLower);
 
       // Map province
-      const normalizedProvince = provinceMapping[province] || province || 'Unknown';
+      const normalizedProvince = provinceMapping[province] || province || 'Not specified';
       
       // Map type
       const normalizedType = typeMapping[type] || (type && type.includes('Private') ? 'Private' : 'Public');
@@ -116,14 +116,14 @@ async function importUniversities() {
       // Create university object matching MongoDB schema
       const university = {
         name: normalizedName,
-        city: city ? city.trim() : 'Unknown',
+        city: city ? city.trim() : 'Not specified',
         type: normalizedType,
         isActive: true
       };
 
       // Add province info to description or address
-      if (normalizedProvince !== 'Unknown') {
-        university.address = `${city || 'Unknown'}, ${normalizedProvince}`;
+      if (normalizedProvince !== 'Not specified') {
+        university.address = `${city || 'Not specified'}, ${normalizedProvince}`;
       }
 
       universities.push(university);

@@ -1,5 +1,6 @@
 const SavedUniversity = require('../models/SavedUniversity');
 const University = require('../models/University');
+const { sanitizeUniversityFields } = require('../utils/sanitizeUniversityStrings');
 
 /**
  * @desc    Save/Bookmark a university
@@ -102,10 +103,18 @@ exports.getSavedUniversities = async (req, res) => {
       .populate('university')
       .sort({ createdAt: -1 });
 
+    const cleaned = savedUniversities.map((doc) => {
+      const plain = doc.toObject ? doc.toObject() : { ...doc };
+      if (plain.university && typeof plain.university === 'object') {
+        plain.university = sanitizeUniversityFields(plain.university);
+      }
+      return plain;
+    });
+
     res.status(200).json({
       success: true,
-      count: savedUniversities.length,
-      savedUniversities
+      count: cleaned.length,
+      savedUniversities: cleaned
     });
   } catch (error) {
     res.status(500).json({

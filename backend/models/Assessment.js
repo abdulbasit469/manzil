@@ -56,6 +56,7 @@ const assessmentResponseSchema = new mongoose.Schema({
     totalQuestions: Number
   },
   interestResults: {
+    topDimensions: [String],
     categoryScores: mongoose.Schema.Types.Mixed,
     normalizedScores: mongoose.Schema.Types.Mixed,
     workEnvironmentScore: Number,
@@ -67,6 +68,12 @@ const assessmentResponseSchema = new mongoose.Schema({
       category: String
     }]
   },
+  // Brain Hemisphere (OHBDS) results - informational, not part of career aggregation
+  brainResults: {
+    dominance: String, // 'Left', 'Right', 'Balanced'
+    leftScore: Number,
+    rightScore: Number
+  },
   // Aggregated results from all 3 tests
   aggregatedResults: {
     finalCareerScores: mongoose.Schema.Types.Mixed, // Career field scores after weighted aggregation
@@ -77,6 +84,7 @@ const assessmentResponseSchema = new mongoose.Schema({
       relatedPrograms: [String],
       category: String
     }],
+    recommendedDegrees: [{ degree: String, field: String, match: Number }],
     testWeights: {
       personality: Number,
       aptitude: Number,
@@ -104,7 +112,8 @@ const assessmentResponseSchema = new mongoose.Schema({
   testsCompleted: {
     personality: { type: Boolean, default: false },
     aptitude: { type: Boolean, default: false },
-    interest: { type: Boolean, default: false }
+    interest: { type: Boolean, default: false },
+    brain: { type: Boolean, default: false }
   },
   completedAt: {
     type: Date,

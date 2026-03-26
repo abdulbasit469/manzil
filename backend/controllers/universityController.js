@@ -1,11 +1,25 @@
 const University = require('../models/University');
 const Program = require('../models/Program');
+const {
+  sanitizeUniversityFields,
+  sanitizeProgramsArray,
+} = require('../utils/sanitizeUniversityStrings');
 
 // Admin: Create university
 exports.createUniversity = async (req, res) => {
   try {
     const { getUniversityImage } = require('../utils/universityImages');
-    
+
+    if (typeof req.body.name === 'string') {
+      req.body.name = sanitizeUniversityFields({ name: req.body.name }).name;
+    }
+    if (typeof req.body.city === 'string') {
+      req.body.city = sanitizeUniversityFields({ city: req.body.city }).city;
+    }
+    if (typeof req.body.address === 'string') {
+      req.body.address = sanitizeUniversityFields({ address: req.body.address }).address;
+    }
+
     // Add image if not provided
     if (!req.body.image && req.body.name) {
       req.body.image = getUniversityImage(req.body.name);
@@ -16,7 +30,7 @@ exports.createUniversity = async (req, res) => {
     res.status(201).json({
       success: true,
       message: 'University created successfully',
-      university
+      university: sanitizeUniversityFields(university.toObject())
     });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
@@ -27,7 +41,17 @@ exports.createUniversity = async (req, res) => {
 exports.updateUniversity = async (req, res) => {
   try {
     const { getUniversityImage } = require('../utils/universityImages');
-    
+
+    if (typeof req.body.name === 'string') {
+      req.body.name = sanitizeUniversityFields({ name: req.body.name }).name;
+    }
+    if (typeof req.body.city === 'string') {
+      req.body.city = sanitizeUniversityFields({ city: req.body.city }).city;
+    }
+    if (typeof req.body.address === 'string') {
+      req.body.address = sanitizeUniversityFields({ address: req.body.address }).address;
+    }
+
     // Only auto-generate image if name is being updated and no image provided
     // If image is provided (even as base64), use it
     if (req.body.name && !req.body.image) {
@@ -48,7 +72,11 @@ exports.updateUniversity = async (req, res) => {
     if (!university) {
       return res.status(404).json({ success: false, message: 'University not found' });
     }
-    res.status(200).json({ success: true, message: 'University updated', university });
+    res.status(200).json({
+      success: true,
+      message: 'University updated',
+      university: sanitizeUniversityFields(university.toObject())
+    });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
   }
@@ -92,44 +120,32 @@ exports.getAllUniversities = async (req, res) => {
       query.name = { $regex: search.trim(), $options: 'i' };
     }
 
-    console.log('🔍 University query:', JSON.stringify(query, null, 2));
+    if (process.env.NODE_ENV === 'development') {
+      console.log('University query:', JSON.stringify(query));
+    }
 
+    /** List view only — omit large text fields (scrapedSummary etc.) for fast JSON + smaller payloads */
     const universities = await University.find(query)
-      .select('name city type website image logo description address email phone hecRanking establishedYear facilities isActive')
-      .limit(parseInt(limit))
-      .skip((parseInt(page) - 1) * parseInt(limit))
-      .sort({ name: 1 }); // Sort by name for better organization
+      .select('name city type website image logo hecRanking establishedYear isActive')
+      .limit(parseInt(limit, 10))
+      .skip((parseInt(page, 10) - 1) * parseInt(limit, 10))
+      .sort({ name: 1 })
+      .lean();
 
-    console.log(`✅ Found ${universities.length} universities`);
-
-    // Get program counts for each university
-    const Program = require('../models/Program');
     const { getUniversityImage } = require('../utils/universityImages');
-    
-    const universitiesWithImages = await Promise.all(
-      universities.map(async (uni) => {
-        const uniObj = uni.toObject();
-        
-        // Add image if not present
-        if (!uniObj.image) {
-          uniObj.image = getUniversityImage(uni.name);
-        }
-        
-        // Ensure type is included (required field, but double-check)
-        // Type should always be present as it's required in schema, but ensure it's set
-        if (!uniObj.type || (uniObj.type !== 'Public' && uniObj.type !== 'Private')) {
-          uniObj.type = 'Public'; // Default to Public if missing or invalid
-        }
-        
-        // Log for debugging
-        console.log(`University: ${uniObj.name}, Type: ${uniObj.type}`);
-        
-        return uniObj;
-      })
-    );
+
+    const universitiesWithImages = universities.map((uni) => {
+      const uniObj = sanitizeUniversityFields({ ...uni });
+      if (!uniObj.image) {
+        uniObj.image = getUniversityImage(uniObj.name || uni.name);
+      }
+      if (!uniObj.type || (uniObj.type !== 'Public' && uniObj.type !== 'Private')) {
+        uniObj.type = 'Public';
+      }
+      return uniObj;
+    });
 
     const count = await University.countDocuments(query);
-    console.log(`📊 Total universities matching query: ${count}`);
 
     res.status(200).json({
       success: true,
@@ -157,20 +173,20 @@ exports.getUniversity = async (req, res) => {
       return res.status(404).json({ success: false, message: 'University not found' });
     }
     
-    const Program = require('../models/Program');
     const { getUniversityImage } = require('../utils/universityImages');
-    
+
     const programCount = await Program.countDocuments({ university: university._id, isActive: true });
-    const uniObj = university.toObject();
-    
+    let uniObj = university.toObject();
+    uniObj = sanitizeUniversityFields(uniObj);
+
     // Add image if not present
     if (!uniObj.image) {
-      uniObj.image = getUniversityImage(university.name);
+      uniObj.image = getUniversityImage(uniObj.name || university.name);
     }
-    
+
     // Add program count
     uniObj.programCount = programCount;
-    
+
     res.status(200).json({ success: true, university: uniObj });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -180,15 +196,15 @@ exports.getUniversity = async (req, res) => {
 // Public: Get university programs
 exports.getUniversityPrograms = async (req, res) => {
   try {
-    const programs = await Program.find({ 
+    const programs = await Program.find({
       university: req.params.id,
-      isActive: true 
+      isActive: true
     }).populate('university', 'name city');
-    
+
     res.status(200).json({
       success: true,
       count: programs.length,
-      programs
+      programs: sanitizeProgramsArray(programs)
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

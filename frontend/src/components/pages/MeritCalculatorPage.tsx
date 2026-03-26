@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import api from '../../services/api';
 import { toast } from 'sonner';
 import { useAuth } from '../../context/AuthContext';
+import { universityNameLabel, stripUnknownUniversityText } from '../../utils/universityDisplay';
 
 interface University {
   _id: string;
@@ -95,6 +96,34 @@ export function MeritCalculatorPage() {
       matricWeight: 10,
       maxMarks: 1600,
       description: 'General formula for SAT-based admissions (varies by university)'
+    },
+    MDCAT: {
+      name: 'MDCAT (Medical & Dental)',
+      testWeight: 50,
+      interWeight: 40,
+      matricWeight: 10,
+      maxMarks: 200,
+      description: 'Common aggregate for MBBS/BDS admissions: entry test 50%, FSc / Intermediate 40%, Matric 10%.'
+    },
+    GIKI: {
+      name: 'GIKI Entry Test',
+      testWeight: 85,
+      interWeight: 15,
+      matricWeight: 0,
+      maxMarks: 200,
+      description:
+        'GIKI Institute of Engineering & Sciences: entry test 85%; FSc / Intermediate combined 15%. Matric is not part of this formula.',
+      intermediateHint:
+        'Use your combined FSc / Intermediate marks (or total obtained vs total max) as one percentage.'
+    },
+    PIEAS: {
+      name: 'PIEAS Entry Test',
+      testWeight: 60,
+      interWeight: 25,
+      matricWeight: 15,
+      maxMarks: 200,
+      description:
+        'Pakistan Institute of Engineering & Applied Sciences: entry test 60%, FSc / Intermediate 25%, Matric 15%.'
     }
   };
 
@@ -151,8 +180,13 @@ export function MeritCalculatorPage() {
       return;
     }
 
-    // Validate required fields
-    if (!matricObtained || parseFloat(matricObtained) <= 0) {
+    const formulaForValidation = meritFormulas[selectedTest as keyof typeof meritFormulas];
+
+    // Validate required fields (matric only when it has weight in the selected formula)
+    if (
+      formulaForValidation.matricWeight > 0 &&
+      (!matricObtained || parseFloat(matricObtained) <= 0)
+    ) {
       toast.error('Please enter matric obtained marks');
       return;
     }
@@ -174,7 +208,10 @@ export function MeritCalculatorPage() {
         const response = await api.post('/merit/calculate', {
           universityId: selectedUniversity,
           programId: selectedProgram,
-          matricMarks: parseFloat(matricObtained),
+          matricMarks:
+            formulaForValidation.matricWeight > 0
+              ? parseFloat(matricObtained)
+              : 0,
           intermediateMarks: parseFloat(interObtained),
           firstYearMarks: firstYearMarks ? parseFloat(firstYearMarks) : undefined,
           secondYearMarks: secondYearMarks ? parseFloat(secondYearMarks) : undefined,
@@ -429,7 +466,10 @@ export function MeritCalculatorPage() {
                       <option value="">Select University</option>
                       {universities.map((uni) => (
                         <option key={uni._id} value={uni._id}>
-                          {uni.name} {uni.city ? `(${uni.city})` : ''}
+                          {universityNameLabel(uni.name)}
+                          {stripUnknownUniversityText(uni.city)
+                            ? ` (${stripUnknownUniversityText(uni.city)})`
+                            : ''}
                         </option>
                       ))}
                     </select>
@@ -539,7 +579,14 @@ export function MeritCalculatorPage() {
 
               {/* Intermediate Marks */}
               {selectedFormula && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  {'intermediateHint' in selectedFormula &&
+                    (selectedFormula as { intermediateHint?: string }).intermediateHint && (
+                      <p className="text-xs text-slate-600">
+                        {(selectedFormula as { intermediateHint: string }).intermediateHint}
+                      </p>
+                    )}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm mb-2">
                       Intermediate Total Marks <span className="text-red-600">*</span>
@@ -565,6 +612,7 @@ export function MeritCalculatorPage() {
                       className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
                     />
                   </div>
+                </div>
                 </div>
               )}
 

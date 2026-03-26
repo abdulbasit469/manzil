@@ -13,7 +13,8 @@ import {
   Menu,
   X,
   Shield,
-  Loader2
+  Loader2,
+  BookOpen,
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { useAuth } from '../../context/AuthContext';
@@ -25,6 +26,7 @@ import { AdminUniversitiesPage } from './AdminUniversitiesPage';
 import { AdminCommunityPage } from './AdminCommunityPage';
 import { AdminSettingsPage } from './AdminSettingsPage';
 import { AdminMockTestPage } from './AdminMockTestPage';
+import { AdminProgramsPage } from './AdminProgramsPage';
 
 export function AdminDashboard() {
   const { logout } = useAuth();
@@ -153,6 +155,7 @@ export function AdminDashboard() {
     { id: 'overview', label: 'Overview', icon: BarChart3 },
     { id: 'students', label: 'Students', icon: Users },
     { id: 'universities', label: 'Universities', icon: GraduationCap },
+    { id: 'programs', label: 'Programs', icon: BookOpen },
     { id: 'community', label: 'Community', icon: MessageSquare },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
@@ -383,6 +386,7 @@ export function AdminDashboard() {
 
             {currentSection === 'students' && <AdminStudentsPage />}
             {currentSection === 'universities' && <AdminUniversitiesPage />}
+            {currentSection === 'programs' && <AdminProgramsPage />}
             {currentSection === 'community' && <AdminCommunityPage />}
             {currentSection === 'mocktest' && <AdminMockTestPage onBack={() => setCurrentSection('overview')} />}
             {currentSection === 'settings' && <AdminSettingsPage />}

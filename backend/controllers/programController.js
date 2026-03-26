@@ -1,4 +1,5 @@
 const Program = require('../models/Program');
+const { sanitizeProgramForResponse, sanitizeProgramsArray } = require('../utils/sanitizeUniversityStrings');
 
 // Admin: Create program
 exports.createProgram = async (req, res) => {
@@ -13,7 +14,7 @@ exports.createProgram = async (req, res) => {
     res.status(201).json({
       success: true,
       message: 'Program created successfully',
-      program
+      program: sanitizeProgramForResponse(program)
     });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
@@ -51,7 +52,11 @@ exports.updateProgram = async (req, res) => {
     }
     
     console.log(`✅ Program updated: ${program.name}`);
-    res.status(200).json({ success: true, message: 'Program updated', program });
+    res.status(200).json({
+      success: true,
+      message: 'Program updated',
+      program: sanitizeProgramForResponse(program)
+    });
   } catch (error) {
     console.error('❌ Update program error:', error.message);
     console.error('Error details:', error);
@@ -114,7 +119,7 @@ exports.getAllPrograms = async (req, res) => {
       total: count,
       totalPages: Math.ceil(count / limit),
       currentPage: parseInt(page),
-      programs
+      programs: sanitizeProgramsArray(programs)
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -128,7 +133,7 @@ exports.getProgram = async (req, res) => {
     if (!program) {
       return res.status(404).json({ success: false, message: 'Program not found' });
     }
-    res.status(200).json({ success: true, program });
+    res.status(200).json({ success: true, program: sanitizeProgramForResponse(program) });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

@@ -1,7 +1,7 @@
 import { motion } from 'motion/react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
-import { Upload, Save, Loader2, X } from 'lucide-react';
+import { Upload, Save, Loader2, X, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import api from '../../services/api';
 import { toast } from 'sonner';
@@ -10,6 +10,19 @@ import { useAuth } from '../../context/AuthContext';
 interface ProfilePageProps {
   onPageChange: (page: string) => void;
 }
+
+const INTEREST_OPTIONS = [
+  'Engineering',
+  'Medicine / MBBS',
+  'Computer Science',
+  'Business & Finance',
+  'Law',
+  'Arts & Media',
+  'Social sciences',
+  'Teaching',
+  'Research',
+  'Entrepreneurship',
+];
 
 export function ProfilePage({ onPageChange }: ProfilePageProps) {
   const { refreshUser } = useAuth();
@@ -24,6 +37,12 @@ export function ProfilePage({ onPageChange }: ProfilePageProps) {
   const [fatherName, setFatherName] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [gender, setGender] = useState('');
+  const [profileCompletion, setProfileCompletion] = useState(0);
+  const [profileGaps, setProfileGaps] = useState<{ field: string; label: string }[]>([]);
+  const [firstYearMarks, setFirstYearMarks] = useState('');
+  const [secondYearMarks, setSecondYearMarks] = useState('');
+  const [secondYearResultAvailable, setSecondYearResultAvailable] = useState(false);
+  const [interests, setInterests] = useState<string[]>([]);
   
   // Matriculation
   const [matricMajor, setMatricMajor] = useState('');
@@ -44,6 +63,8 @@ export function ProfilePage({ onPageChange }: ProfilePageProps) {
       setLoading(true);
       const response = await api.get('/profile');
       const profile = response.data.profile;
+      setProfileCompletion(response.data.profileCompletion ?? 0);
+      setProfileGaps(response.data.profileGaps || []);
       
       // Set all profile data from database
       setFullName(profile.name || '');
@@ -63,6 +84,10 @@ export function ProfilePage({ onPageChange }: ProfilePageProps) {
       setInterType(profile.intermediateType || '');
       setInterTotal('1100'); // Total is always 1100
       setInterObtained(profile.intermediateMarks?.toString() || '');
+      setFirstYearMarks(profile.firstYearMarks != null ? String(profile.firstYearMarks) : '');
+      setSecondYearMarks(profile.secondYearMarks != null ? String(profile.secondYearMarks) : '');
+      setSecondYearResultAvailable(Boolean(profile.secondYearResultAvailable));
+      setInterests(Array.isArray(profile.interests) ? profile.interests : []);
       
       // Profile picture
       if (profile.profilePicture) {
@@ -132,12 +157,18 @@ export function ProfilePage({ onPageChange }: ProfilePageProps) {
     setter(numericValue);
   };
 
+  const toggleInterest = (tag: string) => {
+    setInterests((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    );
+  };
+
   const handleSave = async () => {
     try {
       setSaving(true);
       
       // Prepare data for API
-      const profileData: any = {
+      const profileData: Record<string, unknown> = {
         name: fullName,
         phone: phone,
         city: city,
@@ -145,9 +176,13 @@ export function ProfilePage({ onPageChange }: ProfilePageProps) {
         gender: gender,
         dateOfBirth: dateOfBirth,
         matricMajors: matricMajor,
-        matricMarks: matricObtained ? parseInt(matricObtained) : undefined,
+        matricMarks: matricObtained ? parseInt(matricObtained, 10) : undefined,
         intermediateType: interType,
-        intermediateMarks: interObtained ? parseInt(interObtained) : undefined
+        firstYearMarks: firstYearMarks ? parseInt(firstYearMarks, 10) : undefined,
+        secondYearMarks: secondYearMarks ? parseInt(secondYearMarks, 10) : undefined,
+        secondYearResultAvailable,
+        intermediateMarks: interObtained ? parseInt(interObtained, 10) : undefined,
+        interests,
       };
 
       // Include profile picture if it was updated
@@ -156,6 +191,12 @@ export function ProfilePage({ onPageChange }: ProfilePageProps) {
       }
 
       const response = await api.put('/profile', profileData);
+      if (response.data?.profileCompletion != null) {
+        setProfileCompletion(response.data.profileCompletion);
+      }
+      if (Array.isArray(response.data?.profileGaps)) {
+        setProfileGaps(response.data.profileGaps);
+      }
       
       toast.success('Profile saved successfully!');
       
@@ -211,7 +252,7 @@ export function ProfilePage({ onPageChange }: ProfilePageProps) {
           >
             <h1 className="text-4xl mb-2">My Profile</h1>
             <p className="text-blue-100">
-              Manage your personal information and preferences
+              Academic background, preferences, and progress — aligned with your FYP student profile module
             </p>
           </motion.div>
         </div>
@@ -226,6 +267,32 @@ export function ProfilePage({ onPageChange }: ProfilePageProps) {
         >
           <Card className="p-8">
             <div className="space-y-8">
+              {/* Profile completion */}
+              <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
+                  <div className="flex items-center gap-2">
+                    {profileCompletion >= 100 ? (
+                      <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                    ) : (
+                      <AlertCircle className="w-5 h-5 text-amber-600" />
+                    )}
+                    <span className="font-semibold text-slate-800">Profile completion</span>
+                  </div>
+                  <span className="text-lg font-bold text-[#1e3a5f]">{profileCompletion}%</span>
+                </div>
+                <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-amber-500 to-[#1e3a5f] transition-all duration-500"
+                    style={{ width: `${profileCompletion}%` }}
+                  />
+                </div>
+                {profileGaps.length > 0 && (
+                  <p className="text-xs text-slate-600 mt-2">
+                    Still needed: {profileGaps.map((g) => g.label).join(', ')}
+                  </p>
+                )}
+              </div>
+
               {/* Profile Picture */}
               <div>
                 <h2 className="mb-4">Profile Information</h2>
@@ -381,6 +448,30 @@ export function ProfilePage({ onPageChange }: ProfilePageProps) {
                 </div>
               </div>
 
+              {/* Preferences (proposal: manage preferences) */}
+              <div>
+                <h3 className="mb-2">Career interests & preferences</h3>
+                <p className="text-xs text-slate-500 mb-3">
+                  Select areas you want to explore — helps Manzil tailor guidance (optional but recommended).
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {INTEREST_OPTIONS.map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => toggleInterest(tag)}
+                      className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
+                        interests.includes(tag)
+                          ? 'bg-[#1e3a5f] text-white border-[#1e3a5f]'
+                          : 'bg-white text-slate-600 border-slate-200 hover:border-amber-400'
+                      }`}
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Education */}
               <div>
                 <h3 className="mb-4">Education</h3>
@@ -454,7 +545,21 @@ export function ProfilePage({ onPageChange }: ProfilePageProps) {
                         <option value="ICOM">ICOM</option>
                         <option value="FA">FA</option>
                         <option value="A-Levels">A-Levels</option>
+                        <option value="Other">Other</option>
                       </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm text-slate-600 mb-2">
+                        Part-I / First year marks <span className="text-red-600">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={firstYearMarks}
+                        onChange={(e) => handleNumberInput(e.target.value, setFirstYearMarks)}
+                        placeholder="e.g. 520 (out of 550)"
+                        inputMode="numeric"
+                        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      />
                     </div>
                     <div>
                       <label className="block text-sm text-slate-600 mb-2">
@@ -482,6 +587,34 @@ export function ProfilePage({ onPageChange }: ProfilePageProps) {
                         className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
                       />
                     </div>
+                  </div>
+                  <div className="mt-4 flex flex-col sm:flex-row gap-4 sm:items-end">
+                    <div className="flex-1">
+                      <label className="block text-sm text-slate-600 mb-2">
+                        Part-II / Second year marks (optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={secondYearMarks}
+                        onChange={(e) => handleNumberInput(e.target.value, setSecondYearMarks)}
+                        placeholder="If result is out"
+                        inputMode="numeric"
+                        disabled={!secondYearResultAvailable}
+                        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:bg-slate-100"
+                      />
+                    </div>
+                    <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer pb-2">
+                      <input
+                        type="checkbox"
+                        checked={secondYearResultAvailable}
+                        onChange={(e) => {
+                          setSecondYearResultAvailable(e.target.checked);
+                          if (!e.target.checked) setSecondYearMarks('');
+                        }}
+                        className="rounded border-slate-300"
+                      />
+                      Second year result available
+                    </label>
                   </div>
                 </div>
               </div>
