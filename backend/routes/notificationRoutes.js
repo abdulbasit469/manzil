@@ -14,10 +14,10 @@ const router = express.Router();
 // All routes require authentication
 router.use(protect);
 
-// User routes
+// User routes (static paths before /:id to avoid shadowing)
 router.get('/', getNotifications);
-router.put('/:id/read', markAsRead);
 router.put('/read-all', markAllAsRead);
+router.put('/:id/read', markAsRead);
 router.delete('/:id', deleteNotification);
 router.delete('/', clearAllNotifications);
 

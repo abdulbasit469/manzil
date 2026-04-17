@@ -570,21 +570,20 @@ exports.getDashboard = async (req, res) => {
 
     // --- Proposal: personalized hub — career suggestions from assessments ---
     const tc = latestAssessment?.aggregatedResults?.topCareers || [];
-    const rd = latestAssessment?.aggregatedResults?.recommendedDegrees || [];
     const testsDone = latestAssessment?.testsCompleted || {};
     const threeForManzil =
       testsDone.personality === true &&
       testsDone.interest === true &&
       (testsDone.brain === true || testsDone.aptitude === true);
     let careerHubMessage =
-      'Complete all three career assessments (Personality, Brain Hemisphere, and Career Path Profiler) to unlock personalized degree and career suggestions on your dashboard.';
+      'Complete all three career assessments (Personality, Brain Hemisphere, and Career Path Profiler) to unlock personalized career field suggestions on your dashboard.';
     if (latestAssessment && !threeForManzil) {
       const missing = [];
       if (!testsDone.personality) missing.push('Personality');
       if (!testsDone.brain && !testsDone.aptitude) missing.push('Brain Hemisphere');
       if (!testsDone.interest) missing.push('Career Path Profiler');
       careerHubMessage = `Finish your assessments to see tailored suggestions. Still pending: ${missing.join(', ') || 'one or more tests'}.`;
-    } else if (threeForManzil && tc.length === 0 && rd.length === 0) {
+    } else if (threeForManzil && tc.length === 0) {
       careerHubMessage =
         'Your tests are complete. Open Career Assessment and use Refresh recommendations if suggestions do not appear yet.';
     }
@@ -605,12 +604,11 @@ exports.getDashboard = async (req, res) => {
         applicationsInProgress: applicationsCount
       },
       careerSuggestions: {
-        topCareers: (tc || []).slice(0, 5).map((c) => ({
+        topCareers: (tc || []).slice(0, 3).map((c) => ({
           career: c.career || c.category || 'Career field',
           score: Math.round(c.score || 0),
           description: c.description || '',
         })),
-        recommendedDegrees: (rd || []).slice(0, 6),
         testsCompleted: testsDone,
         allMainTestsDone: threeForManzil,
         message: careerHubMessage,

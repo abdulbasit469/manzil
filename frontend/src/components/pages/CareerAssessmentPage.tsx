@@ -1,7 +1,24 @@
 import { motion } from 'motion/react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
-import { Lightbulb, User, CheckCircle2, ArrowRight, Info, X, Loader2, Activity } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import {
+  Lightbulb,
+  User,
+  CheckCircle2,
+  ArrowRight,
+  Info,
+  X,
+  Loader2,
+  Activity,
+  ChevronDown,
+  GraduationCap,
+  Palette,
+  Briefcase,
+  LineChart,
+  Cpu,
+  BookOpen,
+} from 'lucide-react';
 import { useState, useEffect } from 'react';
 import api from '../../services/api';
 import { toast } from 'sonner';
@@ -10,7 +27,35 @@ interface CareerAssessmentPageProps {
   onPageChange?: (page: string) => void;
 }
 
+/** When API omits relatedPrograms, match backend assessmentController.relatedProgramsMap */
+const CAREER_PATH_FALLBACK: Record<string, string[]> = {
+  Engineering: ['BS Electrical Engineering', 'BS Mechanical Engineering', 'BS Civil Engineering'],
+  Medical: ['MBBS', 'Pharm-D', 'BS Medical Lab Sciences'],
+  Business: ['BBA', 'MBA', 'BS Accounting'],
+  'Computer Science': ['BS Computer Science', 'BS Software Engineering', 'BS Data Science'],
+  Arts: ['BS Mass Communication', 'BS Psychology', 'BS Sociology'],
+  Finance: ['BBA Finance', 'BS Economics', 'BS Accounting'],
+  Teaching: ['B.Ed', 'BS Education', 'M.Ed'],
+};
+
+const CAREER_ICONS: Record<string, LucideIcon> = {
+  Medical: Activity,
+  Arts: Palette,
+  Business: Briefcase,
+  Engineering: Cpu,
+  Finance: LineChart,
+  Teaching: BookOpen,
+  'Computer Science': Cpu,
+};
+
+function careerPathsFor(rec: { field: string; relatedPrograms?: string[] }): string[] {
+  const fromApi = rec.relatedPrograms?.filter(Boolean) ?? [];
+  if (fromApi.length) return fromApi;
+  return CAREER_PATH_FALLBACK[rec.field] ?? [];
+}
+
 export function CareerAssessmentPage({ onPageChange }: CareerAssessmentPageProps) {
+  const [expandedCareerIndex, setExpandedCareerIndex] = useState<number | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedTest, setSelectedTest] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -23,7 +68,6 @@ export function CareerAssessmentPage({ onPageChange }: CareerAssessmentPageProps
     allCompleted: false
   });
   const [recommendations, setRecommendations] = useState<any[]>([]);
-  const [recommendedDegrees, setRecommendedDegrees] = useState<{ degree: string; field: string; match: number }[]>([]);
   const [mbtiType, setMbtiType] = useState<string | null>(null);
   const [brainDominance, setBrainDominance] = useState<string | null>(null);
   const [brainCompleted, setBrainCompleted] = useState(false);
@@ -48,7 +92,11 @@ export function CareerAssessmentPage({ onPageChange }: CareerAssessmentPageProps
       description: 'Discover whether you lean toward left-brain (logical) or right-brain (creative) thinking',
       icon: Activity,
       completed: brainCompleted,
-      result: brainDominance ? `${brainDominance} Brain` : null,
+      result: brainDominance
+        ? brainDominance === 'Balanced'
+          ? 'Balanced style'
+          : `${brainDominance} brain lean`
+        : null,
       color: 'from-teal-500 to-emerald-600',
       isBrain: true,
       details: null
@@ -59,7 +107,9 @@ export function CareerAssessmentPage({ onPageChange }: CareerAssessmentPageProps
       description: 'Identify your interests, motivations, and ideal career paths',
       icon: Lightbulb,
       completed: assessmentStatus.interest,
-      result: (interestTopDimensions?.length ? interestTopDimensions.join(', ') : null) || (assessmentStatus.interest ? 'Completed' : null),
+      result:
+        (interestTopDimensions?.length ? interestTopDimensions.slice(0, 3).join(', ') : null) ||
+        (assessmentStatus.interest ? 'Completed' : null),
       color: 'from-purple-500 to-pink-500',
       isInterest: true,
       details: null
@@ -116,7 +166,7 @@ export function CareerAssessmentPage({ onPageChange }: CareerAssessmentPageProps
             title: 'Career Path Profiler – Your Interests',
             breakdown: null,
             description: [
-              'Your Career Path Profiler assessment is complete. Your results are used for degree recommendations.',
+              'Your Career Path Profiler assessment is complete. Your results are used for career field suggestions.',
               'If details do not load, try refreshing the page and opening Details again.'
             ]
           }
@@ -232,7 +282,8 @@ export function CareerAssessmentPage({ onPageChange }: CareerAssessmentPageProps
         } catch (_) {}
         return null;
       })();
-      setInterestTopDimensions(fromServer || fromStorage || null);
+      const dims = fromServer || fromStorage || null;
+      setInterestTopDimensions(Array.isArray(dims) ? dims.slice(0, 3) : dims);
 
       // Fetch recommendations and degrees when all 3 tests are completed (rule-based aggregation, not AI)
       if (status.allCompleted) {
@@ -245,40 +296,24 @@ export function CareerAssessmentPage({ onPageChange }: CareerAssessmentPageProps
         }
         if (aggregatedResults) {
           if (aggregatedResults.topCareers) {
-            const formattedRecommendations = aggregatedResults.topCareers.map((career: any) => ({
-              field: career.career || career.category || 'Unknown',
-              match: career.score || 0,
-              description: career.description || `Based on your assessment results in ${career.category || 'this field'}`,
-            }));
+            const formattedRecommendations = (aggregatedResults.topCareers || [])
+              .slice(0, 3)
+              .map((career: any) => ({
+                field: career.career || career.category || 'Unknown',
+                match: career.score || 0,
+                description:
+                  career.description || `Based on your assessment results in ${career.category || 'this field'}`,
+                relatedPrograms: Array.isArray(career.relatedPrograms) ? career.relatedPrograms : [],
+              }));
             setRecommendations(formattedRecommendations);
           } else {
             setRecommendations([]);
           }
-          // Degree recommendations (from 3-test aggregation)
-          if (aggregatedResults.recommendedDegrees && aggregatedResults.recommendedDegrees.length > 0) {
-            setRecommendedDegrees(aggregatedResults.recommendedDegrees);
-          } else if (aggregatedResults.topCareers) {
-            const degrees: { degree: string; field: string; match: number }[] = [];
-            const seen = new Set<string>();
-            aggregatedResults.topCareers.forEach((c: any) => {
-              (c.relatedPrograms || []).forEach((deg: string) => {
-                if (!seen.has(deg)) {
-                  seen.add(deg);
-                  degrees.push({ degree: deg, field: c.category || c.career || '', match: c.score || 0 });
-                }
-              });
-            });
-            setRecommendedDegrees(degrees);
-          } else {
-            setRecommendedDegrees([]);
-          }
         } else {
           setRecommendations([]);
-          setRecommendedDegrees([]);
         }
       } else {
         setRecommendations([]);
-        setRecommendedDegrees([]);
       }
     } catch (error: any) {
       console.error('Error fetching assessment data:', error);
@@ -286,7 +321,6 @@ export function CareerAssessmentPage({ onPageChange }: CareerAssessmentPageProps
         toast.error('Failed to load assessment data');
       }
       setRecommendations([]);
-      setRecommendedDegrees([]);
     } finally {
       setLoading(false);
     }
@@ -407,7 +441,7 @@ export function CareerAssessmentPage({ onPageChange }: CareerAssessmentPageProps
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6 }}
         >
-          <h2 className="mb-6">Recommended Degrees</h2>
+          <h2 className="mb-6">Career fields</h2>
           <Card className="p-6">
             {loading ? (
               <div className="flex items-center justify-center py-12">
@@ -418,7 +452,7 @@ export function CareerAssessmentPage({ onPageChange }: CareerAssessmentPageProps
                 <Lightbulb className="w-16 h-16 mx-auto mb-4 text-slate-300" />
                 <h3 className="text-lg font-semibold text-slate-800 mb-2">Complete All Assessments</h3>
                 <p className="text-slate-600 mb-4">
-                  Complete all 3 assessments (Personality, Brain Hemisphere, and Interest) to get personalized degree recommendations.
+                  Complete all 3 assessments (Personality, Brain Hemisphere, and Interest) to see your top career fields.
                 </p>
                 <div className="flex items-center justify-center gap-2 text-sm text-slate-500">
                   <span className={assessmentStatus.personality ? 'text-green-600' : ''}>
@@ -434,12 +468,13 @@ export function CareerAssessmentPage({ onPageChange }: CareerAssessmentPageProps
                   </span>
                 </div>
               </div>
-            ) : (recommendedDegrees.length === 0 && recommendations.length === 0) ? (
+            ) : recommendations.length === 0 ? (
               <div className="text-center py-12">
                 <Lightbulb className="w-16 h-16 mx-auto mb-4 text-slate-300" />
-                <h3 className="text-lg font-semibold text-slate-800 mb-2">No Recommendations Yet</h3>
+                <h3 className="text-lg font-semibold text-slate-800 mb-2">No recommendations yet</h3>
                 <p className="text-slate-600 mb-4">
-                  Your degree recommendations will appear here once all 3 assessments are processed. Recommendations are rule-based (weighted scores), not AI.
+                  Your top career fields will appear here once all 3 assessments are processed. Suggestions are rule-based
+                  (weighted scores), not AI.
                 </p>
                 <Button
                   onClick={async () => {
@@ -447,11 +482,15 @@ export function CareerAssessmentPage({ onPageChange }: CareerAssessmentPageProps
                     try {
                       const res = await api.get('/assessment/results');
                       const agg = res?.data?.aggregated;
-                      if (agg?.recommendedDegrees?.length) {
-                        setRecommendedDegrees(agg.recommendedDegrees);
-                      }
                       if (agg?.topCareers?.length) {
-                        setRecommendations(agg.topCareers.map((c: any) => ({ field: c.career || c.category, match: c.score || 0, description: c.description || '' })));
+                        setRecommendations(
+                          agg.topCareers.slice(0, 3).map((c: any) => ({
+                            field: c.career || c.category,
+                            match: c.score || 0,
+                            description: c.description || '',
+                            relatedPrograms: Array.isArray(c.relatedPrograms) ? c.relatedPrograms : [],
+                          }))
+                        );
                       }
                     } catch (e) {
                       console.error(e);
@@ -467,51 +506,80 @@ export function CareerAssessmentPage({ onPageChange }: CareerAssessmentPageProps
                 </Button>
               </div>
             ) : (
-              <div className="space-y-6">
-                {recommendedDegrees.length > 0 && (
-                  <>
-                    <h3 className="text-base font-semibold text-slate-800">Recommended Degrees (based on your 3 tests)</h3>
-                    <div className="space-y-3">
-                      {recommendedDegrees.map((item, index) => (
-                        <div
-                          key={`${item.degree}-${index}`}
-                          className="flex items-center gap-4 p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors"
-                        >
-                          <div className="flex-1">
-                            <h4 className="font-semibold text-slate-900">{item.degree}</h4>
-                            <p className="text-sm text-slate-600">{item.field}</p>
-                          </div>
-                          <div className="flex flex-col items-center gap-0">
-                            <span className="text-xl font-bold text-amber-600">{item.match}%</span>
-                            <span className="text-xs text-slate-500">Match</span>
+              <div className="space-y-3">
+                {recommendations.slice(0, 3).map((rec, index) => {
+                  const open = expandedCareerIndex === index;
+                  const paths = careerPathsFor(rec);
+                  const Icon = CAREER_ICONS[rec.field] || GraduationCap;
+                  return (
+                    <div
+                      key={`${rec.field}-${index}`}
+                      className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setExpandedCareerIndex(open ? null : index)}
+                        className={`flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors ${
+                          open
+                            ? 'bg-sky-50/80 text-slate-900'
+                            : 'bg-slate-50 text-slate-800 hover:bg-slate-100'
+                        }`}
+                        aria-expanded={open}
+                      >
+                        <div className="flex min-w-0 flex-1 items-start gap-3">
+                          <Icon className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" aria-hidden />
+                          <div className="min-w-0">
+                            <span className="block font-semibold">{rec.field}</span>
+                            <span className="mt-0.5 block text-xs font-normal text-slate-600 line-clamp-2">
+                              {rec.description}
+                            </span>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  </>
-                )}
-                {recommendations.length > 0 && (
-                  <>
-                    <h3 className="text-base font-semibold text-slate-800 pt-2">Career Fields</h3>
-                    <div className="space-y-3">
-                      {recommendations.map((rec, index) => (
-                        <div
-                          key={index}
-                          className="flex items-center gap-4 p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors"
-                        >
-                          <div className="flex-1">
-                            <h4 className="font-semibold text-slate-900">{rec.field}</h4>
-                            <p className="text-sm text-slate-600">{rec.description}</p>
-                          </div>
-                          <div className="flex flex-col items-center gap-0">
+                        <div className="flex shrink-0 items-center gap-2">
+                          <div className="flex flex-col items-end leading-none">
                             <span className="text-xl font-bold text-amber-600">{rec.match}%</span>
-                            <span className="text-xs text-slate-500">Match</span>
+                            <span className="text-[10px] font-medium uppercase tracking-wide text-slate-500">
+                              Match
+                            </span>
                           </div>
+                          <ChevronDown
+                            className={`h-4 w-4 text-slate-500 transition-transform ${open ? 'rotate-180' : ''}`}
+                            aria-hidden
+                          />
                         </div>
-                      ))}
+                      </button>
+                      {open && (
+                        <div className="border-t border-slate-100 bg-slate-50 px-4 py-4">
+                          <p className="rounded-lg border border-blue-100 bg-blue-50/80 px-4 py-3 text-sm font-medium text-slate-900">
+                            Study paths under <span className="text-blue-800">{rec.field}</span> (based on your
+                            answers)
+                          </p>
+                          {paths.length > 0 ? (
+                            <ul className="mt-3 space-y-2">
+                              {paths.map((p) => (
+                                <li
+                                  key={p}
+                                  className="border-l-2 border-amber-400 pl-3 text-sm text-slate-800"
+                                >
+                                  {p}
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="mt-3 text-sm text-slate-600">
+                              Explore degree programs and diplomas in this field on the Universities page; your match
+                              reflects personality, aptitude, and interest together.
+                            </p>
+                          )}
+                          <p className="mt-3 text-xs text-slate-500">
+                            Confirm entry requirements, quotas, and deadlines on each university’s official prospectus —
+                            this list is indicative, not admission advice.
+                          </p>
+                        </div>
+                      )}
                     </div>
-                  </>
-                )}
+                  );
+                })}
               </div>
             )}
           </Card>

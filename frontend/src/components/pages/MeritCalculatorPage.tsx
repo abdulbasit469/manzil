@@ -2,11 +2,132 @@ import { motion } from 'motion/react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Calculator, Info, Loader2 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import api from '../../services/api';
 import { toast } from 'sonner';
 import { useAuth } from '../../context/AuthContext';
 import { universityNameLabel, stripUnknownUniversityText } from '../../utils/universityDisplay';
+import { inferMeritTestsForUniversity } from '../../utils/meritUniversityInference';
+import {
+  getUniversityMeritRule,
+  type ResolvedUniversityMeritRule,
+} from '../../utils/meritUniversityRules';
+
+const MERIT_FORMULA_KEYS = ['ECAT', 'NET', 'NAT', 'SAT', 'MDCAT', 'GIKI', 'PIEAS'] as const;
+type MeritFormulaKey = (typeof MERIT_FORMULA_KEYS)[number];
+
+type MeritFormulaRow = {
+  name: string;
+  testWeight: number;
+  interWeight: number;
+  matricWeight: number;
+  maxMarks: number;
+  description: string;
+  intermediateHint?: string;
+};
+
+type EffectiveMeritFormula = MeritFormulaRow & { meritDisclaimer?: string };
+
+function applyMeritUniversityRule(
+  base: MeritFormulaRow,
+  rule: ResolvedUniversityMeritRule | null
+): EffectiveMeritFormula {
+  if (!rule) return base;
+  const useBaseMax = rule.tests.length > 1;
+  const maxM = useBaseMax ? base.maxMarks : rule.maxMarks ?? base.maxMarks;
+  const intHint = rule.intermediateHint ?? base.intermediateHint;
+  const out: EffectiveMeritFormula = {
+    ...base,
+    testWeight: rule.weights.test,
+    interWeight: rule.weights.intermediate,
+    matricWeight: rule.weights.matric,
+    maxMarks: maxM,
+    description: rule.officialLine,
+  };
+  if (intHint) out.intermediateHint = intHint;
+  if (rule.disclaimer) out.meritDisclaimer = rule.disclaimer;
+  return out;
+}
+
+/** Second line under test code: avoid "NATNAT / …" when full name already starts with the code */
+function meritFormulaSubtitleAfterCode(code: string, fullName: string): string {
+  const c = (code || '').trim();
+  const f = (fullName || '').trim();
+  if (!f) return '';
+  if (!c) return f;
+  if (f.toUpperCase().startsWith(c.toUpperCase())) {
+    const rest = f.slice(c.length).replace(/^[\s/:–-]+/, '').trim();
+    return rest || f;
+  }
+  return f;
+}
+
+const MERIT_FORMULAS: Record<MeritFormulaKey, MeritFormulaRow> = {
+  ECAT: {
+    name: 'ECAT (UET Punjab Engineering)',
+    testWeight: 33,
+    interWeight: 50,
+    matricWeight: 17,
+    maxMarks: 400,
+    description:
+      'UET (ECAT) aggregate: entry test 33%, HSSC (Intermediate) 50%, SSC (Matric) 17% (UET Lahore / Taxila and aligned programs).',
+  },
+  NET: {
+    name: 'NET (NUST Entry Test)',
+    testWeight: 75,
+    interWeight: 15,
+    matricWeight: 10,
+    maxMarks: 200,
+    description: 'For engineering, CS, business, and applied sciences at NUST',
+  },
+  NAT: {
+    name: 'NAT / NTS-style & ETEA (KPK) aggregate',
+    testWeight: 50,
+    interWeight: 40,
+    matricWeight: 10,
+    maxMarks: 100,
+    description:
+      'NTS (NAT) and ETEA (KPK) engineering-style aggregate: 50% entry test, 40% HSSC (Intermediate), 10% SSC (Matric). Used by many universities on NAT or ETEA.',
+  },
+  SAT: {
+    name: 'SAT (and similar standardized tests)',
+    testWeight: 75,
+    interWeight: 15,
+    matricWeight: 10,
+    maxMarks: 1600,
+    description:
+      'Illustrative default split only. LUMS (LCAT/SAT), IBA, and others use cut-offs or holistic review — when you select a university, the app applies that university’s documented weights where available.',
+  },
+  MDCAT: {
+    name: 'MDCAT (Medical & Dental)',
+    testWeight: 50,
+    interWeight: 40,
+    matricWeight: 10,
+    maxMarks: 200,
+    description:
+      'Common aggregate for MBBS/BDS admissions: entry test 50%, FSc / Intermediate 40%, Matric 10%.',
+  },
+  GIKI: {
+    name: 'GIKI Entry Test',
+    testWeight: 85,
+    interWeight: 15,
+    matricWeight: 0,
+    maxMarks: 200,
+    description:
+      'GIKI Institute of Engineering & Sciences: entry test 85%; FSc / Intermediate combined 15%. Matric is not part of this formula.',
+    intermediateHint:
+      'Use your combined FSc / Intermediate marks (or total obtained vs total max) as one percentage.',
+  },
+  PIEAS: {
+    name: 'PIEAS Entry Test',
+    testWeight: 60,
+    interWeight: 25,
+    matricWeight: 15,
+    maxMarks: 200,
+    description:
+      'Pakistan Institute of Engineering & Applied Sciences: entry test 60%, FSc / Intermediate 25%, Matric 15%.',
+  },
+};
 
 interface University {
   _id: string;
@@ -64,69 +185,6 @@ export function MeritCalculatorPage() {
   const [loadingPrograms, setLoadingPrograms] = useState(false);
   const [useBackendCalculation, setUseBackendCalculation] = useState(false);
 
-  const meritFormulas = {
-    ECAT: {
-      name: 'ECAT (UET + Punjab Engineering)',
-      testWeight: 33,
-      interWeight: 45,
-      matricWeight: 22,
-      maxMarks: 400,
-      description: 'Used by UET Lahore, UET Taxila, and most Punjab engineering universities'
-    },
-    NET: {
-      name: 'NET (NUST Entry Test)',
-      testWeight: 75,
-      interWeight: 15,
-      matricWeight: 10,
-      maxMarks: 200,
-      description: 'For engineering, CS, business, and applied sciences at NUST'
-    },
-    NAT: {
-      name: 'NAT (National Aptitude Test)',
-      testWeight: 50,
-      interWeight: 40,
-      matricWeight: 10,
-      maxMarks: 100,
-      description: 'General formula used by 30+ universities accepting NAT'
-    },
-    SAT: {
-      name: 'SAT (NUST/LUMS/IBA)',
-      testWeight: 75,
-      interWeight: 15,
-      matricWeight: 10,
-      maxMarks: 1600,
-      description: 'General formula for SAT-based admissions (varies by university)'
-    },
-    MDCAT: {
-      name: 'MDCAT (Medical & Dental)',
-      testWeight: 50,
-      interWeight: 40,
-      matricWeight: 10,
-      maxMarks: 200,
-      description: 'Common aggregate for MBBS/BDS admissions: entry test 50%, FSc / Intermediate 40%, Matric 10%.'
-    },
-    GIKI: {
-      name: 'GIKI Entry Test',
-      testWeight: 85,
-      interWeight: 15,
-      matricWeight: 0,
-      maxMarks: 200,
-      description:
-        'GIKI Institute of Engineering & Sciences: entry test 85%; FSc / Intermediate combined 15%. Matric is not part of this formula.',
-      intermediateHint:
-        'Use your combined FSc / Intermediate marks (or total obtained vs total max) as one percentage.'
-    },
-    PIEAS: {
-      name: 'PIEAS Entry Test',
-      testWeight: 60,
-      interWeight: 25,
-      matricWeight: 15,
-      maxMarks: 200,
-      description:
-        'Pakistan Institute of Engineering & Applied Sciences: entry test 60%, FSc / Intermediate 25%, Matric 15%.'
-    }
-  };
-
   // Fetch universities on component mount
   useEffect(() => {
     if (isAuthenticated) {
@@ -144,12 +202,112 @@ export function MeritCalculatorPage() {
     }
   }, [selectedUniversity]);
 
+  const selectedUniRecord = useMemo(() => {
+    if (!selectedUniversity) return null;
+    return (
+      universities.find(
+        (u) =>
+          String((u as University & { id?: string })._id ?? (u as University & { id?: string }).id) ===
+          String(selectedUniversity)
+      ) ?? null
+    );
+  }, [universities, selectedUniversity]);
+
+  const universityMeritRule = useMemo(
+    () => getUniversityMeritRule(selectedUniRecord?.name ?? ''),
+    [selectedUniRecord?.name]
+  );
+
+  const selectedFormula = useMemo((): EffectiveMeritFormula | null => {
+    if (!selectedTest) return null;
+    const base = MERIT_FORMULAS[selectedTest as MeritFormulaKey];
+    if (!base) return null;
+    return applyMeritUniversityRule(base, universityMeritRule);
+  }, [selectedTest, universityMeritRule]);
+
+  const inferredEntryTests = useMemo(() => {
+    if (!isAuthenticated || !selectedUniversity) return [] as string[];
+    const uni = selectedUniRecord;
+    if (!uni?.name) return [] as string[];
+    const fromRule = universityMeritRule?.tests?.filter((t) =>
+      (MERIT_FORMULA_KEYS as readonly string[]).includes(t)
+    );
+    if (fromRule?.length) return [...fromRule];
+    return inferMeritTestsForUniversity(uni.name);
+  }, [isAuthenticated, selectedUniversity, selectedUniRecord, universityMeritRule]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !selectedUniversity) return;
+    const tests = inferredEntryTests;
+    if (tests.length === 0) {
+      setSelectedTest('');
+      return;
+    }
+    if (tests.length === 1) {
+      setSelectedTest(tests[0]!);
+    } else if (tests.length > 1) {
+      setSelectedTest((prev) => (prev && tests.includes(prev) ? prev : tests[0]!));
+    }
+  }, [isAuthenticated, selectedUniversity, inferredEntryTests]);
+
+  useEffect(() => {
+    if (isAuthenticated && !selectedUniversity) {
+      setSelectedTest('');
+      setShowResult(false);
+    }
+  }, [isAuthenticated, selectedUniversity]);
+
+  const MERIT_UNI_CACHE_KEY = 'meritCalcUniversities_v1';
+  const MERIT_UNI_CACHE_MS = 12 * 60 * 1000;
+
   const fetchUniversities = async () => {
+    let primedFromCache = false;
     try {
-      setLoadingUniversities(true);
-      const response = await api.get('/universities', { params: { limit: 1000 } });
+      const raw = sessionStorage.getItem(MERIT_UNI_CACHE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as { at: number; data: University[] };
+        if (
+          typeof parsed?.at === 'number' &&
+          Array.isArray(parsed.data) &&
+          parsed.data.length > 0 &&
+          Date.now() - parsed.at < MERIT_UNI_CACHE_MS
+        ) {
+          setUniversities(parsed.data);
+          primedFromCache = true;
+        }
+      }
+    } catch {
+      /* ignore bad cache */
+    }
+
+    if (!primedFromCache) setLoadingUniversities(true);
+    try {
+      const response = await api.get('/universities', {
+        params: {
+          limit: 3000,
+          page: 1,
+          omitPlaceholderUniversities: 'true',
+          meritPicker: 'true',
+        },
+      });
       if (response.data.success) {
-        setUniversities(response.data.universities || []);
+        const raw = response.data.universities || [];
+        const filtered = raw.filter(
+          (u: University) =>
+            u?.name &&
+            !/\(\s*not specified\s*\)/i.test(u.name) &&
+            !/^not specified$/i.test(String(u.city ?? '').trim()) &&
+            !/^unknown$/i.test(String(u.city ?? '').trim())
+        );
+        setUniversities(filtered);
+        try {
+          sessionStorage.setItem(
+            MERIT_UNI_CACHE_KEY,
+            JSON.stringify({ at: Date.now(), data: filtered })
+          );
+        } catch {
+          /* quota / private mode */
+        }
       }
     } catch (error: any) {
       console.error('Error fetching universities:', error);
@@ -175,12 +333,23 @@ export function MeritCalculatorPage() {
   };
 
   const calculateMerit = async () => {
+    if (isAuthenticated && !selectedUniversity) {
+      toast.error('Please select a university first');
+      return;
+    }
     if (!selectedTest) {
-      toast.error('Please select an entry test');
+      toast.error('Please select an entry test (or pick a university to auto-select)');
       return;
     }
 
-    const formulaForValidation = meritFormulas[selectedTest as keyof typeof meritFormulas];
+    const baseF = MERIT_FORMULAS[selectedTest as keyof typeof MERIT_FORMULAS];
+    const formulaForValidation = baseF
+      ? applyMeritUniversityRule(baseF as MeritFormulaRow, universityMeritRule)
+      : null;
+    if (!formulaForValidation) {
+      toast.error('Invalid entry test selection');
+      return;
+    }
 
     // Validate required fields (matric only when it has weight in the selected formula)
     if (
@@ -196,7 +365,11 @@ export function MeritCalculatorPage() {
       return;
     }
 
-    if (!testObtained || parseFloat(testObtained) <= 0) {
+    const testOptional = universityMeritRule?.entryTestOptional || formulaForValidation.testWeight <= 0;
+    if (
+      !testOptional &&
+      (!testObtained || parseFloat(testObtained) <= 0)
+    ) {
       toast.error('Please enter entry test obtained marks');
       return;
     }
@@ -215,7 +388,8 @@ export function MeritCalculatorPage() {
           intermediateMarks: parseFloat(interObtained),
           firstYearMarks: firstYearMarks ? parseFloat(firstYearMarks) : undefined,
           secondYearMarks: secondYearMarks ? parseFloat(secondYearMarks) : undefined,
-          entryTestMarks: parseFloat(testObtained)
+          entryTestMarks:
+            formulaForValidation.testWeight > 0 ? parseFloat(testObtained || '0') : 0,
         });
 
         if (response.data.success) {
@@ -247,17 +421,20 @@ export function MeritCalculatorPage() {
   };
 
   const calculateFrontendMerit = () => {
-    const formula = meritFormulas[selectedTest as keyof typeof meritFormulas];
-    
+    const baseF = MERIT_FORMULAS[selectedTest as keyof typeof MERIT_FORMULAS];
+    if (!baseF) return;
+    const formula = applyMeritUniversityRule(baseF as MeritFormulaRow, universityMeritRule);
+
     const matricPercentage = parseFloat(matricTotal) > 0 
       ? (parseFloat(matricObtained) / parseFloat(matricTotal)) * 100 
       : 0;
     const interPercentage = parseFloat(interTotal) > 0
       ? (parseFloat(interObtained) / parseFloat(interTotal)) * 100
       : 0;
-    const testPercentage = parseFloat(testObtained) > 0
-      ? (parseFloat(testObtained) / formula.maxMarks) * 100
-      : 0;
+    const testPercentage =
+      formula.testWeight > 0 && parseFloat(testObtained) > 0 && formula.maxMarks > 0
+        ? (parseFloat(testObtained) / formula.maxMarks) * 100
+        : 0;
 
     const merit = 
       (matricPercentage * formula.matricWeight / 100) + 
@@ -358,7 +535,6 @@ export function MeritCalculatorPage() {
     }
   };
 
-  const selectedFormula = selectedTest ? meritFormulas[selectedTest as keyof typeof meritFormulas] : null;
   const totalAggregate = calculateTotalAggregate();
   const status = getMeritStatus(totalAggregate || meritPercentage);
   
@@ -373,7 +549,7 @@ export function MeritCalculatorPage() {
       <div className="bg-gradient-to-r from-[#0f1f3a] via-[#1e3a5f] to-amber-500 text-white p-4 md:p-8 shadow-lg">
         <div className="max-w-7xl mx-auto">
           <motion.div
-            initial={{ opacity: 0, y: -20 }}
+            initial={false}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
           >
@@ -389,69 +565,17 @@ export function MeritCalculatorPage() {
       <div className="max-w-4xl mx-auto p-8">
         {/* Calculator Card */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={false}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
         >
           <Card className="p-8">
             <div className="space-y-6">
-              {/* Entry Test Selection */}
-              <div>
-                <label className="block text-sm mb-3">
-                  Select Entry Test <span className="text-red-600">*</span>
-                </label>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {Object.keys(meritFormulas).map((test) => (
-                    <div
-                      key={test}
-                      onClick={() => {
-                        setSelectedTest(test);
-                        setShowResult(false);
-                      }}
-                      className={`cursor-pointer border-2 rounded-lg p-4 transition-all ${
-                        selectedTest === test
-                          ? 'border-amber-500 bg-amber-50'
-                          : 'border-slate-300 hover:border-amber-300'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <div
-                          className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${
-                            selectedTest === test
-                              ? 'border-amber-500 bg-amber-500'
-                              : 'border-slate-400'
-                          }`}
-                        >
-                          {selectedTest === test && (
-                            <svg
-                              className="w-3 h-3 text-white"
-                              fill="none"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="3"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                            >
-                              <path d="M5 13l4 4L19 7"></path>
-                            </svg>
-                          )}
-                        </div>
-                      </div>
-                      <p className="font-semibold mb-1">{test}</p>
-                      <p className="text-xs text-slate-600">
-                        {meritFormulas[test as keyof typeof meritFormulas].name}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* University and Program Selection (Optional - for backend calculation) */}
               {isAuthenticated && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm mb-2">
-                      Select University (Optional - for accurate calculation)
+                      Select University <span className="text-red-600">*</span>
                     </label>
                     <select
                       value={selectedUniversity}
@@ -461,24 +585,28 @@ export function MeritCalculatorPage() {
                         setShowResult(false);
                       }}
                       className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
-                      disabled={loadingUniversities}
                     >
-                      <option value="">Select University</option>
-                      {universities.map((uni) => (
-                        <option key={uni._id} value={uni._id}>
-                          {universityNameLabel(uni.name)}
-                          {stripUnknownUniversityText(uni.city)
-                            ? ` (${stripUnknownUniversityText(uni.city)})`
-                            : ''}
-                        </option>
-                      ))}
+                      <option value="">
+                        {loadingUniversities && universities.length === 0
+                          ? 'Loading universities…'
+                          : 'Select University'}
+                      </option>
+                      {universities.map((uni) => {
+                        const id = String((uni as University & { id?: string })._id ?? (uni as University & { id?: string }).id);
+                        return (
+                          <option key={id} value={id}>
+                            {universityNameLabel(uni.name)}
+                            {stripUnknownUniversityText(uni.city)
+                              ? ` (${stripUnknownUniversityText(uni.city)})`
+                              : ''}
+                          </option>
+                        );
+                      })}
                     </select>
                   </div>
 
                   <div>
-                    <label className="block text-sm mb-2">
-                      Select Program (Optional - for accurate calculation)
-                    </label>
+                    <label className="block text-sm mb-2">Select Program (optional — for program-specific merit)</label>
                     <select
                       value={selectedProgram}
                       onChange={(e) => {
@@ -488,60 +616,165 @@ export function MeritCalculatorPage() {
                       className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
                       disabled={!selectedUniversity || loadingPrograms}
                     >
-                      <option value="">Select Program</option>
-                      {programs.map((prog) => (
-                        <option key={prog._id} value={prog._id}>
-                          {prog.name} ({prog.degree})
-                        </option>
-                      ))}
+                      <option value="">
+                        {!selectedUniversity
+                          ? 'Select University first'
+                          : loadingPrograms
+                            ? 'Loading programs…'
+                            : 'Select Program'}
+                      </option>
+                      {programs.map((prog) => {
+                        const id = String((prog as Program & { id?: string })._id ?? (prog as Program & { id?: string }).id);
+                        return (
+                          <option key={id} value={id}>
+                            {prog.name} ({prog.degree})
+                          </option>
+                        );
+                      })}
                     </select>
                   </div>
                 </div>
               )}
 
-              {/* Formula Info */}
+              {/* Merit formula: sab kuch ek hi gradient box — neeche % ek line, beech gap, koi partition nahi */}
               {selectedFormula && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <div className="flex items-start gap-2">
-                    <Info className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p className="text-sm mb-2">
-                        {useBackendCalculation && meritResult
-                          ? `Using merit criteria for ${meritResult.criteria.university} - ${meritResult.criteria.program}`
-                          : selectedFormula.description}
+                <div className="overflow-hidden rounded-xl border border-slate-200/80 shadow-sm">
+                  <div className="bg-gradient-to-r from-[#0f1f3a] via-[#1e3a5f] to-amber-600 px-4 pb-4 pt-4 text-white">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-blue-100/90">
+                      Merit formula
+                    </p>
+                    <p className="mt-2 text-2xl font-bold leading-none tracking-tight">{selectedTest || '—'}</p>
+                    <p className="mt-2 max-w-2xl text-sm leading-snug text-blue-100/95">
+                      {meritFormulaSubtitleAfterCode(
+                        selectedTest,
+                        MERIT_FORMULAS[selectedTest as MeritFormulaKey]?.name ?? ''
+                      ) ||
+                        MERIT_FORMULAS[selectedTest as MeritFormulaKey]?.name}
+                    </p>
+                    {useBackendCalculation && meritResult && (
+                      <p className="mt-2 text-xs text-blue-100/85">
+                        {meritResult.criteria.university} — {meritResult.criteria.program}
                       </p>
-                      <div className="flex gap-4 text-sm">
-                        {useBackendCalculation && meritResult ? (
+                    )}
+                    {useBackendCalculation && meritResult ? (
+                      <div className="mt-4 flex flex-wrap items-baseline text-sm text-blue-50/95">
+                        {meritResult.criteria.weights.matric > 0 && (
                           <>
-                            {meritResult.criteria.weights.matric > 0 && (
-                              <span className="text-slate-700">
-                                Matric: <strong>{meritResult.criteria.weights.matric}%</strong>
-                              </span>
-                            )}
-                            <span className="text-slate-700">
-                              Intermediate: <strong>{meritResult.criteria.weights.intermediate}%</strong>
+                            <span className="shrink-0 whitespace-nowrap">
+                              Matric:{' '}
+                              <strong className="font-bold text-white">{meritResult.criteria.weights.matric}%</strong>
                             </span>
-                            <span className="text-slate-700">
-                              Entry Test: <strong>{meritResult.criteria.weights.entryTest}%</strong>
-                            </span>
-                          </>
-                        ) : (
-                          <>
-                            {selectedFormula.matricWeight > 0 && (
-                              <span className="text-slate-700">
-                                Matric: <strong>{selectedFormula.matricWeight}%</strong>
-                              </span>
-                            )}
-                            <span className="text-slate-700">
-                              Intermediate: <strong>{selectedFormula.interWeight}%</strong>
-                            </span>
-                            <span className="text-slate-700">
-                              Test: <strong>{selectedFormula.testWeight}%</strong>
+                            <span
+                              className="shrink-0 px-3 text-base font-light text-blue-200/90 sm:px-5"
+                              aria-hidden
+                            >
+                              ·
                             </span>
                           </>
                         )}
+                        <span className="shrink-0 whitespace-nowrap">
+                          Intermediate:{' '}
+                          <strong className="font-bold text-white">
+                            {meritResult.criteria.weights.intermediate}%
+                          </strong>
+                        </span>
+                        <span
+                          className="shrink-0 px-3 text-base font-light text-blue-200/90 sm:px-5"
+                          aria-hidden
+                        >
+                          ·
+                        </span>
+                        <span className="shrink-0 whitespace-nowrap">
+                          Test:{' '}
+                          <strong className="font-bold text-white">{meritResult.criteria.weights.entryTest}%</strong>
+                        </span>
                       </div>
-                    </div>
+                    ) : (
+                      <div className="mt-4 flex flex-wrap items-baseline text-sm text-blue-50/95">
+                        {selectedFormula.matricWeight > 0 && (
+                          <>
+                            <span className="shrink-0 whitespace-nowrap">
+                              Matric:{' '}
+                              <strong className="font-bold text-white">{selectedFormula.matricWeight}%</strong>
+                            </span>
+                            <span
+                              className="shrink-0 px-3 text-base font-light text-blue-200/90 sm:px-5"
+                              aria-hidden
+                            >
+                              ·
+                            </span>
+                          </>
+                        )}
+                        <span className="shrink-0 whitespace-nowrap">
+                          Intermediate:{' '}
+                          <strong className="font-bold text-white">{selectedFormula.interWeight}%</strong>
+                        </span>
+                        <span
+                          className="shrink-0 px-3 text-base font-light text-blue-200/90 sm:px-5"
+                          aria-hidden
+                        >
+                          ·
+                        </span>
+                        <span className="shrink-0 whitespace-nowrap">
+                          Test:{' '}
+                          <strong className="font-bold text-white">{selectedFormula.testWeight}%</strong>
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Entry test: merit formula ke neeche — guests manually; logged-in jab multiple tests hon */}
+              {(!isAuthenticated || (isAuthenticated && selectedUniversity && inferredEntryTests.length > 1)) && (
+                <div>
+                  <label className="block text-sm mb-3">
+                    Select Entry Test <span className="text-red-600">*</span>
+                  </label>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {(isAuthenticated && selectedUniversity
+                      ? inferredEntryTests
+                      : (Object.keys(MERIT_FORMULAS) as string[])
+                    ).map((test) => (
+                      <div
+                        key={test}
+                        onClick={() => {
+                          setSelectedTest(test);
+                          setShowResult(false);
+                        }}
+                        className={`cursor-pointer border-2 rounded-lg p-4 transition-all ${
+                          selectedTest === test
+                            ? 'border-amber-500 bg-amber-50'
+                            : 'border-slate-300 hover:border-amber-300'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <div
+                            className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${
+                              selectedTest === test ? 'border-amber-500 bg-amber-500' : 'border-slate-400'
+                            }`}
+                          >
+                            {selectedTest === test && (
+                              <svg
+                                className="w-3 h-3 text-white"
+                                fill="none"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="3"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path d="M5 13l4 4L19 7"></path>
+                              </svg>
+                            )}
+                          </div>
+                        </div>
+                        <p className="font-semibold mb-1">{test}</p>
+                        <p className="text-xs text-slate-600">
+                          {MERIT_FORMULAS[test as keyof typeof MERIT_FORMULAS]?.name || test}
+                        </p>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
@@ -617,7 +850,7 @@ export function MeritCalculatorPage() {
               )}
 
               {/* Test Marks Input */}
-              {selectedFormula && (
+              {selectedFormula && selectedFormula.testWeight > 0 && (
                 <div>
                   <label className="block text-sm mb-2">
                     {selectedTest} Obtained Marks <span className="text-red-600">*</span>
@@ -660,7 +893,7 @@ export function MeritCalculatorPage() {
         {/* Merit Result */}
         {showResult && selectedFormula && (
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={false}
             animate={{ opacity: 1, y: 0 }}
             className="mt-8"
           >
@@ -759,6 +992,7 @@ export function MeritCalculatorPage() {
                             {((parseFloat(interObtained) / parseFloat(interTotal)) * 100).toFixed(2)}% × {selectedFormula?.interWeight}% = {(((parseFloat(interObtained) / parseFloat(interTotal)) * 100) * selectedFormula?.interWeight / 100).toFixed(2)}%
                           </span>
                         </div>
+                        {(selectedFormula?.testWeight ?? 0) > 0 && (
                         <div className="flex justify-between text-sm mb-2">
                           <span className="text-slate-600">Entry Test ({selectedFormula?.testWeight}%)</span>
                           <span className="text-slate-900">
@@ -772,6 +1006,7 @@ export function MeritCalculatorPage() {
                             })()}
                           </span>
                         </div>
+                        )}
                       </>
                     )}
                     <div className="border-t border-slate-300 pt-2 mt-2">

@@ -116,12 +116,64 @@ exports.getAllUniversities = async (req, res) => {
       query.type = { $regex: new RegExp(`^${type.trim()}$`, 'i') };
     }
     
+    const omitPlaceholder =
+      req.query.omitPlaceholderUniversities === 'true' || req.query.omitPlaceholderUniversities === '1';
+
+    const nameClauses = [];
     if (search && search.trim()) {
-      query.name = { $regex: search.trim(), $options: 'i' };
+      nameClauses.push({ name: { $regex: search.trim(), $options: 'i' } });
+    }
+    if (omitPlaceholder) {
+      // Name suffix "(Not specified)" OR city placeholders (merit / curated lists)
+      nameClauses.push({ name: { $not: /\(\s*not specified\s*\)/i } });
+      nameClauses.push({ city: { $not: /^not specified$/i } });
+      nameClauses.push({ city: { $not: /^unknown$/i } });
+    }
+    if (nameClauses.length === 1) {
+      Object.assign(query, nameClauses[0]);
+    } else if (nameClauses.length > 1) {
+      query.$and = nameClauses;
     }
 
     if (process.env.NODE_ENV === 'development') {
       console.log('University query:', JSON.stringify(query));
+    }
+
+    const meritPicker =
+      req.query.meritPicker === 'true' || req.query.meritPicker === '1';
+
+    /**
+     * Merit calculator dropdown: only _id/name/city — skips per-row image URL resolution
+     * (which was O(n×keys) and very slow for thousands of universities).
+     */
+    if (meritPicker) {
+      const rawLim = parseInt(limit, 10);
+      const lim = Math.min(
+        Math.max(Number.isFinite(rawLim) && rawLim > 0 ? rawLim : 8000, 1),
+        15000
+      );
+      const universities = await University.find(query)
+        .select('_id name city')
+        .sort({ name: 1 })
+        .limit(lim)
+        .lean();
+
+      const list = universities.map((u) =>
+        sanitizeUniversityFields({
+          _id: u._id,
+          name: u.name || '',
+          city: u.city || '',
+        })
+      );
+
+      return res.status(200).json({
+        success: true,
+        count: list.length,
+        total: list.length,
+        totalPages: 1,
+        currentPage: 1,
+        universities: list,
+      });
     }
 
     /** List view only — omit large text fields (scrapedSummary etc.) for fast JSON + smaller payloads */

@@ -67,25 +67,12 @@ export function TestCalendar2026({ calendar }: Props) {
             ECAT — {calendar.ecatUet.title}
           </summary>
           <div className="p-4 border-t border-slate-100">
-            <p className="text-sm text-blue-800 mb-3">
-              Fee: <strong>{calendar.ecatUet.fee}</strong> · Follow official UET Admissions steps
+            <p className="text-sm font-medium text-slate-900 rounded-lg border border-blue-100 bg-blue-50/80 px-4 py-3">
+              ECAT exam window (2026 session): <span className="text-blue-800">March 30 – April 3</span>
             </p>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
-              {(calendar.ecatUet.steps || []).map((s: any) => (
-                <div
-                  key={s.step}
-                  className="rounded-xl border border-blue-100 bg-white p-3 shadow-sm text-sm"
-                >
-                  <span className="text-xs font-bold text-blue-600">Step {s.step}</span>
-                  <p className="font-semibold text-slate-900 mt-1">{s.title}</p>
-                  <p className="text-xs text-slate-600 mt-1">{s.detail}</p>
-                  <p className="text-xs font-medium text-amber-800 mt-2">{s.lastDate}</p>
-                  {s.action && (
-                    <p className="text-[10px] text-blue-600 mt-1">{s.action}</p>
-                  )}
-                </div>
-              ))}
-            </div>
+            <p className="text-xs text-slate-500 mt-2">
+              Confirm exact dates, venues, and steps on the official UET admissions portal.
+            </p>
           </div>
         </details>
 

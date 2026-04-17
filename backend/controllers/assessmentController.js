@@ -504,8 +504,9 @@ exports.submitBrainTest = async (req, res) => {
     const totalRightMax = brainQuestions.filter(q => q.hemisphere === "right").length * 5;
     const leftNorm = totalLeftMax > 0 ? Math.round((leftScore / totalLeftMax) * 100) : 0;
     const rightNorm = totalRightMax > 0 ? Math.round((rightScore / totalRightMax) * 100) : 0;
-    const diff = Math.abs(leftScore - rightScore);
-    const dominance = diff <= 5 ? "Balanced" : (leftScore > rightScore ? "Left" : "Right");
+    // Use normalized scores (fair: left/right question counts differ). Not clinical neuroscience — self-report style.
+    const normDiff = Math.abs(leftNorm - rightNorm);
+    const dominance = normDiff <= 12 ? "Balanced" : leftNorm > rightNorm ? "Left" : "Right";
 
     let assessment = await AssessmentResponse.findOne({ user: req.user.id }).sort({ createdAt: -1 });
     const results = {
@@ -557,9 +558,9 @@ const brainDetails = {
     ]
   },
   Balanced: {
-    title: "Balanced Brain Hemisphere",
+    title: "Balanced (mixed) style",
     description: [
-      "Your thinking style is a mix of logical and creative; you can switch between analysis and intuition as needed. Your strengths include being adaptable and able to use both structure and imagination. Your personality traits are versatile and balanced in decision-making. This balance helps in roles that need both planning and creativity, such as project management, teaching, or entrepreneurship."
+      "On this short quiz, your answers did not lean strongly toward either style — you reported a mix of structured and flexible habits. That is common: real people use both analysis and creativity. This result is a light-weight career-planning hint (not a medical or scientific brain scan). Roles that blend planning with creativity — such as teaching, product roles, or entrepreneurship — often suit mixed profiles."
     ]
   }
 };
@@ -1200,67 +1201,38 @@ const performWeightedAggregation = (personalityResults, interestResults, brainRe
     }
   }
 
-  // Generate top careers from final scores
+  // Top 3 career fields only (no long job-title explosion from interest mappings)
   const sortedCareers = Object.entries(finalCareerScores)
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 7);
+    .slice(0, 3);
 
-  const topCareers = [];
-  const relatedProgramsMap = {
-    "Engineering": ["BS Electrical Engineering", "BS Mechanical Engineering", "BS Civil Engineering", "BE Electrical", "BE Mechanical"],
-    "Medical": ["MBBS", "Pharm-D", "BS Medical Lab Sciences", "BS Nursing", "BS Biotechnology"],
-    "Business": ["BBA", "MBA", "BS Accounting", "BSc Accounting & Finance", "BSc Management Science"],
-    "Computer Science": ["BS Computer Science", "BS Software Engineering", "BS Data Science", "BS Cyber Security"],
-    "Arts": ["BS Mass Communication", "BS Psychology", "BS Sociology", "BA English", "BS Environmental Sciences"],
-    "Finance": ["BBA Finance", "BS Economics", "BS Accounting"],
-    "Teaching": ["B.Ed", "BS Education", "M.Ed"]
+  const careerDescriptions = {
+    Engineering: "Design and develop technical systems, infrastructure, and solutions",
+    Medical: "Work in healthcare, diagnose and treat patients, or conduct medical research",
+    Business: "Manage organizations, analyze markets, and drive business growth",
+    "Computer Science": "Develop software, analyze data, and work with technology systems",
+    Arts: "Create content, communicate ideas, and work in media and creative industries",
+    Finance: "Manage finances, analyze economic data, and work in accounting or banking",
+    Teaching: "Educate others, provide guidance, and work in educational institutions"
   };
-  sortedCareers.forEach(([field, score]) => {
-    // Find careers from interest test mappings
-    const interestCategory = Object.keys(interestMapping).find(
-      cat => interestMapping[cat] === field
-    );
-    
-    // Check if careerMappings exists and has the category
-    if (interestCategory && careerMappings && careerMappings[interestCategory]) {
-      careerMappings[interestCategory].forEach(career => {
-        topCareers.push({
-          ...career,
-          score: Math.round(score),
-          category: field
-        });
-      });
-    } else {
-      // Generic career recommendation with better descriptions
-      const careerDescriptions = {
-        "Engineering": "Design and develop technical systems, infrastructure, and solutions",
-        "Medical": "Work in healthcare, diagnose and treat patients, or conduct medical research",
-        "Business": "Manage organizations, analyze markets, and drive business growth",
-        "Computer Science": "Develop software, analyze data, and work with technology systems",
-        "Arts": "Create content, communicate ideas, and work in media and creative industries",
-        "Finance": "Manage finances, analyze economic data, and work in accounting or banking",
-        "Teaching": "Educate others, provide guidance, and work in educational institutions"
-      };
-      
-      const relatedProgramsMap = {
-        "Engineering": ["BS Electrical Engineering", "BS Mechanical Engineering", "BS Civil Engineering"],
-        "Medical": ["MBBS", "Pharm-D", "BS Medical Lab Sciences"],
-        "Business": ["BBA", "MBA", "BS Accounting"],
-        "Computer Science": ["BS Computer Science", "BS Software Engineering", "BS Data Science"],
-        "Arts": ["BS Mass Communication", "BS Psychology", "BS Sociology"],
-        "Finance": ["BBA Finance", "BS Economics", "BS Accounting"],
-        "Teaching": ["B.Ed", "BS Education", "M.Ed"]
-      };
-      
-      topCareers.push({
-        career: field,
-        description: careerDescriptions[field] || `Career in ${field} based on your assessment results`,
-        relatedPrograms: relatedProgramsMap[field] || [],
-        score: Math.round(score),
-        category: field
-      });
-    }
-  });
+
+  const relatedProgramsMap = {
+    Engineering: ["BS Electrical Engineering", "BS Mechanical Engineering", "BS Civil Engineering"],
+    Medical: ["MBBS", "Pharm-D", "BS Medical Lab Sciences"],
+    Business: ["BBA", "MBA", "BS Accounting"],
+    "Computer Science": ["BS Computer Science", "BS Software Engineering", "BS Data Science"],
+    Arts: ["BS Mass Communication", "BS Psychology", "BS Sociology"],
+    Finance: ["BBA Finance", "BS Economics", "BS Accounting"],
+    Teaching: ["B.Ed", "BS Education", "M.Ed"]
+  };
+
+  const topCareers = sortedCareers.map(([field, score]) => ({
+    career: field,
+    description: careerDescriptions[field] || `Career field: ${field}`,
+    relatedPrograms: relatedProgramsMap[field] || [],
+    score: Math.round(score),
+    category: field
+  }));
 
   // Build recommended degrees list (for degree recommendation system)
   const seen = new Set();
@@ -1278,8 +1250,8 @@ const performWeightedAggregation = (personalityResults, interestResults, brainRe
 
   return {
     finalCareerScores,
-    topCareers: topCareers.slice(0, 7),
-    recommendedDegrees: recommendedDegrees.slice(0, 15),
+    topCareers: topCareers.slice(0, 3),
+    recommendedDegrees: recommendedDegrees.slice(0, 12),
     testWeights: weights,
     ruleBasedEnhancements
   };

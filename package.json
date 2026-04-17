@@ -15,7 +15,9 @@
     "fix:unknown-universities": "node backend/scripts/removeUnknownUniversityPlaceholders.js",
     "fill:zero-programs": "node backend/scripts/fillZeroProgramUniversities.js",
     "fill:zero-programs:dry": "node backend/scripts/fillZeroProgramUniversities.js --dry-run",
-    "seed:indicative-fees": "node backend/scripts/seedIndicativeUniversityFees.js"
+    "seed:indicative-fees": "node backend/scripts/seedIndicativeUniversityFees.js",
+    "cleanup:universities-not-specified": "node backend/scripts/cleanupUniversitiesNotSpecifiedAndReference.js",
+    "cleanup:universities-not-specified:apply": "node backend/scripts/cleanupUniversitiesNotSpecifiedAndReference.js --apply"
   },
   "repository": {
     "type": "git",

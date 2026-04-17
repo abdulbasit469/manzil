@@ -8,14 +8,11 @@ import {
   CheckCircle2,
   ArrowRight,
   BookOpen,
-  Sparkles,
   Users,
   MessageCircle,
   TrendingUp,
-  Target,
   Award,
   Clock,
-  FileCheck,
   BookMarked,
   BarChart3,
   FileText,
@@ -55,12 +52,16 @@ interface DashboardContentProps {
 export function DashboardContent({ sidebarOpen, onPageChange }: DashboardContentProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
+  /** Full-page loader only on first load — never on 30s poll or refetch (avoids blink). */
+  const dashboardInitialFetchDone = useRef(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showSavedUniversitiesModal, setShowSavedUniversitiesModal] = useState(false);
   const [savedUniversitiesList, setSavedUniversitiesList] = useState<any[]>([]);
   const [loadingSavedUniversities, setLoadingSavedUniversities] = useState(false);
   
   const [notifications, setNotifications] = useState<any[]>([]);
+  /** Bell badge: unread only (server sync via GET unreadCount). */
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
   const bellButtonRef = useRef<HTMLButtonElement>(null);
   const [notifPanelStyle, setNotifPanelStyle] = useState<{
@@ -81,12 +82,6 @@ export function DashboardContent({ sidebarOpen, onPageChange }: DashboardContent
     recentActivity: { type: string; action: string; detail: string; timestamp: string; icon: string }[];
     universitiesProgress: { week: string; universities: number }[];
     universitiesThisWeek?: number;
-    careerSuggestions?: {
-      topCareers: { career: string; score: number; description: string }[];
-      recommendedDegrees: { degree: string; field: string; match: number }[];
-      allMainTestsDone: boolean;
-      message: string;
-    };
     timelines?: {
       disclaimer: string;
       admissionWindows: { id: string; title: string; typicalPeriod: string; detail: string }[];
@@ -164,14 +159,33 @@ export function DashboardContent({ sidebarOpen, onPageChange }: DashboardContent
         read: notif.read || false,
         link: notif.link || null
       }));
-      
+
+      const unreadFromApi = response.data?.unreadCount;
+      const unread =
+        typeof unreadFromApi === 'number'
+          ? unreadFromApi
+          : formattedNotifications.filter((n: { read?: boolean }) => !n.read).length;
+
       setNotifications(formattedNotifications);
+      setUnreadNotificationCount(unread);
     } catch (error: any) {
       console.error('Error fetching notifications:', error);
       // Use empty array on error, don't show toast to avoid spam
       setNotifications([]);
+      setUnreadNotificationCount(0);
     } finally {
       setLoadingNotifications(false);
+    }
+  };
+
+  /** Opening the bell marks everything read in DB; list stays visible, badge clears. */
+  const markAllNotificationsReadOnOpen = async () => {
+    try {
+      await api.put('/notifications/read-all');
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      setUnreadNotificationCount(0);
+    } catch (error) {
+      console.error('Mark all notifications read:', error);
     }
   };
 
@@ -190,18 +204,32 @@ export function DashboardContent({ sidebarOpen, onPageChange }: DashboardContent
   const handleDeleteNotification = async (notificationId: string) => {
     try {
       await api.delete(`/notifications/${notificationId}`);
-      setNotifications(prev => prev.filter(n => n.id !== notificationId));
+      setNotifications((prev) => {
+        const removed = prev.find((n) => n.id === notificationId);
+        const next = prev.filter((n) => n.id !== notificationId);
+        if (removed && !removed.read) {
+          setUnreadNotificationCount((c) => Math.max(0, c - 1));
+        }
+        return next;
+      });
     } catch (error: any) {
       console.error('Error deleting notification:', error);
-      // Still remove from UI on error
-      setNotifications(prev => prev.filter(n => n.id !== notificationId));
+      setNotifications((prev) => {
+        const removed = prev.find((n) => n.id === notificationId);
+        const next = prev.filter((n) => n.id !== notificationId);
+        if (removed && !removed.read) {
+          setUnreadNotificationCount((c) => Math.max(0, c - 1));
+        }
+        return next;
+      });
     }
   };
 
   const clearAllNotifications = async () => {
     try {
       await api.delete('/notifications');
-    setNotifications([]);
+      setNotifications([]);
+      setUnreadNotificationCount(0);
       toast.success('All notifications cleared');
     } catch (error: any) {
       console.error('Error clearing notifications:', error);
@@ -247,8 +275,7 @@ export function DashboardContent({ sidebarOpen, onPageChange }: DashboardContent
 
   const fetchDashboardData = async () => {
     try {
-      // Only show loading spinner on initial load
-      if (dashboardData.profileCompletion === 0) {
+      if (!dashboardInitialFetchDone.current) {
         setLoading(true);
       }
       const response = await api.get('/dashboard');
@@ -310,7 +337,6 @@ export function DashboardContent({ sidebarOpen, onPageChange }: DashboardContent
         universitiesProgress: universitiesProgress,
         universitiesThisWeek: data.stats?.universitiesThisWeek || 0,
         recentActivity: data.recentActivity || [],
-        careerSuggestions: data.careerSuggestions,
         timelines: data.timelines,
         profileGaps: data.profileGaps,
       });
@@ -354,6 +380,7 @@ export function DashboardContent({ sidebarOpen, onPageChange }: DashboardContent
       });
     } finally {
       setLoading(false);
+      dashboardInitialFetchDone.current = true;
     }
   };
 
@@ -421,7 +448,7 @@ export function DashboardContent({ sidebarOpen, onPageChange }: DashboardContent
               onClick={() => setShowNotifications(false)}
             />
             <motion.div
-              initial={{ opacity: 0, y: -8 }}
+              initial={false}
               animate={{ opacity: 1, y: 0 }}
               className="fixed z-[150] flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl"
               style={{
@@ -517,7 +544,7 @@ export function DashboardContent({ sidebarOpen, onPageChange }: DashboardContent
       <div className="bg-gradient-to-r from-[#0f1f3a] via-[#1e3a5f] to-amber-500 text-white p-4 md:p-8 shadow-lg">
         <div className="max-w-7xl mx-auto">
           <motion.div
-            initial={{ opacity: 0, y: -20 }}
+            initial={false}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
           >
@@ -533,7 +560,8 @@ export function DashboardContent({ sidebarOpen, onPageChange }: DashboardContent
                       type="button"
                       onClick={() => {
                         setShowNotifications((open) => {
-                          if (!open && bellButtonRef.current) {
+                          const opening = !open;
+                          if (opening && bellButtonRef.current) {
                             const r = bellButtonRef.current.getBoundingClientRect();
                             const margin = 12;
                             const w = Math.min(720, Math.max(320, window.innerWidth - margin * 2));
@@ -546,6 +574,7 @@ export function DashboardContent({ sidebarOpen, onPageChange }: DashboardContent
                               width: w,
                               maxHeight,
                             });
+                            void markAllNotificationsReadOnOpen();
                           }
                           return !open;
                         });
@@ -553,9 +582,9 @@ export function DashboardContent({ sidebarOpen, onPageChange }: DashboardContent
                       className="relative rounded-xl border border-white/20 bg-white/10 p-3 backdrop-blur-sm transition-all hover:bg-white/20"
                     >
                       <Bell className="h-5 w-5 text-white md:h-6 md:w-6" />
-                      {notifications.length > 0 && (
-                        <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs">
-                          {notifications.length}
+                      {unreadNotificationCount > 0 && (
+                        <span className="absolute -right-1 -top-1 flex min-h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold leading-none text-white">
+                          {unreadNotificationCount > 99 ? '99+' : unreadNotificationCount}
                         </span>
                       )}
                     </button>
@@ -574,7 +603,7 @@ export function DashboardContent({ sidebarOpen, onPageChange }: DashboardContent
       <div className="max-w-7xl mx-auto p-4 md:p-8">
         {/* Action Cards */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={false}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
         >
@@ -582,7 +611,7 @@ export function DashboardContent({ sidebarOpen, onPageChange }: DashboardContent
             {stats.map((stat, index) => (
               <motion.div
                 key={stat.title}
-                initial={{ opacity: 0, y: 20 }}
+                initial={false}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 + index * 0.1 }}
                 whileHover={{ y: -4 }}
@@ -622,130 +651,52 @@ export function DashboardContent({ sidebarOpen, onPageChange }: DashboardContent
           </div>
         </motion.div>
 
-        {/* Personalized hub — career suggestions, admissions & tests (proposal) */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.35 }}
-          className="mb-6 md:mb-8"
-        >
-          <h2 className="text-lg md:text-xl font-semibold text-slate-800 mb-4 flex items-center gap-2">
-            <Target className="w-6 h-6 text-amber-600" />
-            Your personalized hub
-          </h2>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
-            {/* Career suggestions */}
-            <Card className="p-4 md:p-5 border-l-4 border-amber-500 shadow-sm">
-              <div className="flex items-center gap-2 mb-3">
-                <Sparkles className="w-5 h-5 text-amber-600" />
-                <h3 className="font-semibold text-slate-900">Career & degree suggestions</h3>
-              </div>
-              <p className="text-xs text-slate-600 mb-3">{dashboardData.careerSuggestions?.message}</p>
-              {(dashboardData.careerSuggestions?.topCareers?.length ?? 0) > 0 ? (
-                <ul className="space-y-2 mb-3">
-                  {dashboardData.careerSuggestions!.topCareers.slice(0, 4).map((c, i) => (
-                    <li key={i} className="text-sm text-slate-700 flex justify-between gap-2">
-                      <span className="font-medium truncate">{c.career}</span>
-                      <span className="text-amber-700 shrink-0">{c.score}%</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-              {(dashboardData.careerSuggestions?.recommendedDegrees?.length ?? 0) > 0 ? (
-                <div>
-                  <p className="text-xs font-medium text-slate-500 mb-1">Recommended degrees</p>
-                  <ul className="space-y-1">
-                    {dashboardData.careerSuggestions!.recommendedDegrees.slice(0, 4).map((d, i) => (
-                      <li key={i} className="text-sm text-slate-700">
-                        {d.degree}
-                        <span className="text-slate-400"> · {d.field}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-              <div className="flex flex-col gap-2 mt-4">
-                <Button
-                  variant="outline"
-                  className="w-full border-[#1e3a5f] text-[#1e3a5f] hover:bg-[#1e3a5f]/5"
-                  onClick={() => onPageChange('career')}
-                >
-                  Open career assessment
-                  <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  className="w-full text-sm text-slate-600"
-                  onClick={() => onPageChange('degree-scope')}
-                >
-                  Degree & career scope
-                </Button>
-              </div>
-            </Card>
-
-            {/* Entry tests — short index; full dates in calendar below */}
-            <Card className="p-4 md:p-5 border-l-4 border-emerald-600 shadow-sm">
-              <div className="flex items-center gap-2 mb-3">
-                <FileCheck className="w-5 h-5 text-emerald-600" />
-                <h3 className="font-semibold text-slate-900">Entry tests & schedule</h3>
-              </div>
-              <p className="text-[10px] text-slate-500 mb-3">
-                Typical Pakistan timelines — verify each year on official sites.
-              </p>
-              <ul className="space-y-3 max-h-[240px] overflow-y-auto">
-                {(dashboardData.timelines?.entryTests || []).map((t) => (
-                  <li key={t.id} className="text-sm border-b border-slate-100 pb-2 last:border-0">
-                    <p className="font-medium text-slate-800">{t.name}</p>
-                    <p className="text-xs text-emerald-700">{t.typicalPeriod}</p>
-                    <p className="text-xs text-slate-500">{t.body}</p>
-                    <p className="text-[11px] text-slate-600 mt-1">{t.manzilTip}</p>
-                  </li>
-                ))}
-              </ul>
-              <Button
-                variant="outline"
-                className="w-full mt-3 border-slate-300"
-                onClick={() => onPageChange('mocktest')}
-              >
-                Practice (mock tests)
-              </Button>
-            </Card>
-          </div>
-
-          {dashboardData.timelines?.testCalendar2026 && (
-            <div className="mt-6">
+        {(dashboardData.timelines?.testCalendar2026 ||
+          (dashboardData.profileGaps?.length ?? 0) > 0) && (
+          <motion.div
+            initial={false}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.35 }}
+            className="mb-6 md:mb-8"
+          >
+            {dashboardData.timelines?.testCalendar2026 && (
               <TestCalendar2026 calendar={dashboardData.timelines.testCalendar2026} />
-            </div>
-          )}
+            )}
 
-          {(dashboardData.profileGaps?.length ?? 0) > 0 && (
-            <Card className="mt-4 p-4 bg-blue-50/80 border border-blue-100">
-              <p className="text-sm font-medium text-slate-800 mb-2">Complete your profile for better recommendations</p>
-              <div className="flex flex-wrap gap-2">
-                {dashboardData.profileGaps!.slice(0, 6).map((g) => (
-                  <span
-                    key={g.field}
-                    className="text-xs px-2 py-1 rounded-full bg-white border border-blue-200 text-slate-700"
-                  >
-                    {g.label}
-                  </span>
-                ))}
-              </div>
-              <Button
-                size="sm"
-                className="mt-3 bg-[#1e3a5f] hover:bg-[#0f1f3a]"
-                onClick={() => onPageChange('profile')}
+            {(dashboardData.profileGaps?.length ?? 0) > 0 && (
+              <Card
+                className={`p-4 bg-blue-50/80 border border-blue-100 ${
+                  dashboardData.timelines?.testCalendar2026 ? 'mt-4' : ''
+                }`}
               >
-                Finish profile
-              </Button>
-            </Card>
-          )}
-        </motion.div>
+                <p className="text-sm font-medium text-slate-800 mb-2">
+                  Complete your profile for better recommendations
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {dashboardData.profileGaps!.slice(0, 6).map((g) => (
+                    <span
+                      key={g.field}
+                      className="text-xs px-2 py-1 rounded-full bg-white border border-blue-200 text-slate-700"
+                    >
+                      {g.label}
+                    </span>
+                  ))}
+                </div>
+                <Button
+                  size="sm"
+                  className="mt-3 bg-[#1e3a5f] hover:bg-[#0f1f3a]"
+                  onClick={() => onPageChange('profile')}
+                >
+                  Finish profile
+                </Button>
+              </Card>
+            )}
+          </motion.div>
+        )}
 
         {/* Analytics Dashboard - Graphs Section */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={false}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
           className="mt-6 md:mt-8"
@@ -925,7 +876,7 @@ export function DashboardContent({ sidebarOpen, onPageChange }: DashboardContent
             {/* Recent Activity - 40% */}
             <div className="w-full md:w-[40%]">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={false}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6 }}
                 className="h-full flex flex-col"
@@ -999,7 +950,7 @@ export function DashboardContent({ sidebarOpen, onPageChange }: DashboardContent
       {showSavedUniversitiesModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
         <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
+            initial={false}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}
             className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl"
