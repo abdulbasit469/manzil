@@ -1,7 +1,22 @@
 import axios from 'axios';
 
+/** Backend base URL: same host as the page + port 5000 by default (works on LAN). Override with VITE_API_BASE_URL. */
+function resolveApiBaseUrl(): string {
+  const fromEnv = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim();
+  if (fromEnv) {
+    const base = fromEnv.replace(/\/$/, '');
+    return base.endsWith('/api') ? base : `${base}/api`;
+  }
+  if (typeof window !== 'undefined') {
+    const { protocol, hostname } = window.location;
+    const apiPort = (import.meta.env.VITE_API_PORT as string | undefined)?.trim() || '5000';
+    return `${protocol}//${hostname}:${apiPort}/api`;
+  }
+  return 'http://localhost:5000/api';
+}
+
 const api = axios.create({
-  baseURL: 'http://localhost:5000/api',
+  baseURL: resolveApiBaseUrl(),
   headers: {
     'Content-Type': 'application/json',
   },
@@ -34,7 +49,7 @@ api.interceptors.response.use(
     // Handle network errors (backend not running)
     if (!error.response) {
       console.error('Network Error: Backend server may not be running');
-      error.message = 'Cannot connect to server. Please make sure the backend is running on http://localhost:5000';
+      error.message = `Cannot connect to server. Expected API at ${resolveApiBaseUrl().replace(/\/api$/, '')}`;
       return Promise.reject(error);
     }
     

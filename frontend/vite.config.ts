@@ -56,6 +56,7 @@
       outDir: 'build',
     },
     server: {
+      host: true, // 0.0.0.0 — reachable from other devices on LAN via your machine IP
       port: 3000,
       open: true,
     },

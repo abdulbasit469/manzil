@@ -421,7 +421,7 @@ export function MockTestPage() {
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}
-            className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl"
+            className="bg-white rounded-2xl max-w-4xl w-full max-h-[88vh] overflow-y-auto shadow-2xl"
           >
             {/* Modal Header */}
             <div className={`bg-gradient-to-r ${selectedTest.color} p-6 text-white sticky top-0 z-10`}>
@@ -448,7 +448,7 @@ export function MockTestPage() {
                   Accepted By {selectedTest.universityCount} {selectedTest.universityCount === '1' ? 'University' : 'Universities'}
                 </h3>
                 <div className="bg-slate-50 rounded-xl p-4">
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto pr-1">
                     {selectedTest.universities.map((university, index) => (
                       <span
                         key={index}
@@ -467,7 +467,7 @@ export function MockTestPage() {
                   <ListChecks className="w-5 h-5 text-amber-600" />
                   Paper Pattern
                 </h3>
-                <div className="bg-gradient-to-br from-slate-50 to-amber-50 rounded-xl p-6 border border-amber-200">
+                <div className="bg-gradient-to-br from-slate-50 to-amber-50 rounded-xl p-5 border border-amber-200">
                   {/* Overview */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                     <div className="bg-white rounded-lg p-4 shadow-sm">
@@ -487,7 +487,7 @@ export function MockTestPage() {
                   {/* Sections Breakdown */}
                   <div className="mb-4">
                     <h4 className="mb-3 text-slate-700">Test Sections Breakdown</h4>
-                    <div className="space-y-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       {selectedTest.paperPattern.sections.map((section, index) => (
                         <div key={index} className="bg-white rounded-lg p-4 shadow-sm">
                           <div className="flex items-center justify-between mb-2">

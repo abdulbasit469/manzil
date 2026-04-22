@@ -38,7 +38,9 @@ const connectDB = async () => {
   try {
     const mongoUri = resolveMongoUri();
     if (!mongoUri) {
-      throw new Error('Set MONGODB_URI or MONGO_URI in .env');
+      throw new Error(
+        'Set MONGODB_URI or MONGO_URI in .env (project root). This app talks to MongoDB from the machine running the backend — client browser IP does not matter for Atlas.'
+      );
     }
 
     console.log('🔌 Connecting to MongoDB...');
@@ -73,11 +75,11 @@ const connectDB = async () => {
   } catch (error) {
     console.error(`❌ MongoDB Connection Error: ${error.message}`);
     console.error(`💡 Possible fixes:`);
-    console.error(`   1. Check your internet connection`);
-    console.error(`   2. Make sure your IP is whitelisted in MongoDB Atlas`);
-    console.error(`   3. Try using Google DNS (8.8.8.8) or Cloudflare DNS (1.1.1.1)`);
-    console.error(`   4. Check if a VPN or firewall is blocking the connection`);
-    console.error(`   5. If password has @ # : etc., URL-encode it in the URI`);
+    console.error(`   1. Confirm MONGODB_URI (or MONGO_URI) is set in .env on the machine running the backend`);
+    console.error(`   2. Atlas: Network Access → add this server's public IP, or 0.0.0.0/0 for dev only`);
+    console.error(`      (Changing Wi‑Fi changes the server's outbound IP; whitelist the new IP or use 0.0.0.0/0 in dev.)`);
+    console.error(`   3. Check internet / DNS (try 8.8.8.8 or 1.1.1.1) and VPN/firewall`);
+    console.error(`   4. If password has @ # : etc., URL-encode it in the URI`);
     console.error(`\n⚠️  Server will continue running but database operations will fail until connection is established.`);
   }
 };

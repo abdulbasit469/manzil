@@ -46,12 +46,12 @@ export function ProfilePage({ onPageChange }: ProfilePageProps) {
   
   // Matriculation
   const [matricMajor, setMatricMajor] = useState('');
-  const [matricTotal, setMatricTotal] = useState('1100');
+  const [matricTotal, setMatricTotal] = useState('');
   const [matricObtained, setMatricObtained] = useState('');
   
   // Intermediate
   const [interType, setInterType] = useState('');
-  const [interTotal, setInterTotal] = useState('1100');
+  const [interTotal, setInterTotal] = useState('');
   const [interObtained, setInterObtained] = useState('');
 
   useEffect(() => {
@@ -77,12 +77,12 @@ export function ProfilePage({ onPageChange }: ProfilePageProps) {
       
       // Matriculation
       setMatricMajor(profile.matricMajors || '');
-      setMatricTotal('1100'); // Total is always 1100
+      setMatricTotal(profile.matricTotalMarks != null ? String(profile.matricTotalMarks) : '');
       setMatricObtained(profile.matricMarks?.toString() || '');
       
       // Intermediate
       setInterType(profile.intermediateType || '');
-      setInterTotal('1100'); // Total is always 1100
+      setInterTotal(profile.intermediateTotalMarks != null ? String(profile.intermediateTotalMarks) : '');
       setInterObtained(profile.intermediateMarks?.toString() || '');
       setFirstYearMarks(profile.firstYearMarks != null ? String(profile.firstYearMarks) : '');
       setSecondYearMarks(profile.secondYearMarks != null ? String(profile.secondYearMarks) : '');
@@ -157,6 +157,20 @@ export function ProfilePage({ onPageChange }: ProfilePageProps) {
     setter(numericValue);
   };
 
+  const handleObtainedMarksInput = (
+    value: string,
+    totalValue: string,
+    setter: (value: string) => void
+  ) => {
+    const numericValue = value.replace(/[^0-9]/g, '');
+    const total = parseInt(totalValue, 10);
+    if (numericValue && Number.isFinite(total) && total > 0 && parseInt(numericValue, 10) > total) {
+      setter(String(total));
+      return;
+    }
+    setter(numericValue);
+  };
+
   const toggleInterest = (tag: string) => {
     setInterests((prev) =>
       prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
@@ -177,13 +191,26 @@ export function ProfilePage({ onPageChange }: ProfilePageProps) {
         dateOfBirth: dateOfBirth,
         matricMajors: matricMajor,
         matricMarks: matricObtained ? parseInt(matricObtained, 10) : undefined,
+        matricTotalMarks: matricTotal ? parseInt(matricTotal, 10) : undefined,
         intermediateType: interType,
         firstYearMarks: firstYearMarks ? parseInt(firstYearMarks, 10) : undefined,
         secondYearMarks: secondYearMarks ? parseInt(secondYearMarks, 10) : undefined,
         secondYearResultAvailable,
         intermediateMarks: interObtained ? parseInt(interObtained, 10) : undefined,
+        intermediateTotalMarks: interTotal ? parseInt(interTotal, 10) : undefined,
         interests,
       };
+
+      if (matricTotal && matricObtained && parseInt(matricObtained, 10) > parseInt(matricTotal, 10)) {
+        toast.error('Matric obtained marks cannot be greater than total marks');
+        setSaving(false);
+        return;
+      }
+      if (interTotal && interObtained && parseInt(interObtained, 10) > parseInt(interTotal, 10)) {
+        toast.error('Intermediate obtained marks cannot be greater than total marks');
+        setSaving(false);
+        return;
+      }
 
       // Include profile picture if it was updated
       if (profileImage && profileImage.startsWith('data:image')) {
@@ -516,7 +543,9 @@ export function ProfilePage({ onPageChange }: ProfilePageProps) {
                       <input
                         type="text"
                         value={matricObtained}
-                        onChange={(e) => handleNumberInput(e.target.value, setMatricObtained)}
+                        onChange={(e) =>
+                          handleObtainedMarksInput(e.target.value, matricTotal, setMatricObtained)
+                        }
                         placeholder="Enter obtained marks"
                         inputMode="numeric"
                         className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
@@ -550,19 +579,6 @@ export function ProfilePage({ onPageChange }: ProfilePageProps) {
                     </div>
                     <div>
                       <label className="block text-sm text-slate-600 mb-2">
-                        Part-I / First year marks <span className="text-red-600">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={firstYearMarks}
-                        onChange={(e) => handleNumberInput(e.target.value, setFirstYearMarks)}
-                        placeholder="e.g. 520 (out of 550)"
-                        inputMode="numeric"
-                        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm text-slate-600 mb-2">
                         Intermediate Total Marks <span className="text-red-600">*</span>
                       </label>
                       <input
@@ -581,28 +597,16 @@ export function ProfilePage({ onPageChange }: ProfilePageProps) {
                       <input
                         type="text"
                         value={interObtained}
-                        onChange={(e) => handleNumberInput(e.target.value, setInterObtained)}
+                        onChange={(e) =>
+                          handleObtainedMarksInput(e.target.value, interTotal, setInterObtained)
+                        }
                         placeholder="Enter obtained marks"
                         inputMode="numeric"
                         className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
                       />
                     </div>
                   </div>
-                  <div className="mt-4 flex flex-col sm:flex-row gap-4 sm:items-end">
-                    <div className="flex-1">
-                      <label className="block text-sm text-slate-600 mb-2">
-                        Part-II / Second year marks (optional)
-                      </label>
-                      <input
-                        type="text"
-                        value={secondYearMarks}
-                        onChange={(e) => handleNumberInput(e.target.value, setSecondYearMarks)}
-                        placeholder="If result is out"
-                        inputMode="numeric"
-                        disabled={!secondYearResultAvailable}
-                        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:bg-slate-100"
-                      />
-                    </div>
+                  <div className="mt-4">
                     <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer pb-2">
                       <input
                         type="checkbox"
@@ -615,6 +619,36 @@ export function ProfilePage({ onPageChange }: ProfilePageProps) {
                       />
                       Second year result available
                     </label>
+                    {secondYearResultAvailable && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                        <div>
+                          <label className="block text-sm text-slate-600 mb-2">
+                            Part-I / First year marks <span className="text-red-600">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={firstYearMarks}
+                            onChange={(e) => handleNumberInput(e.target.value, setFirstYearMarks)}
+                            placeholder="e.g. 520 (out of 550)"
+                            inputMode="numeric"
+                            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm text-slate-600 mb-2">
+                            Part-II / Second year marks
+                          </label>
+                          <input
+                            type="text"
+                            value={secondYearMarks}
+                            onChange={(e) => handleNumberInput(e.target.value, setSecondYearMarks)}
+                            placeholder="If result is out"
+                            inputMode="numeric"
+                            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

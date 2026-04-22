@@ -74,16 +74,6 @@ const degreeScopeSeed = [
     order: 7
   },
   {
-    degreeName: 'MBA',
-    field: 'Business',
-    scope: 'MBA builds on graduation for leadership and strategy. Graduates move into management, consulting, and senior roles in corporate, banking, and startups. Specializations include finance, marketing, and operations.',
-    jobRoles: ['Manager', 'Consultant', 'Business Development Manager', 'Product Manager', 'Strategy Analyst', 'Branch Manager'],
-    salaryEntry: '80,000 – 150,000 PKR/month',
-    salaryMid: '200,000 – 500,000+ PKR/month',
-    trends: 'Top schools (IBA, LUMS, etc.) have strong placement. Executive MBA and specialized MBAs are in demand.',
-    order: 8
-  },
-  {
     degreeName: 'BS Psychology',
     field: 'Arts',
     scope: 'Psychology covers human behavior, mental health, and assessment. Graduates work in clinics, schools, HR, NGOs, and research. Further training (MPhil/clinical) opens therapy and counseling practice.',
@@ -172,6 +162,206 @@ const degreeScopeSeed = [
     salaryMid: '90,000 – 250,000 PKR/month',
     trends: 'Central bank, think tanks, and banks hire. Data and policy analysis skills are valued.',
     order: 17
+  },
+  {
+    degreeName: 'BDS',
+    field: 'Medical',
+    scope: 'BDS prepares students for dental practice, oral surgery support, and preventive oral healthcare in clinics and hospitals.',
+    jobRoles: ['Dental Surgeon', 'Dental Officer', 'Orthodontics Resident', 'Oral Health Educator', 'Dental Clinic Manager'],
+    salaryEntry: '70,000 – 130,000 PKR/month',
+    salaryMid: '180,000 – 420,000 PKR/month',
+    trends: 'Private dentistry and cosmetic procedures are growing, especially in major cities.',
+    order: 18
+  },
+  {
+    degreeName: 'DPT',
+    field: 'Medical',
+    scope: 'Doctor of Physical Therapy focuses on rehabilitation, movement science, and sports injury management.',
+    jobRoles: ['Physiotherapist', 'Rehab Therapist', 'Sports Therapist', 'Clinical Instructor', 'Ergonomics Consultant'],
+    salaryEntry: '40,000 – 75,000 PKR/month',
+    salaryMid: '100,000 – 220,000 PKR/month',
+    trends: 'Demand is increasing in hospitals, sports medicine, and private rehabilitation centers.',
+    order: 19
+  },
+  {
+    degreeName: 'BS Medical Lab Technology (MLT)',
+    field: 'Medical',
+    scope: 'MLT trains students in diagnostic lab methods for pathology, hematology, microbiology, and biochemistry.',
+    jobRoles: ['Medical Lab Technologist', 'Lab Supervisor', 'Pathology Assistant', 'Diagnostic Analyst'],
+    salaryEntry: '35,000 – 65,000 PKR/month',
+    salaryMid: '85,000 – 180,000 PKR/month',
+    trends: 'Diagnostics demand is strong with expansion of labs and hospital networks.',
+    order: 20
+  },
+  {
+    degreeName: 'BS Radiology / Imaging Technology',
+    field: 'Medical',
+    scope: 'Focuses on X-ray, CT, MRI, and imaging workflows in hospitals and diagnostic centers.',
+    jobRoles: ['Radiology Technologist', 'Imaging Technician', 'MRI/CT Operator', 'Radiology Assistant'],
+    salaryEntry: '40,000 – 70,000 PKR/month',
+    salaryMid: '90,000 – 210,000 PKR/month',
+    trends: 'Healthcare imaging services are expanding in both public and private sectors.',
+    order: 21
+  },
+  {
+    degreeName: 'BS Optometry',
+    field: 'Medical',
+    scope: 'Optometry covers eye assessment, vision correction, and primary eye-care support.',
+    jobRoles: ['Optometrist', 'Vision Therapist', 'Eye Clinic Associate', 'Contact Lens Specialist'],
+    salaryEntry: '35,000 – 60,000 PKR/month',
+    salaryMid: '80,000 – 180,000 PKR/month',
+    trends: 'Demand is rising due to increased eye-care awareness and screen-related vision issues.',
+    order: 22
+  },
+  {
+    degreeName: 'BS Public Health',
+    field: 'Medical',
+    scope: 'Public Health trains students in epidemiology, health policy, and community health planning.',
+    jobRoles: ['Public Health Officer', 'Program Coordinator', 'Epidemiology Assistant', 'Health Policy Analyst'],
+    salaryEntry: '40,000 – 75,000 PKR/month',
+    salaryMid: '100,000 – 230,000 PKR/month',
+    trends: 'NGO and government projects continue to create opportunities in health management.',
+    order: 23
+  },
+  {
+    degreeName: 'BS Nutrition & Dietetics',
+    field: 'Medical',
+    scope: 'Covers clinical nutrition, diet planning, and lifestyle-based preventive health.',
+    jobRoles: ['Clinical Dietitian', 'Nutritionist', 'Wellness Consultant', 'Community Nutrition Officer'],
+    salaryEntry: '35,000 – 65,000 PKR/month',
+    salaryMid: '85,000 – 200,000 PKR/month',
+    trends: 'Wellness and metabolic health services are growing in hospitals and private practice.',
+    order: 24
+  },
+  {
+    degreeName: 'BS Information Technology (IT)',
+    field: 'Computer Science',
+    scope: 'IT focuses on networks, systems, databases, and enterprise technology support.',
+    jobRoles: ['IT Support Engineer', 'System Administrator', 'Network Engineer', 'Cloud Support Associate'],
+    salaryEntry: '45,000 – 90,000 PKR/month',
+    salaryMid: '130,000 – 320,000 PKR/month',
+    trends: 'Cloud adoption and cybersecurity needs keep IT roles in high demand.',
+    order: 25
+  },
+  {
+    degreeName: 'BS Artificial Intelligence (AI)',
+    field: 'Computer Science',
+    scope: 'AI degree covers machine learning, neural networks, NLP, and intelligent automation systems.',
+    jobRoles: ['AI Engineer', 'ML Engineer', 'NLP Engineer', 'Computer Vision Engineer'],
+    salaryEntry: '70,000 – 140,000 PKR/month',
+    salaryMid: '200,000 – 500,000+ PKR/month',
+    trends: 'AI adoption is rapidly increasing across fintech, healthtech, and product startups.',
+    order: 26
+  },
+  {
+    degreeName: 'BS Cyber Security',
+    field: 'Computer Science',
+    scope: 'Cyber Security focuses on securing systems, networks, and applications against attacks.',
+    jobRoles: ['Security Analyst', 'SOC Engineer', 'Penetration Tester', 'Information Security Officer'],
+    salaryEntry: '65,000 – 130,000 PKR/month',
+    salaryMid: '180,000 – 420,000 PKR/month',
+    trends: 'Cybersecurity spending and hiring are rising across banking, telecom, and government.',
+    order: 27
+  },
+  {
+    degreeName: 'BS Computer Engineering',
+    field: 'Engineering',
+    scope: 'Computer Engineering combines software, hardware, and embedded systems design.',
+    jobRoles: ['Embedded Systems Engineer', 'Hardware Design Engineer', 'Firmware Engineer', 'IoT Engineer'],
+    salaryEntry: '55,000 – 100,000 PKR/month',
+    salaryMid: '150,000 – 360,000 PKR/month',
+    trends: 'Embedded and IoT roles are increasing in automation, electronics, and robotics.',
+    order: 28
+  },
+  {
+    degreeName: 'BS Game Development',
+    field: 'Computer Science',
+    scope: 'Game Development includes game engines, graphics, interactive design, and gameplay programming.',
+    jobRoles: ['Game Developer', 'Gameplay Programmer', 'Technical Artist', 'Level Designer'],
+    salaryEntry: '45,000 – 85,000 PKR/month',
+    salaryMid: '120,000 – 300,000 PKR/month',
+    trends: 'Mobile gaming and outsourcing studios are growing in Pakistan.',
+    order: 29
+  },
+  {
+    degreeName: 'BS Robotics & Intelligent Systems',
+    field: 'Engineering',
+    scope: 'Combines mechanics, electronics, control systems, and AI for automation and intelligent machines.',
+    jobRoles: ['Robotics Engineer', 'Automation Engineer', 'Control Systems Engineer', 'Mechatronics Specialist'],
+    salaryEntry: '60,000 – 110,000 PKR/month',
+    salaryMid: '160,000 – 380,000 PKR/month',
+    trends: 'Industrial automation and smart manufacturing are creating new roles.',
+    order: 30
+  },
+  {
+    degreeName: 'BS Chemical Engineering',
+    field: 'Engineering',
+    scope: 'Covers chemical processes, plant design, and production systems for process industries.',
+    jobRoles: ['Process Engineer', 'Production Engineer', 'Plant Engineer', 'Quality Engineer'],
+    salaryEntry: '45,000 – 85,000 PKR/month',
+    salaryMid: '120,000 – 300,000 PKR/month',
+    trends: 'Demand remains steady in fertilizer, pharma, and energy sectors.',
+    order: 31
+  },
+  {
+    degreeName: 'BS Mechatronics Engineering',
+    field: 'Engineering',
+    scope: 'Mechatronics integrates mechanical systems, electronics, and software control.',
+    jobRoles: ['Mechatronics Engineer', 'Automation Engineer', 'Robotics Integrator', 'Control Engineer'],
+    salaryEntry: '50,000 – 95,000 PKR/month',
+    salaryMid: '140,000 – 330,000 PKR/month',
+    trends: 'Factories and smart systems are driving demand for mechatronics skills.',
+    order: 32
+  },
+  {
+    degreeName: 'BS Aerospace Engineering',
+    field: 'Engineering',
+    scope: 'Focuses on aircraft and spacecraft structures, propulsion, and aerodynamics.',
+    jobRoles: ['Aerospace Engineer', 'Design Engineer', 'Flight Systems Analyst', 'Maintenance Engineer'],
+    salaryEntry: '55,000 – 100,000 PKR/month',
+    salaryMid: '150,000 – 360,000 PKR/month',
+    trends: 'Niche but growing opportunities in defense, aviation, and R&D.',
+    order: 33
+  },
+  {
+    degreeName: 'BS Industrial Engineering',
+    field: 'Engineering',
+    scope: 'Industrial Engineering optimizes operations, supply chains, and productivity systems.',
+    jobRoles: ['Industrial Engineer', 'Process Improvement Analyst', 'Operations Engineer', 'Supply Chain Analyst'],
+    salaryEntry: '45,000 – 85,000 PKR/month',
+    salaryMid: '120,000 – 280,000 PKR/month',
+    trends: 'Manufacturing and logistics modernization are increasing demand.',
+    order: 34
+  },
+  {
+    degreeName: 'BS Petroleum Engineering',
+    field: 'Engineering',
+    scope: 'Covers oil and gas exploration, drilling, and reservoir engineering.',
+    jobRoles: ['Petroleum Engineer', 'Drilling Engineer', 'Reservoir Engineer', 'Production Engineer'],
+    salaryEntry: '60,000 – 120,000 PKR/month',
+    salaryMid: '180,000 – 450,000 PKR/month',
+    trends: 'Demand depends on energy investments; specialized field with strong upside.',
+    order: 35
+  },
+  {
+    degreeName: 'BS Biomedical Engineering',
+    field: 'Engineering',
+    scope: 'Combines engineering with medical device design, diagnostics, and healthcare technology.',
+    jobRoles: ['Biomedical Engineer', 'Medical Device Engineer', 'Clinical Engineer', 'Equipment Specialist'],
+    salaryEntry: '50,000 – 95,000 PKR/month',
+    salaryMid: '140,000 – 320,000 PKR/month',
+    trends: 'Medical device and health-tech demand is rising.',
+    order: 36
+  },
+  {
+    degreeName: 'BS Environmental Engineering',
+    field: 'Engineering',
+    scope: 'Focuses on water treatment, pollution control, and sustainable engineering systems.',
+    jobRoles: ['Environmental Engineer', 'Water Treatment Engineer', 'EHS Specialist', 'Sustainability Analyst'],
+    salaryEntry: '45,000 – 80,000 PKR/month',
+    salaryMid: '120,000 – 280,000 PKR/month',
+    trends: 'Compliance and sustainability requirements are expanding this field.',
+    order: 37
   }
 ];
 

@@ -12,6 +12,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const path = require('path');
+const os = require('os');
 const connectDB = require('./config/db');
 
 // Initialize Express app
@@ -48,25 +49,54 @@ connectDB().then(() => {
 });
 
 // CORS configuration - Allow multiple origins for development
+const extraOrigins = (process.env.FRONTEND_URLS || process.env.FRONTEND_URL || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:3001',
   'http://localhost:3002',
   'http://localhost:5173', // Vite default port
-  process.env.FRONTEND_URL
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:5173',
+  ...extraOrigins,
 ].filter(Boolean); // Remove undefined values
+
+/** True for typical LAN/dev URLs so the SPA works when opened via machine IP (e.g. phone on same Wi‑Fi). */
+function isLikelyDevLanOrigin(origin) {
+  try {
+    const u = new URL(origin);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
+    const h = u.hostname;
+    if (h === 'localhost' || h === '127.0.0.1') return true;
+    if (/^192\.168\.\d{1,3}\.\d{1,3}$/.test(h)) return true;
+    if (/^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(h)) return true;
+    if (/^172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}$/.test(h)) return true;
+  } catch {
+    return false;
+  }
+  return false;
+}
+
+const corsRelaxedForDev = process.env.NODE_ENV !== 'production';
 
 // CORS middleware - apply before static files
 app.use(cors({
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
+
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      return callback(null, true);
     }
+    // Non-production: allow same-machine + LAN browser origins (Vite on :3000, etc.)
+    if (corsRelaxedForDev && isLikelyDevLanOrigin(origin)) {
+      return callback(null, true);
+    }
+
+    callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -185,12 +215,29 @@ const performBackup = async () => {
   }
 };
 
-// Start server
-const PORT = process.env.PORT || 5000;
-const server = app.listen(PORT, () => {
-  console.log(`\n🚀 Manzil Server is running on port ${PORT}`);
+function getLanIpv4s() {
+  const nets = os.networkInterfaces();
+  const out = [];
+  for (const name of Object.keys(nets)) {
+    for (const net of nets[name] || []) {
+      const v4 = net.family === 'IPv4' || net.family === 4;
+      if (v4 && !net.internal) out.push(net.address);
+    }
+  }
+  return out;
+}
+
+// Start server — listen on all interfaces so phones / other PCs on the LAN can reach the API
+const PORT = Number(process.env.PORT) || 5000;
+const HOST = process.env.HOST || '0.0.0.0';
+const server = app.listen(PORT, HOST, () => {
+  console.log(`\n🚀 Manzil Server is running on ${HOST}:${PORT}`);
   console.log(`📍 Environment: ${process.env.NODE_ENV}`);
-  console.log(`🌐 API URL: http://localhost:${PORT}`);
+  console.log(`🌐 API URL (this machine): http://localhost:${PORT}`);
+  const lan = getLanIpv4s();
+  if (lan.length) {
+    console.log(`🌐 API URL (LAN): ${lan.map((ip) => `http://${ip}:${PORT}`).join(' · ')}`);
+  }
   console.log(`💚 Health Check: http://localhost:${PORT}/api/health`);
   
   // Wait for MongoDB connection before performing initial backup

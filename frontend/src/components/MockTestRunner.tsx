@@ -95,7 +95,7 @@ export function MockTestRunner({ pack, gradientClass, onClose }: MockTestRunnerP
         <motion.div
           initial={{ opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="bg-white rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden"
+          className="bg-white rounded-2xl max-w-xl w-full shadow-2xl overflow-hidden"
         >
           <div className={`bg-gradient-to-r ${gradientClass} p-6 text-white`}>
             <div className="flex justify-between items-start">
