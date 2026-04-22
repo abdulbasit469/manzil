@@ -3,6 +3,65 @@ const Program = require('../models/Program');
 const degreeScopeSeed = require('../data/degreeScopeSeed');
 const { sanitizeProgramsArray } = require('../utils/sanitizeUniversityStrings');
 
+function escapeRegex(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** Program.category values in DB for a DegreeScope.field */
+function programCategoriesForField(field) {
+  const f = (field || '').trim();
+  if (f === 'Computer Science') return ['Computer Science'];
+  if (f === 'Engineering') return ['Engineering'];
+  if (f === 'Medical') return ['Medical'];
+  return [f];
+}
+
+/**
+ * Derive a substring to match Program.name (same idea as before, but supports
+ * "BE/BS …", parentheticals like "(CS)", and medical codes).
+ */
+function programNameKeywordFromScope(scope) {
+  const dn = (scope.degreeName || '').trim();
+  if (/^MBBS\b/i.test(dn)) return 'MBBS';
+  if (/^BDS\b/i.test(dn)) return 'BDS';
+  if (/^DPT\b/i.test(dn)) return 'DPT';
+  if (/Pharm-?D/i.test(dn)) return 'Pharm';
+  let s = dn;
+  s = s.replace(/^BE\/BS\s+|^BS\/BE\s+/i, '');
+  s = s.replace(/^(BS|BE|BBA|MBA|B\.Ed|BA|M\.Phil|MS|PhD)\s+/i, '');
+  s = s.replace(/\s*\([^)]*\)\s*$/g, '').trim();
+  if (!s) {
+    s = dn.replace(/^BE\/BS\s+|^BS\/BE\s+/i, '');
+    s = s.replace(/\s*\([^)]*\)\s*$/g, '').trim();
+  }
+  return s || dn;
+}
+
+/** Old card titles removed when re-seeding expanded degree names */
+const DEPRECATED_DEGREE_SCOPE_NAMES = [
+  'MBBS',
+  'BDS',
+  'DPT',
+  'Pharm-D',
+  'BS Computer Science',
+  'BS Software Engineering',
+  'BS Data Science',
+  'BS Electrical Engineering',
+  'BS Mechanical Engineering',
+  'BS Civil Engineering',
+  'BS Chemical Engineering',
+  'BS Mechatronics Engineering',
+  'BS Aerospace Engineering',
+  'BS Industrial Engineering',
+  'BS Petroleum Engineering',
+  'BS Biomedical Engineering',
+  'BS Environmental Engineering',
+  'BS Computer Engineering',
+  'BS Information Technology (IT)',
+  'BS Artificial Intelligence (AI)',
+  'MBA',
+];
+
 /**
  * GET /api/degree-scope
  * List all degree scopes, optionally filter by field.
@@ -47,9 +106,11 @@ exports.getProgramsForDegree = async (req, res) => {
     }
     const { page = 1, limit = 20 } = req.query;
     const query = { isActive: { $ne: false } };
-    query.category = scope.field;
-    const namePart = scope.degreeName.replace(/^(BS|BE|BBA|MBA|MBBS|Pharm-D|B\.Ed|BA|M\.Phil|MS|PhD)\s*/i, '').trim();
-    if (namePart) query.name = { $regex: namePart, $options: 'i' };
+    query.category = { $in: programCategoriesForField(scope.field) };
+    const namePart = programNameKeywordFromScope(scope);
+    if (namePart) {
+      query.name = { $regex: escapeRegex(namePart), $options: 'i' };
+    }
     const programs = await Program.find(query)
       .populate('university', 'name city type')
       .limit(limit * 1)
@@ -88,6 +149,7 @@ exports.runSeed = async (req, res) => {
     } else {
       await DegreeScope.insertMany(degreeScopeSeed);
     }
+    await DegreeScope.deleteMany({ degreeName: { $in: DEPRECATED_DEGREE_SCOPE_NAMES } });
     const count = await DegreeScope.countDocuments();
     res.status(200).json({ success: true, message: 'DegreeScope seed done', count });
   } catch (error) {
