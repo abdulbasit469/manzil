@@ -32,7 +32,13 @@ export function DegreeScopePage({ onPageChange }: DegreeScopePageProps) {
   const fetchList = () => {
     const params = fieldFilter === 'All' ? {} : { field: fieldFilter };
     return api.get('/degree-scope', { params })
-      .then((res) => setList(res.data?.data || []))
+      .then((res) =>
+        setList(
+          (res.data?.data || []).filter(
+            (item: DegreeScopeItem) => item.degreeName.trim().toUpperCase() !== 'MBA'
+          )
+        )
+      )
       .catch(() => setList([]));
   };
 

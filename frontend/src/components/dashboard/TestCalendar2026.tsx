@@ -26,9 +26,6 @@ export function TestCalendar2026({ calendar }: Props) {
             {calendar.sourceNote}
           </p>
         </div>
-        <p className="text-[10px] text-slate-500 max-w-md">
-          ECAT: UET portal · NAT: NTS · LAT/LAW-GAT/USAT/HAT: verify HEC / law authority sites · MDCAT: PMC
-        </p>
       </div>
 
       <div className="space-y-4">

@@ -170,9 +170,9 @@ export function MeritCalculatorPage() {
   const [selectedProgram, setSelectedProgram] = useState('');
   const [universities, setUniversities] = useState<University[]>([]);
   const [programs, setPrograms] = useState<Program[]>([]);
-  const [matricTotal, setMatricTotal] = useState('1100');
+  const [matricTotal, setMatricTotal] = useState('');
   const [matricObtained, setMatricObtained] = useState('');
-  const [interTotal, setInterTotal] = useState('1100');
+  const [interTotal, setInterTotal] = useState('');
   const [interObtained, setInterObtained] = useState('');
   const [firstYearMarks, setFirstYearMarks] = useState('');
   const [secondYearMarks, setSecondYearMarks] = useState('');
@@ -332,6 +332,26 @@ export function MeritCalculatorPage() {
     }
   };
 
+  const digitsOnly = (value: string) => value.replace(/[^0-9]/g, '');
+
+  const handleTotalMarksChange = (value: string, setter: (value: string) => void) => {
+    setter(digitsOnly(value));
+  };
+
+  const handleObtainedMarksChange = (
+    value: string,
+    totalValue: string,
+    setter: (value: string) => void
+  ) => {
+    const next = digitsOnly(value);
+    const total = parseInt(totalValue, 10);
+    if (next && Number.isFinite(total) && total > 0 && parseInt(next, 10) > total) {
+      setter(String(total));
+      return;
+    }
+    setter(next);
+  };
+
   const calculateMerit = async () => {
     if (isAuthenticated && !selectedUniversity) {
       toast.error('Please select a university first');
@@ -365,12 +385,36 @@ export function MeritCalculatorPage() {
       return;
     }
 
+    if (formulaForValidation.matricWeight > 0) {
+      if (!matricTotal || parseFloat(matricTotal) <= 0) {
+        toast.error('Please enter matric total marks');
+        return;
+      }
+      if (parseFloat(matricObtained) > parseFloat(matricTotal)) {
+        toast.error('Matric obtained marks cannot be greater than total marks');
+        return;
+      }
+    }
+
+    if (!interTotal || parseFloat(interTotal) <= 0) {
+      toast.error('Please enter intermediate total marks');
+      return;
+    }
+    if (parseFloat(interObtained) > parseFloat(interTotal)) {
+      toast.error('Intermediate obtained marks cannot be greater than total marks');
+      return;
+    }
+
     const testOptional = universityMeritRule?.entryTestOptional || formulaForValidation.testWeight <= 0;
     if (
       !testOptional &&
       (!testObtained || parseFloat(testObtained) <= 0)
     ) {
       toast.error('Please enter entry test obtained marks');
+      return;
+    }
+    if (parseFloat(testObtained || '0') > formulaForValidation.maxMarks) {
+      toast.error(`${selectedTest} obtained marks cannot be greater than ${formulaForValidation.maxMarks}`);
       return;
     }
 
@@ -581,7 +625,6 @@ export function MeritCalculatorPage() {
                       value={selectedUniversity}
                       onChange={(e) => {
                         setSelectedUniversity(e.target.value);
-                        setSelectedProgram('');
                         setShowResult(false);
                       }}
                       className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
@@ -605,34 +648,6 @@ export function MeritCalculatorPage() {
                     </select>
                   </div>
 
-                  <div>
-                    <label className="block text-sm mb-2">Select Program (optional — for program-specific merit)</label>
-                    <select
-                      value={selectedProgram}
-                      onChange={(e) => {
-                        setSelectedProgram(e.target.value);
-                        setShowResult(false);
-                      }}
-                      className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
-                      disabled={!selectedUniversity || loadingPrograms}
-                    >
-                      <option value="">
-                        {!selectedUniversity
-                          ? 'Select University first'
-                          : loadingPrograms
-                            ? 'Loading programs…'
-                            : 'Select Program'}
-                      </option>
-                      {programs.map((prog) => {
-                        const id = String((prog as Program & { id?: string })._id ?? (prog as Program & { id?: string }).id);
-                        return (
-                          <option key={id} value={id}>
-                            {prog.name} ({prog.degree})
-                          </option>
-                        );
-                      })}
-                    </select>
-                  </div>
                 </div>
               )}
 
@@ -789,8 +804,9 @@ export function MeritCalculatorPage() {
                     <input
                       type="number"
                       value={matricTotal}
-                      onChange={(e) => setMatricTotal(e.target.value)}
+                      onChange={(e) => handleTotalMarksChange(e.target.value, setMatricTotal)}
                       placeholder="e.g., 1100"
+                      min={1}
                       className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
                     />
                   </div>
@@ -802,8 +818,12 @@ export function MeritCalculatorPage() {
                     <input
                       type="number"
                       value={matricObtained}
-                      onChange={(e) => setMatricObtained(e.target.value)}
+                      onChange={(e) =>
+                        handleObtainedMarksChange(e.target.value, matricTotal, setMatricObtained)
+                      }
                       placeholder="e.g., 950"
+                      min={0}
+                      max={matricTotal || undefined}
                       className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
                     />
                   </div>
@@ -827,8 +847,9 @@ export function MeritCalculatorPage() {
                     <input
                       type="number"
                       value={interTotal}
-                      onChange={(e) => setInterTotal(e.target.value)}
+                      onChange={(e) => handleTotalMarksChange(e.target.value, setInterTotal)}
                       placeholder="e.g., 1100"
+                      min={1}
                       className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
                     />
                   </div>
@@ -840,8 +861,12 @@ export function MeritCalculatorPage() {
                     <input
                       type="number"
                       value={interObtained}
-                      onChange={(e) => setInterObtained(e.target.value)}
+                      onChange={(e) =>
+                        handleObtainedMarksChange(e.target.value, interTotal, setInterObtained)
+                      }
                       placeholder="e.g., 900"
+                      min={0}
+                      max={interTotal || undefined}
                       className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
                     />
                   </div>
@@ -858,8 +883,16 @@ export function MeritCalculatorPage() {
                   <input
                     type="number"
                     value={testObtained}
-                    onChange={(e) => setTestObtained(e.target.value)}
+                    onChange={(e) =>
+                      handleObtainedMarksChange(
+                        e.target.value,
+                        String(selectedFormula.maxMarks),
+                        setTestObtained
+                      )
+                    }
                     placeholder={`Enter marks out of ${selectedFormula.maxMarks}`}
+                    min={0}
+                    max={selectedFormula.maxMarks}
                     className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
                   />
                   <p className="text-xs text-slate-500 mt-1">
