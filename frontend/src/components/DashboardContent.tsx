@@ -428,10 +428,43 @@ export function DashboardContent({ sidebarOpen, onPageChange }: DashboardContent
 
   if (loading) {
     return (
-      <div className="flex-1 overflow-auto flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 animate-spin text-amber-600 mx-auto mb-4" />
-          <p className="text-slate-600">Loading dashboard...</p>
+      <div className="flex-1 overflow-auto p-6 bg-slate-50">
+        {/* Header skeleton */}
+        <div className="h-8 w-56 bg-slate-200 rounded-lg animate-pulse mb-6" />
+        {/* Stat cards skeleton */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="bg-white rounded-xl p-5 shadow-sm">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-lg bg-slate-200 animate-pulse" />
+                <div className="h-4 w-28 bg-slate-200 rounded animate-pulse" />
+              </div>
+              <div className="h-7 w-16 bg-slate-200 rounded animate-pulse mb-2" />
+              <div className="h-2 w-full bg-slate-100 rounded-full animate-pulse" />
+            </div>
+          ))}
+        </div>
+        {/* Charts skeleton */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+          {[1, 2].map((i) => (
+            <div key={i} className="bg-white rounded-xl p-5 shadow-sm">
+              <div className="h-5 w-36 bg-slate-200 rounded animate-pulse mb-4" />
+              <div className="h-48 bg-slate-100 rounded-lg animate-pulse" />
+            </div>
+          ))}
+        </div>
+        {/* Recent activity skeleton */}
+        <div className="bg-white rounded-xl p-5 shadow-sm">
+          <div className="h-5 w-36 bg-slate-200 rounded animate-pulse mb-4" />
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="flex items-center gap-3 py-3 border-b border-slate-100 last:border-0">
+              <div className="w-8 h-8 rounded-full bg-slate-200 animate-pulse flex-shrink-0" />
+              <div className="flex-1">
+                <div className="h-3 w-48 bg-slate-200 rounded animate-pulse mb-2" />
+                <div className="h-3 w-24 bg-slate-100 rounded animate-pulse" />
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     );

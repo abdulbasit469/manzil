@@ -67,23 +67,27 @@ const userSchema = new mongoose.Schema({
   },
   firstYearMarks: {
     type: Number,
-    min: 0,
-    max: 550
+    min: 0
   },
   secondYearMarks: {
     type: Number,
-    min: 0,
-    max: 550
+    min: 0
+  },
+  intermediateTotalMarks: {
+    type: Number,
+    min: 0
   },
   intermediateMarks: {
     type: Number,
-    min: 0,
-    max: 1100
+    min: 0
+  },
+  matricTotalMarks: {
+    type: Number,
+    min: 0
   },
   matricMarks: {
     type: Number,
-    min: 0,
-    max: 1100
+    min: 0
   },
   matricMajors: {
     type: String,
