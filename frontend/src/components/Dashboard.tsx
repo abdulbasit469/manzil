@@ -13,6 +13,7 @@ import { PostDetailPage } from './pages/PostDetailPage';
 import { CreatePostPage } from './pages/CreatePostPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { MockTestPage } from './pages/MockTestPage';
+import { MockTestRunPage } from './pages/MockTestRunPage';
 import { DegreeScopePage } from './pages/DegreeScopePage';
 import { DegreeScopeDetailPage } from './pages/DegreeScopeDetailPage';
 import { UniversityDetailPage } from './pages/UniversityDetailPage';
@@ -43,6 +44,19 @@ export function Dashboard() {
   const [selectedDegreeScopeId, setSelectedDegreeScopeId] = useState<string | null>(null);
   const [selectedUniversityId, setSelectedUniversityId] = useState<string | null>(() => {
     return localStorage.getItem('studentSelectedUniversityId') || null;
+  });
+
+  const [mockRunSession, setMockRunSession] = useState<{ name: string; color: string } | null>(() => {
+    try {
+      const raw = localStorage.getItem('studentMockRunSession');
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as { name?: string; color?: string; gradient?: string };
+      const colorVal = parsed?.color || parsed?.gradient; // handle old stored sessions
+      if (parsed?.name && colorVal) return { name: parsed.name, color: colorVal };
+    } catch {
+      /* ignore */
+    }
+    return null;
   });
 
   const actionCards = [
@@ -84,6 +98,10 @@ export function Dashboard() {
   };
 
   const handlePageChange = (page: string, postId?: string) => {
+    if (page !== 'mocktest-run') {
+      setMockRunSession(null);
+      localStorage.removeItem('studentMockRunSession');
+    }
     setCurrentPage(page);
     localStorage.setItem('studentCurrentPage', page);
     if (page === 'degree-scope-detail') {
@@ -128,10 +146,40 @@ export function Dashboard() {
     localStorage.removeItem('studentSelectedUniversityId');
   };
 
+  const startMockTestRun = (config: { name: string; color: string }) => {
+    setMockRunSession(config);
+    localStorage.setItem('studentMockRunSession', JSON.stringify(config));
+    setCurrentPage('mocktest-run');
+    localStorage.setItem('studentCurrentPage', 'mocktest-run');
+  };
+
+  const handleBackFromMockRun = () => {
+    setMockRunSession(null);
+    localStorage.removeItem('studentMockRunSession');
+    setCurrentPage('mocktest');
+    localStorage.setItem('studentCurrentPage', 'mocktest');
+  };
+
   // Save current page to localStorage whenever it changes
   useEffect(() => {
     localStorage.setItem('studentCurrentPage', currentPage);
   }, [currentPage]);
+
+  useEffect(() => {
+    if (currentPage === 'mocktest-run' && !mockRunSession) {
+      setCurrentPage('mocktest');
+      localStorage.setItem('studentCurrentPage', 'mocktest');
+    }
+  }, [currentPage, mockRunSession]);
+
+  useEffect(() => {
+    if (currentPage !== 'mocktest-run' || !mockRunSession) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [currentPage, mockRunSession]);
   
   // Save selected post ID to localStorage whenever it changes
   useEffect(() => {
@@ -209,7 +257,17 @@ export function Dashboard() {
       case 'profile':
         return <ProfilePage onPageChange={setCurrentPage} />;
       case 'mocktest':
-        return <MockTestPage />;
+        return <MockTestPage onStartPractice={startMockTestRun} />;
+      case 'mocktest-run':
+        return mockRunSession ? (
+          <MockTestRunPage
+            testName={mockRunSession.name}
+            gradientClass={mockRunSession.color}
+            onBack={handleBackFromMockRun}
+          />
+        ) : (
+          <MockTestPage onStartPractice={startMockTestRun} />
+        );
       default:
         return <DashboardContent sidebarOpen={sidebarOpen} onPageChange={handlePageChange} />;
     }
@@ -220,12 +278,25 @@ export function Dashboard() {
     localStorage.removeItem('studentCurrentPage');
     localStorage.removeItem('studentSelectedPostId');
     localStorage.removeItem('studentSelectedUniversityId');
+    localStorage.removeItem('studentMockRunSession');
     navigate('/');
     // Scroll to top of landing page after navigation
     setTimeout(() => {
       window.scrollTo({ top: 0, behavior: 'instant' });
     }, 100);
   };
+
+  if (currentPage === 'mocktest-run' && mockRunSession) {
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col bg-slate-100">
+        <MockTestRunPage
+          testName={mockRunSession.name}
+          gradientClass={mockRunSession.color}
+          onBack={handleBackFromMockRun}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-screen bg-slate-50">

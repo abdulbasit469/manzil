@@ -2,12 +2,22 @@ import { motion } from 'motion/react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { BookOpen, Clock, FileText, Award, ArrowRight, Info, X, Building2, ListChecks } from 'lucide-react';
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { toast } from 'sonner';
-import { MockTestRunner } from '../MockTestRunner';
 import { getMockPaperPack } from '../../data/mockTestBanks';
 
-export function MockTestPage() {
+export interface MockTestCardMeta {
+  name: string;
+  color: string;
+}
+
+interface MockTestPageProps {
+  /** Opens the practice runner on its own dashboard page (like career assessments). */
+  onStartPractice: (test: MockTestCardMeta) => void;
+}
+
+export function MockTestPage({ onStartPractice }: MockTestPageProps) {
   const mockTests = [
     {
       name: 'ECAT',
@@ -292,11 +302,8 @@ export function MockTestPage() {
   ];
 
   const [selectedTest, setSelectedTest] = useState<(typeof mockTests)[0] | null>(null);
-  const [runnerTest, setRunnerTest] = useState<(typeof mockTests)[0] | null>(null);
 
   const filteredTests = mockTests;
-
-  const runnerPack = useMemo(() => (runnerTest ? getMockPaperPack(runnerTest.name) : null), [runnerTest]);
 
   const handleStartTest = (test: (typeof mockTests)[0]) => {
     const p = getMockPaperPack(test.name);
@@ -305,7 +312,7 @@ export function MockTestPage() {
       return;
     }
     setSelectedTest(null);
-    setRunnerTest(test);
+    onStartPractice({ name: test.name, color: test.color });
   };
 
   return (
@@ -414,41 +421,42 @@ export function MockTestPage() {
         </motion.div>
       </div>
 
-      {/* Detail Modal */}
-      {selectedTest && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      {/* Detail Modal — portaled to body so Dashboard overflow-hidden cannot stretch it full-width */}
+      {selectedTest &&
+        createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}
-            className="bg-white rounded-2xl max-w-4xl w-full max-h-[88vh] overflow-y-auto shadow-2xl"
+            className="manzil-modal-square flex flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
           >
             {/* Modal Header */}
-            <div className={`bg-gradient-to-r ${selectedTest.color} p-6 text-white sticky top-0 z-10`}>
-              <div className="flex items-start justify-between">
-                <div>
-                  <h2 className="text-3xl mb-1">{selectedTest.name}</h2>
-                  <p className="text-white/90">{selectedTest.fullName}</p>
+            <div className={`bg-gradient-to-r ${selectedTest.color} p-4 text-white shrink-0`}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h2 className="text-lg font-bold leading-tight">{selectedTest.name}</h2>
+                  <p className="text-white/90 text-xs mt-1 line-clamp-2">{selectedTest.fullName}</p>
                 </div>
                 <button
                   onClick={() => setSelectedTest(null)}
-                  className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
+                  className="w-9 h-9 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors shrink-0"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
             </div>
 
-            {/* Modal Content */}
-            <div className="p-6">
+            {/* Scrollable body — square shell stays fixed in the center */}
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 sm:p-5">
               {/* Universities Section */}
-              <div className="mb-8">
+              <div className="mb-6">
                 <h3 className="flex items-center gap-2 mb-4">
                   <Building2 className="w-5 h-5 text-amber-600" />
                   Accepted By {selectedTest.universityCount} {selectedTest.universityCount === '1' ? 'University' : 'Universities'}
                 </h3>
                 <div className="bg-slate-50 rounded-xl p-4">
-                  <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto pr-1">
+                  <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto pr-1">
                     {selectedTest.universities.map((university, index) => (
                       <span
                         key={index}
@@ -462,21 +470,21 @@ export function MockTestPage() {
               </div>
 
               {/* Paper Pattern Section */}
-              <div className="mb-8">
+              <div className="mb-6">
                 <h3 className="flex items-center gap-2 mb-4">
                   <ListChecks className="w-5 h-5 text-amber-600" />
                   Paper Pattern
                 </h3>
-                <div className="bg-gradient-to-br from-slate-50 to-amber-50 rounded-xl p-5 border border-amber-200">
+                <div className="bg-gradient-to-br from-slate-50 to-amber-50 rounded-xl p-4 border border-amber-200">
                   {/* Overview */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-4">
                     <div className="bg-white rounded-lg p-4 shadow-sm">
                       <p className="text-sm text-slate-600 mb-1">Total Marks</p>
-                      <p className="text-2xl text-amber-600">{selectedTest.paperPattern.totalMarks}</p>
+                      <p className="text-xl text-amber-600">{selectedTest.paperPattern.totalMarks}</p>
                     </div>
                     <div className="bg-white rounded-lg p-4 shadow-sm">
                       <p className="text-sm text-slate-600 mb-1">Total Time</p>
-                      <p className="text-2xl text-amber-600">{selectedTest.paperPattern.totalTime}</p>
+                      <p className="text-xl text-amber-600">{selectedTest.paperPattern.totalTime}</p>
                     </div>
                     <div className="bg-white rounded-lg p-4 shadow-sm">
                       <p className="text-sm text-slate-600 mb-1">Format</p>
@@ -487,7 +495,7 @@ export function MockTestPage() {
                   {/* Sections Breakdown */}
                   <div className="mb-4">
                     <h4 className="mb-3 text-slate-700">Test Sections Breakdown</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 gap-2">
                       {selectedTest.paperPattern.sections.map((section, index) => (
                         <div key={index} className="bg-white rounded-lg p-4 shadow-sm">
                           <div className="flex items-center justify-between mb-2">
@@ -512,12 +520,12 @@ export function MockTestPage() {
                   </div>
 
                   {/* Negative Marking */}
-                  <div className="bg-white rounded-lg p-4 shadow-sm">
+                  <div className="bg-white rounded-lg p-4 pb-4 shadow-sm">
                     <div className="flex items-start gap-2">
                       <Info className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
-                      <div>
+                      <div className="min-w-0">
                         <p className="text-sm mb-1">Negative Marking</p>
-                        <p className="text-slate-700">{selectedTest.paperPattern.negativeMarking}</p>
+                        <p className="text-slate-700 text-sm leading-snug pb-0.5">{selectedTest.paperPattern.negativeMarking}</p>
                       </div>
                     </div>
                   </div>
@@ -536,32 +544,26 @@ export function MockTestPage() {
                   )}
                 </div>
               </div>
+            </div>
 
-              {/* Action Buttons */}
-              <div className="flex gap-3">
-                <Button
-                  onClick={() => selectedTest && handleStartTest(selectedTest)}
-                  className="flex-1 bg-gradient-to-r from-amber-500 to-amber-600 text-white hover:shadow-lg transition-all"
-                >
-                  Start Practice Test
-                  <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
-                <Button
-                  onClick={() => setSelectedTest(null)}
-                  variant="outline"
-                  className="border-slate-300"
-                >
-                  Close
-                </Button>
-              </div>
+            {/* Footer — stays visible while body scrolls */}
+            <div className="shrink-0 border-t border-slate-200 bg-slate-50/90 p-3 sm:p-4 flex flex-col-reverse sm:flex-row gap-2">
+              <Button onClick={() => setSelectedTest(null)} variant="outline" className="sm:flex-1 bg-white border-slate-300">
+                Close
+              </Button>
+              <Button
+                onClick={() => selectedTest && handleStartTest(selectedTest)}
+                className="sm:flex-1 bg-gradient-to-r from-amber-500 to-amber-600 text-white hover:shadow-lg transition-all"
+              >
+                Start Practice Test
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
             </div>
           </motion.div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {runnerTest && runnerPack && (
-        <MockTestRunner pack={runnerPack} gradientClass={runnerTest.color} onClose={() => setRunnerTest(null)} />
-      )}
-   </div>
+    </div>
   );
 }

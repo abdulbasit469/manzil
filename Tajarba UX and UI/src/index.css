@@ -3493,3 +3493,28 @@ html {
     opacity: .5;
   }
 }
+
+/* Centered square-ish modals (shared with main frontend pattern) */
+.manzil-modal-square {
+  box-sizing: border-box;
+  width: min(28rem, calc(100vw - 1.5rem));
+  max-width: calc(100vw - 1.5rem);
+  height: min(28rem, calc(100dvh - 2rem));
+  max-height: 85vh;
+}
+
+.manzil-modal-square-tall {
+  box-sizing: border-box;
+  width: min(28rem, calc(100vw - 1.5rem));
+  max-width: calc(100vw - 1.5rem);
+  height: min(36rem, calc(100dvh - 2rem));
+  max-height: 88vh;
+}
+
+.manzil-mock-runner-shell {
+  box-sizing: border-box;
+  width: min(80rem, calc(100vw - 1.5rem));
+  max-width: calc(100vw - 1.5rem);
+  height: min(48rem, calc(100dvh - 2rem));
+  max-height: 92vh;
+}

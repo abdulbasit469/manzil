@@ -70,7 +70,7 @@ const assessmentResponseSchema = new mongoose.Schema({
   },
   // Brain Hemisphere (OHBDS) results - informational, not part of career aggregation
   brainResults: {
-    dominance: String, // 'Left', 'Right', 'Balanced'
+    dominance: String, // 'Left' or 'Right' (legacy DB rows may still say 'Balanced')
     leftScore: Number,
     rightScore: Number
   },

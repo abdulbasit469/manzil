@@ -260,168 +260,112 @@ exports.submitPersonalityTest = async (req, res) => {
   }
 };
 
+const MBTI_STATIC_DETAILS = {
+  ISTJ: [
+    'You work best where rules are clear, deadlines matter, and quality is measured. Roles in audit, operations, compliance, and civil services suit your style.',
+    'Build a strong base in Excel, documentation, and process mapping; your reliability becomes a real advantage in hiring.',
+    'In university, lead project tracking and reporting to strengthen management and decision-making confidence.'
+  ],
+  ISFJ: [
+    'You are dependable and service-oriented, which fits healthcare support, teaching, HR coordination, and student services.',
+    'Careers grow quickly when you combine empathy with structure: record-keeping, follow-up, and consistent communication.',
+    'Develop counseling basics and digital tools so your people-focused strengths convert into professional impact.'
+  ],
+  INFJ: [
+    'You naturally connect values with long-term goals, making you suitable for counseling, psychology, research, and education policy.',
+    'You do your best work when projects have meaning and help people improve their lives.',
+    'Strengthen writing and evidence-based analysis to turn your insight into clear career direction for others.'
+  ],
+  INTJ: [
+    'You think strategically and prefer complex problems, which aligns with engineering design, data science, product strategy, and research.',
+    'You perform best where independent planning, systems thinking, and deep focus are rewarded.',
+    'Build portfolio projects and presentation skills so your strong ideas are also easy for teams to adopt.'
+  ],
+  ISTP: [
+    'You are practical and hands-on, well suited to technical fields such as mechanical, electrical, networking, and field engineering.',
+    'You learn fastest by building, fixing, and testing real systems rather than only reading theory.',
+    'Use labs, internships, and certification tracks to convert problem-solving ability into employable technical proof.'
+  ],
+  ISFP: [
+    'You are creative and people-aware, matching careers in design, media, content, UX, and community-facing development work.',
+    'You perform best in environments where quality, aesthetics, and user comfort matter.',
+    'Improve your portfolio discipline and client communication so creativity leads to steady professional growth.'
+  ],
+  INFP: [
+    'You are purpose-driven and reflective, which fits writing, psychology, education, social impact, and thoughtful content roles.',
+    'You do your strongest work when values and career goals are aligned, not just salary targets.',
+    'Focus on execution routines and project deadlines to turn good ideas into consistent outcomes.'
+  ],
+  INTP: [
+    'You enjoy analysis and abstract thinking, making you a strong fit for software, AI, research, and advanced technical problem-solving.',
+    'You thrive when exploring systems deeply and improving logic behind products and processes.',
+    'Pair your technical depth with concise communication so teams can trust and apply your insights quickly.'
+  ],
+  ESTP: [
+    'You are action-oriented and adaptable, suitable for sales, business development, operations, and startup execution roles.',
+    'You perform well in fast-moving settings where quick decisions and practical judgment create immediate results.',
+    'Build negotiation and CRM discipline so your energy translates into measurable, repeatable performance.'
+  ],
+  ESFP: [
+    'You connect easily with people and bring momentum to teams, which fits marketing, customer success, events, and media.',
+    'You succeed in visible roles where communication, relationships, and enthusiasm directly affect outcomes.',
+    'Strengthen planning and analytics so your people skills are backed by clear business results.'
+  ],
+  ENFP: [
+    'You are imaginative and motivating, well suited to branding, product storytelling, education outreach, and entrepreneurial paths.',
+    'You create value by linking ideas, people, and opportunities across different domains.',
+    'Build execution systems for priorities and follow-through so creativity turns into long-term career credibility.'
+  ],
+  ENTP: [
+    'You are inventive and debate-driven, fitting product innovation, consulting, strategy, and growth-focused business roles.',
+    'You excel at spotting better approaches and challenging inefficient assumptions.',
+    'Develop discipline around delivery timelines so your strong ideation becomes market-ready output.'
+  ],
+  ESTJ: [
+    'You are organized and decisive, matching project management, administration, finance operations, and leadership-track roles.',
+    'You perform best where accountability, process control, and team coordination are central.',
+    'Grow mentoring and listening habits so your efficiency also builds strong team trust.'
+  ],
+  ESFJ: [
+    'You are supportive and structured, making you a good fit for teaching, HR, healthcare coordination, and student advising.',
+    'You create stable environments where people feel guided and work gets completed on time.',
+    'Build conflict-resolution and planning tools to scale your people skills into leadership responsibility.'
+  ],
+  ENFJ: [
+    'You naturally guide others and communicate purpose clearly, fitting education leadership, training, HR, and social impact management.',
+    'You do well in careers where motivation, coaching, and stakeholder communication are daily requirements.',
+    'Add data-based decision habits so your leadership remains both inspiring and strategically sound.'
+  ],
+  ENTJ: [
+    'You are goal-driven and strategic, suitable for business leadership, consulting, product ownership, and high-responsibility management tracks.',
+    'You excel when defining direction, allocating resources, and pushing teams toward ambitious outcomes.',
+    'Invest in emotional intelligence and delegation to lead high-performing teams without burnout.'
+  ],
+};
+
 /**
- * Get MBTI Details using Gemini API
+ * Get MBTI details from static career-oriented content (no AI dependency).
  */
 exports.getMBTIDetails = async (req, res) => {
   try {
-    const { mbtiType } = req.params;
-    
-    if (!mbtiType || mbtiType.length !== 4) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Invalid MBTI type. Must be 4 characters (e.g., ESTJ)' 
+    const mbtiType = String(req.params.mbtiType || '').toUpperCase().trim();
+    if (!mbtiType || mbtiType.length !== 4 || !MBTI_STATIC_DETAILS[mbtiType]) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid MBTI type. Must be one of the 16 MBTI combinations (e.g., ESTJ).',
       });
     }
 
-    // Check if Gemini API key is configured
-    if (!process.env.GEMINI_API_KEY) {
-      return res.status(500).json({ 
-        success: false, 
-        message: 'Gemini API key not configured. Please configure GEMINI_API_KEY in environment variables.' 
-      });
-    }
-
-    // Use Gemini API REST API directly
-    // First, get list of available models, then use the first available one
-    try {
-      const apiKey = process.env.GEMINI_API_KEY;
-      
-      // First, try to get list of available models
-      let availableModel = null;
-      try {
-        const listModelsUrl = `https://generativelanguage.googleapis.com/v1/models?key=${apiKey}`;
-        const listResponse = await fetch(listModelsUrl);
-        
-        if (listResponse.ok) {
-          const modelsData = await listResponse.json();
-          // Find first model that supports generateContent
-          const supportedModel = modelsData.models?.find(model => 
-            model.supportedGenerationMethods?.includes('generateContent')
-          );
-          if (supportedModel) {
-            availableModel = supportedModel.name.replace('models/', '');
-            console.log(`Found available model: ${availableModel}`);
-          }
-        }
-      } catch (listError) {
-        console.log('Could not list models, will try default models');
-      }
-      
-      // If we found an available model, use it; otherwise try common model names
-      const modelsToTry = availableModel 
-        ? [availableModel]
-        : [
-            'gemini-2.5-flash',
-            'gemini-1.5-flash-latest',
-            'gemini-1.5-pro-latest',
-            'gemini-1.5-flash',
-            'gemini-1.5-pro',
-            'gemini-pro'
-          ];
-      
-      const dimensionNames = {
-        'E': 'Extraversion', 'I': 'Introversion',
-        'S': 'Sensing', 'N': 'Intuition',
-        'T': 'Thinking', 'F': 'Feeling',
-        'J': 'Judging', 'P': 'Perceiving'
-      };
-
-      const prompt = `Describe the MBTI personality type ${mbtiType} in a simple, natural way. Write like a human, not like AI. Format EXACTLY like this:
-
-${mbtiType[0]} -> ${dimensionNames[mbtiType[0]]}
-${mbtiType[1]} -> ${dimensionNames[mbtiType[1]]}
-${mbtiType[2]} -> ${dimensionNames[mbtiType[2]]}
-${mbtiType[3]} -> ${dimensionNames[mbtiType[3]]}
-
-Then you MUST write exactly 4 bullet points. Each bullet point should be 1-2 lines. Use plain text only - NO asterisks, NO bold, NO special formatting. Write casually like a friend explaining it. Keep it short. Start each bullet point on a new line.`;
-
-      let lastError = null;
-      
-      for (const modelName of modelsToTry) {
-        try {
-          // Remove 'models/' prefix if present
-          const cleanModelName = modelName.replace('models/', '');
-          const apiUrl = `https://generativelanguage.googleapis.com/v1/models/${cleanModelName}:generateContent?key=${apiKey}`;
-          
-          const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              contents: [{
-                parts: [{
-                  text: prompt
-                }]
-              }]
-            })
-          });
-
-          if (response.ok) {
-            const data = await response.json();
-            const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-            
-            if (text && text.trim().length > 0) {
-              console.log(`Successfully used model: ${cleanModelName}`);
-              
-              // Parse the text to extract description paragraphs
-              // Remove dimension mapping lines (E -> Extraversion format)
-              let cleanText = text;
-              const lines = cleanText.split('\n');
-              const descriptionLines = lines.filter(line => {
-                const trimmed = line.trim();
-                // Skip dimension mappings and empty lines
-                return trimmed.length > 0 && !trimmed.match(/^[A-Z]\s*->/) && !trimmed.match(/^[A-Z]\s*->/);
-              });
-              
-              // Join lines back, split by double newlines or bullet points
-              let description = descriptionLines.join('\n');
-              
-              // Split by bullets or paragraphs
-              const paragraphs = description
-                .split(/\n\s*\n|^\s*[-•*]\s*/m)
-                .map(p => p.trim())
-                .filter(p => p.length > 0 && !p.match(/^[A-Z]\s*->/));
-              
-              return res.status(200).json({
-                success: true,
-                mbtiType: mbtiType,
-                details: {
-                  description: paragraphs.length > 0 ? paragraphs : [text.trim()]
-                }
-              });
-            }
-          } else {
-            const errorData = await response.json().catch(() => ({}));
-            lastError = `Model ${cleanModelName}: ${response.status} ${response.statusText}. ${JSON.stringify(errorData)}`;
-            console.log(`Model ${cleanModelName} failed, trying next...`);
-            continue; // Try next model
-          }
-        } catch (modelError) {
-          lastError = `Model ${modelName} error: ${modelError.message}`;
-          console.log(`Model ${modelName} error, trying next...`);
-          continue; // Try next model
-        }
-      }
-      
-      // If all models failed
-      throw new Error(`All Gemini models failed. Last error: ${lastError}`);
-    } catch (geminiError) {
-      console.error('Gemini API error:', geminiError);
-      console.error('Gemini API error details:', geminiError.message);
-      
-      // Return detailed error message
-      const errorMessage = geminiError.message || 'Unknown error occurred';
-      
-      return res.status(500).json({ 
-        success: false, 
-        message: `Failed to generate MBTI details using Gemini API: ${errorMessage}. Please check your API key and try again.`
-      });
-    }
+    return res.status(200).json({
+      success: true,
+      mbtiType,
+      details: {
+        description: MBTI_STATIC_DETAILS[mbtiType],
+      },
+    });
   } catch (error) {
     console.error('Get MBTI details error:', error.message);
-    res.status(500).json({ success: false, message: error.message });
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -441,7 +385,7 @@ const brainQuestions = [
   { id: 8, question: "I behave in a businesslike manner.", hemisphere: "left" },
   { id: 9, question: "I come up with something new.", hemisphere: "right" },
   { id: 10, question: "I am not easily disturbed by events.", hemisphere: "left" },
-  { id: 11, question: "I rarely cry during sad movies.", hemisphere: "left" },
+  { id: 11, question: "I rarely cry during sad movies.", hemisphere: "right" },
   { id: 12, question: "I plan my life logically.", hemisphere: "left" },
   { id: 13, question: "I need a creative outlet.", hemisphere: "right" },
   { id: 14, question: "I make decisions based on facts, not feelings.", hemisphere: "left" },
@@ -461,6 +405,23 @@ const brainScoreMap = {
   "Disagree": 2,
   "Strongly Disagree": 1
 };
+
+/** Normalized left/right % then binary dominance (no "Balanced"). Tie → raw score, then Left if still equal. */
+function computeBrainNormsAndDominance(leftScore, rightScore) {
+  const totalLeftMax = brainQuestions.filter((q) => q.hemisphere === "left").length * 5;
+  const totalRightMax = brainQuestions.filter((q) => q.hemisphere === "right").length * 5;
+  const leftNorm = totalLeftMax > 0 ? Math.round((leftScore / totalLeftMax) * 100) : 0;
+  const rightNorm = totalRightMax > 0 ? Math.round((rightScore / totalRightMax) * 100) : 0;
+  const dominance =
+    leftNorm > rightNorm
+      ? "Left"
+      : rightNorm > leftNorm
+        ? "Right"
+        : leftScore >= rightScore
+          ? "Left"
+          : "Right";
+  return { leftNorm, rightNorm, dominance };
+}
 
 exports.getBrainQuestions = async (req, res) => {
   try {
@@ -500,13 +461,7 @@ exports.submitBrainTest = async (req, res) => {
       else rightScore += clamped;
     }
 
-    const totalLeftMax = brainQuestions.filter(q => q.hemisphere === "left").length * 5;
-    const totalRightMax = brainQuestions.filter(q => q.hemisphere === "right").length * 5;
-    const leftNorm = totalLeftMax > 0 ? Math.round((leftScore / totalLeftMax) * 100) : 0;
-    const rightNorm = totalRightMax > 0 ? Math.round((rightScore / totalRightMax) * 100) : 0;
-    // Use normalized scores (fair: left/right question counts differ). Not clinical neuroscience — self-report style.
-    const normDiff = Math.abs(leftNorm - rightNorm);
-    const dominance = normDiff <= 12 ? "Balanced" : leftNorm > rightNorm ? "Left" : "Right";
+    const { leftNorm, rightNorm, dominance } = computeBrainNormsAndDominance(leftScore, rightScore);
 
     let assessment = await AssessmentResponse.findOne({ user: req.user.id }).sort({ createdAt: -1 });
     const results = {
@@ -543,32 +498,33 @@ exports.submitBrainTest = async (req, res) => {
   }
 };
 
-// Static details for Left / Right / Balanced - personality traits in paragraph form
+// Static details for Left / Right (same pattern as MBTI: short lines joined in the UI)
 const brainDetails = {
   Left: {
-    title: "Left Brain Dominance",
+    title: "Left brain",
     description: [
-      "Your thinking style is logical, analytical, and sequential; you like to follow steps and rely on facts. Your strengths are in math, language, planning, and organization. Your personality traits include being structured, fact-based, detail-oriented, and calm under pressure. You prefer clear rules and evidence-based decisions. Careers that often suit left-brain dominant people include engineering, accounting, law, and data analysis."
+      "You lean toward structured, analytical habits: clear steps, facts, and organization often feel natural to you.",
+      "Career paths that reward planning, numbers, language, and steady execution — such as engineering, finance, operations, or research support — often fit this style.",
+      "This quiz is a light career-planning hint only; it is not a medical or scientific measure of the brain."
     ]
   },
   Right: {
-    title: "Right Brain Dominance",
+    title: "Right brain",
     description: [
-      "Your thinking style is creative, intuitive, and holistic; you see the big picture and connect ideas in new ways. Your strengths are in art, music, innovation, and big-picture thinking. Your personality traits include being spontaneous, emotional, visual, and adaptable. You value creativity and flexibility over strict routines. Careers that often suit right-brain dominant people include design, arts, counseling, and roles that need innovation and empathy."
-    ]
-  },
-  Balanced: {
-    title: "Balanced (mixed) style",
-    description: [
-      "On this short quiz, your answers did not lean strongly toward either style — you reported a mix of structured and flexible habits. That is common: real people use both analysis and creativity. This result is a light-weight career-planning hint (not a medical or scientific brain scan). Roles that blend planning with creativity — such as teaching, product roles, or entrepreneurship — often suit mixed profiles."
+      "You lean toward flexible, intuitive habits: new ideas, the big picture, and creative or people-centered situations often energize you.",
+      "Career paths that reward imagination, communication, design, or helping roles — such as arts, media, teaching, counseling, or entrepreneurship — often fit this style.",
+      "This quiz is a light career-planning hint only; it is not a medical or scientific measure of the brain."
     ]
   }
 };
 
 exports.getBrainDetails = async (req, res) => {
   try {
-    const { dominance } = req.params; // Left, Right, or Balanced
-    const key = ["Left", "Right", "Balanced"].includes(dominance) ? dominance : "Balanced";
+    let { dominance } = req.params;
+    if (dominance === "Balanced") {
+      dominance = "Left";
+    }
+    const key = ["Left", "Right"].includes(dominance) ? dominance : "Left";
     const details = brainDetails[key];
     res.status(200).json({
       success: true,
@@ -1164,17 +1120,19 @@ const performWeightedAggregation = (personalityResults, interestResults, brainRe
   // 4. Brain Hemisphere
   if (brainResults && brainResults.dominance) {
     const brainBoost = 25;
-    if (brainResults.dominance === "Left") {
+    let dom = brainResults.dominance;
+    if (dom === "Balanced") {
+      const ls = Number(brainResults.leftScore) || 0;
+      const rs = Number(brainResults.rightScore) || 0;
+      dom = computeBrainNormsAndDominance(ls, rs).dominance;
+    }
+    if (dom === "Left") {
       addToCareerField("Engineering", brainBoost, weights.brain);
       addToCareerField("Computer Science", brainBoost, weights.brain);
       addToCareerField("Finance", brainBoost * 0.6, weights.brain);
-    } else if (brainResults.dominance === "Right") {
+    } else if (dom === "Right") {
       addToCareerField("Arts", brainBoost, weights.brain);
       addToCareerField("Teaching", brainBoost * 0.8, weights.brain);
-    } else {
-      addToCareerField("Business", brainBoost * 0.8, weights.brain);
-      addToCareerField("Computer Science", brainBoost * 0.5, weights.brain);
-      addToCareerField("Arts", brainBoost * 0.5, weights.brain);
     }
   }
 
@@ -1486,7 +1444,15 @@ exports.getAssessmentStatus = async (req, res) => {
     // Get MBTI type from personality results
     const mbtiType = assessment.personalityResults?.mbtiType || null;
     const brainCompleted = brainDone;
-    const brainDominance = assessment.brainResults?.dominance || null;
+    let brainDominance = assessment.brainResults?.dominance || null;
+    if (brainDominance === "Balanced") {
+      const ls = Number(assessment.brainResults?.leftScore);
+      const rs = Number(assessment.brainResults?.rightScore);
+      brainDominance =
+        Number.isFinite(ls) && Number.isFinite(rs)
+          ? computeBrainNormsAndDominance(ls, rs).dominance
+          : "Left";
+    }
     const interestTopDimensions = assessment.interestResults?.topDimensions || null;
 
     res.status(200).json({

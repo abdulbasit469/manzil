@@ -3,6 +3,7 @@ import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Brain, Lightbulb, User, CheckCircle2, ArrowRight, Info, X } from 'lucide-react';
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 
 export function CareerAssessmentPage() {
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -210,16 +211,19 @@ export function CareerAssessmentPage() {
         </motion.div>
       </div>
 
-      {/* Detail Modal */}
-      {showDetailModal && selectedTest && selectedTest.details && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      {/* Detail Modal — portaled so parent layout cannot stretch it full-width */}
+      {showDetailModal &&
+        selectedTest &&
+        selectedTest.details &&
+        createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-3 sm:p-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto shadow-2xl"
+            className="manzil-modal-square flex flex-col overflow-hidden rounded-xl bg-white shadow-2xl"
           >
-            <div className="sticky top-0 bg-gradient-to-r from-[#1e3a5f] to-amber-500 text-white p-6 rounded-t-xl flex items-center justify-between">
-              <h2 className="text-2xl">{selectedTest.details.title}</h2>
+            <div className="sticky top-0 shrink-0 flex items-center justify-between rounded-t-xl bg-gradient-to-r from-[#1e3a5f] to-amber-500 p-4 text-white">
+              <h2 className="min-w-0 pr-2 text-base font-semibold leading-tight sm:text-lg">{selectedTest.details.title}</h2>
               <button
                 onClick={closeDetailModal}
                 className="text-white hover:bg-white/20 rounded-full p-2 transition-colors"
@@ -228,9 +232,9 @@ export function CareerAssessmentPage() {
               </button>
             </div>
             
-            <div className="p-6">
+            <div className="p-5 overflow-y-auto flex-1 min-h-0">
               {selectedTest.details.breakdown && (
-                <div className="mb-6">
+                <div className="mb-5">
                   <div className="space-y-3">
                     {selectedTest.details.breakdown.map((item: any, index: number) => (
                       <div key={index} className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
@@ -246,7 +250,7 @@ export function CareerAssessmentPage() {
                 </div>
               )}
               
-              <div className="space-y-4">
+              <div className="space-y-3 text-sm leading-relaxed">
                 {selectedTest.details.description.map((paragraph: string, index: number) => (
                   <p key={index} className="text-slate-700 leading-relaxed">
                     {paragraph}
@@ -264,7 +268,8 @@ export function CareerAssessmentPage() {
               </div>
             </div>
           </motion.div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
