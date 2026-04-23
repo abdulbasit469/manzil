@@ -57,8 +57,9 @@
             "typescript": "^5.9.3",
             "vite": "6.3.5"
       },
-      "scripts": {
-            "dev": "vite",
-            "build": "vite build"
-      }
+  "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "start": "npx serve -s build -l $PORT"
+  }
 }

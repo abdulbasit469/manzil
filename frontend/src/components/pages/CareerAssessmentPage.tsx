@@ -20,6 +20,7 @@ import {
   BookOpen,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import api from '../../services/api';
 import { toast } from 'sonner';
 
@@ -92,11 +93,7 @@ export function CareerAssessmentPage({ onPageChange }: CareerAssessmentPageProps
       description: 'Discover whether you lean toward left-brain (logical) or right-brain (creative) thinking',
       icon: Activity,
       completed: brainCompleted,
-      result: brainDominance
-        ? brainDominance === 'Balanced'
-          ? 'Balanced style'
-          : `${brainDominance} brain lean`
-        : null,
+      result: brainDominance ? `${brainDominance} brain` : null,
       color: 'from-teal-500 to-emerald-600',
       isBrain: true,
       details: null
@@ -586,27 +583,29 @@ export function CareerAssessmentPage({ onPageChange }: CareerAssessmentPageProps
         </motion.div>
       </div>
 
-      {/* Detail Modal */}
-      {showDetailModal && selectedTest && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      {/* Detail Modal — portaled so parent layout cannot force it full-width */}
+      {showDetailModal &&
+        selectedTest &&
+        createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-3 sm:p-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className={`bg-white rounded-xl w-full shadow-2xl ${(selectedTest.isBrain || selectedTest.isInterest) ? 'max-w-md overflow-visible' : 'max-w-2xl max-h-[80vh] overflow-y-auto'}`}
+            className="manzil-modal-square flex flex-col overflow-hidden rounded-xl bg-white shadow-2xl"
           >
-            <div className="sticky top-0 bg-gradient-to-r from-[#1e3a5f] to-amber-500 text-white p-6 rounded-t-xl flex items-center justify-between">
-              <h2 className="text-2xl">
+            <div className="bg-gradient-to-r from-[#1e3a5f] to-amber-500 text-white p-4 rounded-t-xl flex items-center justify-between shrink-0 gap-3">
+              <h2 className="text-base sm:text-lg font-semibold leading-tight pr-2 min-w-0">
                 {loadingDetails ? 'Loading...' : (selectedTest.details?.title || selectedTest.title)}
               </h2>
               <button
                 onClick={closeDetailModal}
-                className="text-white hover:bg-white/20 rounded-full p-2 transition-colors"
+                className="text-white hover:bg-white/20 rounded-full p-2 transition-colors shrink-0"
               >
                 <X className="w-6 h-6" />
               </button>
             </div>
             
-            <div className="p-6">
+            <div className="p-4 sm:p-5 overflow-y-auto overscroll-contain flex-1 min-h-0">
               {loadingDetails ? (
                 <div className="flex flex-col items-center justify-center py-12">
                   <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
@@ -630,43 +629,39 @@ export function CareerAssessmentPage({ onPageChange }: CareerAssessmentPageProps
                     </div>
                   )}
 
-                  <div className="space-y-4">
-                    {selectedTest.details.description && selectedTest.details.description.length > 0 ? (
-                      selectedTest.details.description.map((paragraph: string, index: number) => (
-                        <p key={index} className="text-slate-700 leading-relaxed">
-                          {paragraph}
-                        </p>
-                      ))
-                    ) : (
-                      <p className="text-slate-700 leading-relaxed">
-                        {selectedTest.details.description || 'No description available.'}
-                      </p>
-                    )}
+                  <div className="space-y-3 text-slate-700 text-sm leading-relaxed">
+                    {(() => {
+                      const raw = selectedTest.details.description;
+                      const lines = Array.isArray(raw)
+                        ? raw.filter((x: unknown) => typeof x === 'string' && String(x).trim().length > 0)
+                        : raw && String(raw).trim()
+                          ? [String(raw).trim()]
+                          : [];
+                      if (!lines.length) {
+                        return <p>No description available.</p>;
+                      }
+                      return lines.slice(0, 6).map((line: string, i: number) => <p key={i}>{line}</p>);
+                    })()}
                   </div>
 
-                  <div className="mt-6 pt-6 border-t border-slate-200">
-                    <Button
-                      onClick={closeDetailModal}
-                      className="w-full bg-gradient-to-r from-[#1e3a5f] to-amber-500 text-white hover:shadow-lg"
-                    >
-                      Close
-                    </Button>
-                  </div>
                 </>
               ) : (
                 <div className="text-center py-12">
                   <p className="text-slate-600">No details available.</p>
-                  <Button
-                    onClick={closeDetailModal}
-                    className="mt-4 bg-gradient-to-r from-[#1e3a5f] to-amber-500 text-white hover:shadow-lg"
-                  >
-                    Close
-                  </Button>
                 </div>
               )}
             </div>
+            <div className="shrink-0 border-t border-slate-200 bg-slate-50/90 p-3 sm:p-4">
+              <Button
+                onClick={closeDetailModal}
+                className="w-full bg-gradient-to-r from-[#1e3a5f] to-amber-500 text-white hover:shadow-lg"
+              >
+                Close
+              </Button>
+            </div>
           </motion.div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Coming Soon Modal */}

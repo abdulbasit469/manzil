@@ -216,3 +216,51 @@ html {
 .notification-panel-scroll::-webkit-scrollbar-thumb:hover {
   background: #475569;
 }
+
+/*
+ * Modal shells: the bundled index.css does not ship arbitrary utilities from TSX,
+ * so fixed width/height must live here for centered square-ish dialogs.
+ */
+.manzil-modal-square {
+  box-sizing: border-box;
+  width: min(28rem, calc(100vw - 1.5rem));
+  max-width: calc(100vw - 1.5rem);
+  height: min(28rem, calc(100dvh - 2rem));
+  max-height: 85vh;
+}
+
+.manzil-modal-square-tall {
+  box-sizing: border-box;
+  width: min(28rem, calc(100vw - 1.5rem));
+  max-width: calc(100vw - 1.5rem);
+  height: min(36rem, calc(100dvh - 2rem));
+  max-height: 88vh;
+}
+
+/* Guaranteed circle button — used for navbar close button in MockTestRunner */
+.circle-btn-32 {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  min-height: 32px !important;
+  max-width: 32px !important;
+  max-height: 32px !important;
+  border-radius: 50% !important;
+  flex-shrink: 0 !important;
+  padding: 0 !important;
+  line-height: 1 !important;
+  border: none !important;
+  box-sizing: border-box !important;
+}
+
+/* Practice runner: wide sheet (matches on-screen mock layout, not a narrow phone card). */
+.manzil-mock-runner-shell {
+  box-sizing: border-box;
+  width: min(80rem, calc(100vw - 1.5rem));
+  max-width: calc(100vw - 1.5rem);
+  height: min(48rem, calc(100dvh - 2rem));
+  max-height: 92vh;
+}
