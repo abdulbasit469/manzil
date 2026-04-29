@@ -4,6 +4,7 @@ const {
   sanitizeUniversityFields,
   sanitizeProgramsArray,
 } = require('../utils/sanitizeUniversityStrings');
+const { getCached, setCached, invalidatePrefix } = require('../utils/simpleCache');
 
 // Admin: Create university
 exports.createUniversity = async (req, res) => {
@@ -26,6 +27,7 @@ exports.createUniversity = async (req, res) => {
     }
     
     const university = await University.create(req.body);
+    invalidatePrefix('unis:');
     console.log(`✅ University created: ${university.name}`);
     res.status(201).json({
       success: true,
@@ -72,6 +74,7 @@ exports.updateUniversity = async (req, res) => {
     if (!university) {
       return res.status(404).json({ success: false, message: 'University not found' });
     }
+    invalidatePrefix('unis:');
     res.status(200).json({
       success: true,
       message: 'University updated',
@@ -89,6 +92,7 @@ exports.deleteUniversity = async (req, res) => {
     if (!university) {
       return res.status(404).json({ success: false, message: 'University not found' });
     }
+    invalidatePrefix('unis:');
     res.status(200).json({ success: true, message: 'University deleted' });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
@@ -98,7 +102,14 @@ exports.deleteUniversity = async (req, res) => {
 // Public: Get all universities
 exports.getAllUniversities = async (req, res) => {
   try {
-    const { page = 1, limit = 12, city, type, search } = req.query; // Default 12 per page
+    const { page = 1, limit = 12, city, type, search } = req.query;
+
+    // Build a stable cache key from all relevant query params
+    const cacheKey = `unis:${page}:${limit}:${city || ''}:${type || ''}:${search || ''}:${req.query.meritPicker || ''}:${req.query.omitPlaceholderUniversities || ''}`;
+    const cached = getCached(cacheKey);
+    if (cached) {
+      return res.status(200).json(cached);
+    }
     
     // Build query - get all universities by default
     // Only exclude if isActive is explicitly false
@@ -166,23 +177,32 @@ exports.getAllUniversities = async (req, res) => {
         })
       );
 
-      return res.status(200).json({
+      const meritPayload = {
         success: true,
         count: list.length,
         total: list.length,
         totalPages: 1,
         currentPage: 1,
         universities: list,
-      });
+      };
+      setCached(cacheKey, meritPayload, 300_000); // 5 min — merit list rarely changes
+      return res.status(200).json(meritPayload);
     }
 
     /** List view only — omit large text fields (scrapedSummary etc.) for fast JSON + smaller payloads */
-    const universities = await University.find(query)
-      .select('name city type website image logo hecRanking establishedYear isActive')
-      .limit(parseInt(limit, 10))
-      .skip((parseInt(page, 10) - 1) * parseInt(limit, 10))
-      .sort({ name: 1 })
-      .lean();
+    const pageNum = parseInt(page, 10);
+    const limitNum = parseInt(limit, 10);
+
+    // Run data fetch and count in parallel — cuts round-trip time in half
+    const [universities, count] = await Promise.all([
+      University.find(query)
+        .select('name city type website image logo hecRanking establishedYear isActive')
+        .limit(limitNum)
+        .skip((pageNum - 1) * limitNum)
+        .sort({ name: 1 })
+        .lean(),
+      University.countDocuments(query),
+    ]);
 
     const { getUniversityImage } = require('../utils/universityImages');
 
@@ -197,16 +217,16 @@ exports.getAllUniversities = async (req, res) => {
       return uniObj;
     });
 
-    const count = await University.countDocuments(query);
-
-    res.status(200).json({
+    const payload = {
       success: true,
       count: universitiesWithImages.length,
       total: count,
-      totalPages: Math.ceil(count / parseInt(limit)),
-      currentPage: parseInt(page),
-      universities: universitiesWithImages
-    });
+      totalPages: Math.ceil(count / limitNum),
+      currentPage: pageNum,
+      universities: universitiesWithImages,
+    };
+    setCached(cacheKey, payload, 120_000); // 2 min TTL for the list view
+    res.status(200).json(payload);
   } catch (error) {
     console.error('❌ Error fetching universities:', error);
     res.status(500).json({ 

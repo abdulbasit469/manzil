@@ -84,9 +84,16 @@ export function ProfilePage({ onPageChange }: ProfilePageProps) {
       setInterType(profile.intermediateType || '');
       setInterTotal(profile.intermediateTotalMarks != null ? String(profile.intermediateTotalMarks) : '');
       setInterObtained(profile.intermediateMarks?.toString() || '');
-      setFirstYearMarks(profile.firstYearMarks != null ? String(profile.firstYearMarks) : '');
+      // If second year result is available, the "Intermediate Marks" field shows intermediateTotalMarks;
+      // otherwise it shows firstYearMarks (capped at 550 by backend).
+      const secondYearAvailable = Boolean(profile.secondYearResultAvailable);
+      setSecondYearResultAvailable(secondYearAvailable);
+      setFirstYearMarks(
+        secondYearAvailable
+          ? (profile.intermediateTotalMarks != null ? String(profile.intermediateTotalMarks) : '')
+          : (profile.firstYearMarks != null ? String(profile.firstYearMarks) : '')
+      );
       setSecondYearMarks(profile.secondYearMarks != null ? String(profile.secondYearMarks) : '');
-      setSecondYearResultAvailable(Boolean(profile.secondYearResultAvailable));
       setInterests(Array.isArray(profile.interests) ? profile.interests : []);
       
       // Profile picture
@@ -193,11 +200,13 @@ export function ProfilePage({ onPageChange }: ProfilePageProps) {
         matricMarks: matricObtained ? parseInt(matricObtained, 10) : undefined,
         matricTotalMarks: matricTotal ? parseInt(matricTotal, 10) : undefined,
         intermediateType: interType,
-        firstYearMarks: firstYearMarks ? parseInt(firstYearMarks, 10) : undefined,
+        // When checkbox unchecked → save as firstYearMarks (max 550 backend limit)
+        // When checkbox checked   → save as intermediateTotalMarks (no 550 limit)
+        firstYearMarks: !secondYearResultAvailable && firstYearMarks ? parseInt(firstYearMarks, 10) : undefined,
+        intermediateTotalMarks: secondYearResultAvailable && firstYearMarks ? parseInt(firstYearMarks, 10) : undefined,
         secondYearMarks: secondYearMarks ? parseInt(secondYearMarks, 10) : undefined,
         secondYearResultAvailable,
         intermediateMarks: interObtained ? parseInt(interObtained, 10) : undefined,
-        intermediateTotalMarks: interTotal ? parseInt(interTotal, 10) : undefined,
         interests,
       };
 
@@ -206,7 +215,7 @@ export function ProfilePage({ onPageChange }: ProfilePageProps) {
         setSaving(false);
         return;
       }
-      if (interTotal && interObtained && parseInt(interObtained, 10) > parseInt(interTotal, 10)) {
+      if (firstYearMarks && interObtained && parseInt(interObtained, 10) > parseInt(firstYearMarks, 10)) {
         toast.error('Intermediate obtained marks cannot be greater than total marks');
         setSaving(false);
         return;
@@ -557,48 +566,57 @@ export function ProfilePage({ onPageChange }: ProfilePageProps) {
                 {/* Intermediate */}
                 <div>
                   <h4 className="text-sm mb-3">Intermediate</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+                  {/* Intermediate Type — full width row */}
+                  <div className="mb-4">
+                    <label className="block text-sm text-slate-600 mb-2">
+                      Intermediate Type <span className="text-red-600">*</span>
+                    </label>
+                    <select
+                      value={interType}
+                      onChange={(e) => setInterType(e.target.value)}
+                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
+                    >
+                      <option value="">Select your intermediate type</option>
+                      <option value="FSc Pre-Engineering">FSc Pre-Engineering</option>
+                      <option value="FSc Pre-Medical">FSc Pre-Medical</option>
+                      <option value="ICS">ICS</option>
+                      <option value="ICOM">ICOM</option>
+                      <option value="FA">FA</option>
+                      <option value="A-Levels">A-Levels</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+
+                  {/* Only 2 mark fields — label of first one changes when checkbox is ticked */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm text-slate-600 mb-2">
-                        Intermediate Type <span className="text-red-600">*</span>
-                      </label>
-                      <select
-                        value={interType}
-                        onChange={(e) => setInterType(e.target.value)}
-                        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
-                      >
-                        <option value="">Select your intermediate type</option>
-                        <option value="FSc Pre-Engineering">FSc Pre-Engineering</option>
-                        <option value="FSc Pre-Medical">FSc Pre-Medical</option>
-                        <option value="ICS">ICS</option>
-                        <option value="ICOM">ICOM</option>
-                        <option value="FA">FA</option>
-                        <option value="A-Levels">A-Levels</option>
-                        <option value="Other">Other</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm text-slate-600 mb-2">
-                        Intermediate Total Marks <span className="text-red-600">*</span>
+                        {secondYearResultAvailable ? 'Intermediate Marks' : 'First Year Marks'}{' '}
+                        <span className="text-red-600">*</span>
                       </label>
                       <input
                         type="text"
-                        value={interTotal}
-                        onChange={(e) => handleNumberInput(e.target.value, setInterTotal)}
-                        placeholder="Enter total marks"
+                        value={firstYearMarks}
+                        onChange={(e) => handleNumberInput(e.target.value, setFirstYearMarks)}
+                        placeholder={
+                          secondYearResultAvailable
+                            ? 'Enter intermediate marks'
+                            : 'Enter first year marks'
+                        }
                         inputMode="numeric"
                         className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
                       />
                     </div>
                     <div>
                       <label className="block text-sm text-slate-600 mb-2">
-                        Intermediate Obtained Marks <span className="text-red-600">*</span>
+                        Obtained Marks <span className="text-red-600">*</span>
                       </label>
                       <input
                         type="text"
                         value={interObtained}
                         onChange={(e) =>
-                          handleObtainedMarksInput(e.target.value, interTotal, setInterObtained)
+                          handleObtainedMarksInput(e.target.value, firstYearMarks, setInterObtained)
                         }
                         placeholder="Enter obtained marks"
                         inputMode="numeric"
@@ -606,49 +624,18 @@ export function ProfilePage({ onPageChange }: ProfilePageProps) {
                       />
                     </div>
                   </div>
+
+                  {/* Checkbox only — no extra field appears when checked */}
                   <div className="mt-4">
-                    <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer pb-2">
+                    <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer select-none">
                       <input
                         type="checkbox"
                         checked={secondYearResultAvailable}
-                        onChange={(e) => {
-                          setSecondYearResultAvailable(e.target.checked);
-                          if (!e.target.checked) setSecondYearMarks('');
-                        }}
-                        className="rounded border-slate-300"
+                        onChange={(e) => setSecondYearResultAvailable(e.target.checked)}
+                        className="w-4 h-4 accent-amber-500 rounded border-slate-300 cursor-pointer"
                       />
-                      Second year result available
+                      Second Year Marks available
                     </label>
-                    {secondYearResultAvailable && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-                        <div>
-                          <label className="block text-sm text-slate-600 mb-2">
-                            Part-I / First year marks <span className="text-red-600">*</span>
-                          </label>
-                          <input
-                            type="text"
-                            value={firstYearMarks}
-                            onChange={(e) => handleNumberInput(e.target.value, setFirstYearMarks)}
-                            placeholder="e.g. 520 (out of 550)"
-                            inputMode="numeric"
-                            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm text-slate-600 mb-2">
-                            Part-II / Second year marks
-                          </label>
-                          <input
-                            type="text"
-                            value={secondYearMarks}
-                            onChange={(e) => handleNumberInput(e.target.value, setSecondYearMarks)}
-                            placeholder="If result is out"
-                            inputMode="numeric"
-                            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
-                          />
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>

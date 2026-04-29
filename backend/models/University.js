@@ -10,12 +10,14 @@ const universitySchema = new mongoose.Schema({
   city: {
     type: String,
     required: [true, 'Please provide city'],
-    trim: true
+    trim: true,
+    index: true
   },
   type: {
     type: String,
     enum: ['Public', 'Private'],
-    required: true
+    required: true,
+    index: true
   },
   hecRanking: {
     type: Number,
@@ -110,6 +112,11 @@ const universitySchema = new mongoose.Schema({
 }, {
   timestamps: true
 });
+
+// Compound index speeds up city+type filter combinations used on the list page
+universitySchema.index({ city: 1, type: 1 });
+// Speeds up name-based text search
+universitySchema.index({ name: 1 });
 
 module.exports = mongoose.model('University', universitySchema);
 

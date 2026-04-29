@@ -1,8 +1,8 @@
 import { motion } from 'motion/react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
-import { Search, MapPin, Bookmark, ChevronRight, Loader2 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { Search, MapPin, Bookmark, ChevronRight } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import { toast } from 'sonner';
@@ -38,50 +38,8 @@ export function UniversitiesPage({ onOpenUniversityDetail }: UniversitiesPagePro
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-  // Fetch all cities on mount
-  useEffect(() => {
-    fetchCities();
-  }, []);
-
-  useEffect(() => {
-    const t = setTimeout(() => {
-      const next = searchQuery.trim();
-      setDebouncedSearch((prev) => {
-        if (prev !== next) setCurrentPage(1);
-        return next;
-      });
-    }, 400);
-    return () => clearTimeout(t);
-  }, [searchQuery]);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [selectedCity, selectedType]);
-
-  useEffect(() => {
-    fetchUniversities();
-  }, [currentPage, debouncedSearch, selectedCity, selectedType]);
-
-  // Fetch saved universities on mount and when auth changes
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchSavedUniversities();
-    }
-  }, [isAuthenticated]);
-
-  const fetchCities = async () => {
-    try {
-      const response = await api.get('/universities/cities');
-      if (response.data.success) {
-        setCities(response.data.cities || []);
-      }
-    } catch (error) {
-      console.error('Error fetching cities:', error);
-      // Continue without cities - will be populated from university results
-    }
-  };
-
-  const fetchUniversities = async () => {
+  // Declared before useEffects so dependency arrays can reference them safely
+  const fetchUniversities = useCallback(async () => {
     try {
       setLoading(true);
       const params: any = {
@@ -109,7 +67,7 @@ export function UniversitiesPage({ onOpenUniversityDetail }: UniversitiesPagePro
         // Ensure each university has a type
         const universitiesWithType = universitiesData.map((uni: University) => ({
           ...uni,
-          type: uni.type || 'Public' // Default to Public if type is missing
+          type: uni.type || 'Public'
         }));
         
         setUniversities(universitiesWithType);
@@ -137,7 +95,49 @@ export function UniversitiesPage({ onOpenUniversityDetail }: UniversitiesPagePro
     } finally {
       setLoading(false);
     }
+  }, [currentPage, debouncedSearch, selectedCity, selectedType]);
+
+  const fetchCities = async () => {
+    try {
+      const response = await api.get('/universities/cities');
+      if (response.data.success) {
+        setCities(response.data.cities || []);
+      }
+    } catch (error) {
+      console.error('Error fetching cities:', error);
+    }
   };
+
+  // Fetch all cities on mount
+  useEffect(() => {
+    fetchCities();
+  }, []);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const next = searchQuery.trim();
+      setDebouncedSearch((prev) => {
+        if (prev !== next) setCurrentPage(1);
+        return next;
+      });
+    }, 400);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedCity, selectedType]);
+
+  useEffect(() => {
+    fetchUniversities();
+  }, [fetchUniversities]);
+
+  // Fetch saved universities on mount and when auth changes
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchSavedUniversities();
+    }
+  }, [isAuthenticated]);
 
   const fetchSavedUniversities = async () => {
     try {
@@ -256,11 +256,19 @@ export function UniversitiesPage({ onOpenUniversityDetail }: UniversitiesPagePro
           </Card>
         </motion.div>
 
-        {/* Loading State */}
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-amber-600" />
-            <span className="ml-3 text-slate-600">Loading universities...</span>
+        {/* Loading State — skeleton cards so the grid never goes blank */}
+        {loading && universities.length === 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+            {Array.from({ length: 12 }).map((_, i) => (
+              <div key={i} className="rounded-xl border border-slate-200 bg-white overflow-hidden animate-pulse">
+                <div className="h-48 bg-slate-200" />
+                <div className="p-5 space-y-3">
+                  <div className="h-5 bg-slate-200 rounded w-3/4" />
+                  <div className="h-4 bg-slate-200 rounded w-1/2" />
+                  <div className="h-9 bg-slate-200 rounded mt-4" />
+                </div>
+              </div>
+            ))}
           </div>
         ) : universities.length === 0 ? (
           <Card className="p-8 text-center">
@@ -276,23 +284,16 @@ export function UniversitiesPage({ onOpenUniversityDetail }: UniversitiesPagePro
                 const universityType = university.type || 'Public';
                 
                 return (
-            <motion.div
-                    key={university._id}
-                    className="h-full flex"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3 }}
-                    whileHover={{ y: -4 }}
-            >
-                    <Card className="overflow-hidden hover:shadow-xl transition-all duration-300 h-full w-full flex flex-col">
+                  <div key={university._id} className="h-full flex">
+                    <Card className="overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all duration-300 h-full w-full flex flex-col">
                       {/* University Image */}
                       <div className="relative h-48 bg-gradient-to-br from-slate-200 to-slate-300 overflow-hidden">
                   <img
                           src={universityImage}
                     alt={universityNameLabel(university.name)}
                     className="w-full h-full object-cover"
+                    loading="lazy"
                           onError={(e) => {
-                            // Fallback to default image
                             (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=800&h=500&fit=crop';
                           }}
                         />
@@ -353,7 +354,7 @@ export function UniversitiesPage({ onOpenUniversityDetail }: UniversitiesPagePro
                         </Button>
                 </div>
               </Card>
-            </motion.div>
+                  </div>
                 );
               })}
             </div>

@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const { sanitizeUniversityFields } = require('../utils/sanitizeUniversityStrings');
+const { getCached, setCached, invalidatePrefix } = require('../utils/simpleCache');
 const {
   DISCLAIMER: TIMELINE_DISCLAIMER,
   UPCOMING_ADMISSION_WINDOWS,
@@ -119,8 +120,8 @@ exports.updateProfile = async (req, res) => {
   try {
     const { 
       name, phone, city, fatherName, gender, dateOfBirth,
-      intermediateType, firstYearMarks, secondYearMarks, intermediateMarks, 
-      matricMarks, matricMajors, profilePicture, secondYearResultAvailable, interests 
+      intermediateType, firstYearMarks, secondYearMarks, intermediateMarks, intermediateTotalMarks,
+      matricMarks, matricTotalMarks, matricMajors, profilePicture, secondYearResultAvailable, interests 
     } = req.body;
 
     const fieldsToUpdate = {};
@@ -134,7 +135,9 @@ exports.updateProfile = async (req, res) => {
     if (firstYearMarks !== undefined && firstYearMarks !== '') fieldsToUpdate.firstYearMarks = firstYearMarks;
     if (secondYearMarks !== undefined && secondYearMarks !== '') fieldsToUpdate.secondYearMarks = secondYearMarks;
     if (intermediateMarks !== undefined && intermediateMarks !== '') fieldsToUpdate.intermediateMarks = intermediateMarks;
+    if (intermediateTotalMarks !== undefined && intermediateTotalMarks !== '') fieldsToUpdate.intermediateTotalMarks = intermediateTotalMarks;
     if (matricMarks !== undefined && matricMarks !== '') fieldsToUpdate.matricMarks = matricMarks;
+    if (matricTotalMarks !== undefined && matricTotalMarks !== '') fieldsToUpdate.matricTotalMarks = matricTotalMarks;
     if (matricMajors) fieldsToUpdate.matricMajors = matricMajors;
     if (profilePicture !== undefined) fieldsToUpdate.profilePicture = profilePicture;
     if (secondYearResultAvailable !== undefined) fieldsToUpdate.secondYearResultAvailable = secondYearResultAvailable;
@@ -150,6 +153,8 @@ exports.updateProfile = async (req, res) => {
     await user.save();
 
     console.log(`✅ Profile updated for user: ${user.email}`);
+    // Bust the dashboard cache so the next visit reflects the new profile data
+    invalidatePrefix(`dashboard:${req.user.id}`);
 
     const profileGaps = getProfileGaps(user.toObject());
 
@@ -199,35 +204,186 @@ exports.getProfileCompletion = async (req, res) => {
  */
 exports.getDashboard = async (req, res) => {
   try {
-    // Only select needed fields for better performance
-    const user = await User.findById(req.user.id)
-      .select('name email role createdAt updatedAt phone city fatherName gender dateOfBirth intermediateType firstYearMarks secondYearMarks intermediateMarks matricMarks matricMajors interests')
-      .lean();
-    
-    // Calculate profile completion manually (since we're using lean())
-    const completion = calculateProfileCompletion(user);
+    // Per-user cache — 30 s TTL matches the frontend polling interval
+    const cacheKey = `dashboard:${req.user.id}`;
+    const cached = getCached(cacheKey);
+    if (cached) return res.status(200).json(cached);
 
-    // Get assessment data for graphs - OPTIMIZED (parallel queries)
     const AssessmentResponse = require('../models/Assessment');
     const SavedUniversity = require('../models/SavedUniversity');
     const Application = require('../models/Application');
-    
-    // Run independent queries in parallel for better performance
-    const [latestAssessment, savedUniversitiesCount, applicationsCount] = await Promise.all([
+    const Post = require('../models/Post');
+    const Comment = require('../models/Comment');
+    const UserActivity = require('../models/UserActivity');
+    const mongoose = require('mongoose');
+
+    // Pre-compute date variables (sync — no round-trips)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const sevenDaysAgo = new Date(today);
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const userId = mongoose.Types.ObjectId.isValid(req.user.id)
+      ? new mongoose.Types.ObjectId(req.user.id)
+      : req.user.id;
+
+    // ONE round-trip to Atlas — all 16 independent queries run concurrently
+    const [
+      user,
+      latestAssessment,
+      savedUniversitiesCount,
+      applicationsCount,
+      weeklyAssessments,
+      weeklyPosts,
+      weeklyComments,
+      activityTimeData,
+      totalPosts,
+      totalComments,
+      meritCalculatorAggregation,
+      totalAssessments,
+      allSavedUniversities,
+      recentSavedUniversities,
+      recentAssessments,
+      recentApplications,
+    ] = await Promise.all([
+      User.findById(req.user.id)
+        .select('name email role createdAt updatedAt phone city fatherName gender dateOfBirth intermediateType firstYearMarks secondYearMarks intermediateMarks intermediateTotalMarks matricMarks matricTotalMarks matricMajors secondYearResultAvailable interests profilePicture')
+        .lean(),
       AssessmentResponse.findOne({ user: req.user.id })
-        .select(
-          'personalityResults aptitudeResults interestResults aggregatedResults testsCompleted brainResults'
-        )
+        .select('personalityResults aptitudeResults interestResults aggregatedResults testsCompleted brainResults')
         .sort({ createdAt: -1 })
         .lean(),
       SavedUniversity.countDocuments({ user: req.user.id }),
-      Application.countDocuments({ 
-        user: req.user.id,
-        status: { $in: ['pending', 'submitted', 'under_review'] }
-      })
+      Application.countDocuments({ user: req.user.id, status: { $in: ['pending', 'submitted', 'under_review'] } }),
+      AssessmentResponse.find({ user: req.user.id, createdAt: { $gte: sevenDaysAgo } })
+        .select('createdAt').sort({ createdAt: 1 }).lean(),
+      Post.find({ author: req.user.id, createdAt: { $gte: sevenDaysAgo } })
+        .select('createdAt').lean(),
+      Comment.find({ author: req.user.id, createdAt: { $gte: sevenDaysAgo } })
+        .select('createdAt').lean(),
+      UserActivity.aggregate([
+        { $match: { user: userId, createdAt: { $gte: thirtyDaysAgo } } },
+        { $group: { _id: '$section', totalMinutes: { $sum: '$duration' } } },
+      ]).catch(() => []),
+      Post.countDocuments({ author: req.user.id }).catch(() => 0),
+      Comment.countDocuments({ author: req.user.id }).catch(() => 0),
+      UserActivity.aggregate([
+        { $match: { user: userId, section: 'Merit Calculator', activityType: 'calculation' } },
+        { $group: { _id: null, totalMinutes: { $sum: '$duration' }, totalCalculations: { $sum: 1 } } },
+      ]).catch(() => []),
+      AssessmentResponse.countDocuments({ user: req.user.id }).catch(() => 0),
+      SavedUniversity.find({ user: req.user.id }).select('createdAt').sort({ createdAt: 1 }).lean(),
+      SavedUniversity.find({ user: req.user.id })
+        .populate('university', 'name').select('university createdAt').sort({ createdAt: -1 }).limit(5).lean(),
+      AssessmentResponse.find({ user: req.user.id })
+        .select('interestResults createdAt').sort({ createdAt: -1 }).limit(5).lean(),
+      Application.find({ user: req.user.id })
+        .populate('university', 'name').select('university createdAt').sort({ createdAt: -1 }).limit(5).lean(),
     ]);
 
-    // Calculate assessment scores for graphs
+    // Calculate profile completion manually (since we're using lean())
+    const completion = calculateProfileCompletion(user);
+
+    // ── Build activity map for the last 7 days ───────────────────────────────
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const activityData = [];
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      activityData.push({
+        day: `${dayNames[date.getDay()]} ${date.getDate()}`,
+        dateKey: date.toISOString().split('T')[0],
+        dayIndex: i,
+        assessments: 0,
+        community: 0,
+        hours: 0,
+      });
+    }
+    const activityMap = {};
+    activityData.forEach((d) => { activityMap[d.dateKey] = d; });
+
+    weeklyAssessments.forEach((a) => {
+      const d = activityMap[a.createdAt.toISOString().split('T')[0]];
+      if (d) { d.assessments += 1; d.hours += 2; }
+    });
+    [...weeklyPosts, ...weeklyComments].forEach((item) => {
+      const d = activityMap[item.createdAt.toISOString().split('T')[0]];
+      if (d) { d.community += 1; d.hours += 0.5; }
+    });
+    const finalActivityData = activityData.map(({ dateKey, dayIndex, ...rest }) => ({
+      ...rest,
+      hours: Math.round(rest.hours),
+    }));
+
+    // ── Time spent ────────────────────────────────────────────────────────────
+    const sectionMinutes = {};
+    activityTimeData.forEach((item) => { sectionMinutes[item._id] = item.totalMinutes; });
+
+    const communityMinutes = (totalPosts * 15) + (totalComments * 5);
+    const communityHours = Math.max(0, Math.round((sectionMinutes['Community'] || 0) / 60 + communityMinutes / 60));
+    const universityExplorerHours = Math.max(0, Math.round((sectionMinutes['University Explorer'] || 0) / 60 + (savedUniversitiesCount * 10) / 60));
+    const meritCalculatorMinutes = meritCalculatorAggregation.length > 0 ? meritCalculatorAggregation[0].totalMinutes : 0;
+    const meritCalculatorHours = Math.max(0, Math.round(meritCalculatorMinutes / 60));
+    const assessmentMinutes = totalAssessments * 30;
+    const careerAssessmentHours = Math.max(0, Math.round((sectionMinutes['Career Assessment'] || 0) / 60 + assessmentMinutes / 60));
+
+    const timeSpentData = [
+      { name: 'Community', hours: communityHours, color: '#1e3a5f' },
+      { name: 'University Explorer', hours: universityExplorerHours, color: '#2563eb' },
+      { name: 'Merit Calculator', hours: meritCalculatorHours, color: '#3b82f6' },
+      { name: 'Career Assessment', hours: careerAssessmentHours, color: '#f59e0b' },
+    ];
+
+    // ── Universities progress (last 8 weeks) ─────────────────────────────────
+    const now = new Date();
+    now.setHours(23, 59, 59, 999);
+    const oneWeekAgo = new Date(now);
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    oneWeekAgo.setHours(0, 0, 0, 0);
+    const universitiesProgress = [];
+    let savedIndex = 0;
+    let thisWeekCount = 0;
+    for (let week = 7; week >= 0; week--) {
+      const weekEnd = new Date(now);
+      weekEnd.setDate(weekEnd.getDate() - week * 7);
+      weekEnd.setHours(23, 59, 59, 999);
+      while (savedIndex < allSavedUniversities.length && allSavedUniversities[savedIndex].createdAt <= weekEnd) {
+        if (week === 0 && allSavedUniversities[savedIndex].createdAt >= oneWeekAgo) thisWeekCount++;
+        savedIndex++;
+      }
+      universitiesProgress.push({ week: `Week ${8 - week}`, universities: savedIndex });
+    }
+
+    // ── Recent activities ─────────────────────────────────────────────────────
+    const recentActivities = [];
+    recentSavedUniversities.forEach((saved) => {
+      if (saved.university) {
+        const nm = sanitizeUniversityFields({ name: saved.university.name }).name || saved.university.name;
+        recentActivities.push({ type: 'saved_university', action: 'Saved university', detail: nm, timestamp: saved.createdAt, icon: 'bookmark' });
+      }
+    });
+    recentAssessments.forEach((assessment) => {
+      let pathway = 'Career Assessment';
+      if (assessment.interestResults?.topPathways?.length > 0) pathway = assessment.interestResults.topPathways[0];
+      recentActivities.push({ type: 'assessment', action: 'Completed career assessment', detail: pathway, timestamp: assessment.createdAt, icon: 'check' });
+    });
+    if (user.updatedAt && user.updatedAt.getTime() !== user.createdAt.getTime()) {
+      const daysSinceUpdate = Math.floor((Date.now() - user.updatedAt.getTime()) / (1000 * 60 * 60 * 24));
+      if (daysSinceUpdate <= 30) {
+        recentActivities.push({ type: 'profile_update', action: 'Updated profile', detail: 'Profile information updated', timestamp: user.updatedAt, icon: 'user' });
+      }
+    }
+    recentApplications.forEach((application) => {
+      if (application.university) {
+        const nm = sanitizeUniversityFields({ name: application.university.name }).name || application.university.name;
+        recentActivities.push({ type: 'application', action: 'Submitted application', detail: nm, timestamp: application.createdAt, icon: 'file' });
+      }
+    });
+    recentActivities.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+    const topRecentActivities = recentActivities.slice(0, 10).map(({ type, action, detail, timestamp, icon }) => ({ type, action, detail, timestamp, icon }));
+
+    // ── Assessment scores ─────────────────────────────────────────────────────
     let assessmentScores = [];
     if (latestAssessment) {
       if (latestAssessment.personalityResults?.normalizedScores) {
@@ -246,327 +402,6 @@ exports.getDashboard = async (req, res) => {
         assessmentScores.push({ category: 'Interest', score: Math.round(interestAvg) });
       }
     }
-
-    // Get weekly activity (last 7 calendar days) - OPTIMIZED
-    // Get the last 7 days including today
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Start of today
-    
-    // Create array for last 7 days (oldest to newest)
-    const activityData = [];
-    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    
-    for (let i = 6; i >= 0; i--) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
-      const dayName = dayNames[date.getDay()];
-      const dayNumber = date.getDate();
-      const monthName = date.toLocaleDateString('en-US', { month: 'short' });
-      // Format: "Mon 15" or "Mon 15 Jan"
-      activityData.push({
-        day: `${dayName} ${dayNumber}`,
-        dateKey: date.toISOString().split('T')[0], // For grouping: YYYY-MM-DD
-        dayIndex: i,
-        assessments: 0,
-        community: 0,
-        hours: 0
-      });
-    }
-    
-    // Create a map for quick lookup
-    const activityMap = {};
-    activityData.forEach(day => {
-      activityMap[day.dateKey] = day;
-    });
-    
-    // Get date range for last 7 days (including today)
-    const sevenDaysAgo = new Date(today);
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6); // Last 7 days including today
-    sevenDaysAgo.setHours(0, 0, 0, 0); // Start of the oldest day
-    
-    // Use lean() and only select needed fields for better performance
-    const weeklyAssessments = await AssessmentResponse.find({
-      user: req.user.id,
-      createdAt: { $gte: sevenDaysAgo }
-    })
-    .select('createdAt')
-    .sort({ createdAt: 1 })
-    .lean();
-
-    // Count assessments by actual date
-    weeklyAssessments.forEach(assessment => {
-      const dateKey = assessment.createdAt.toISOString().split('T')[0]; // YYYY-MM-DD
-      const dayData = activityMap[dateKey];
-      if (dayData) {
-        dayData.assessments += 1;
-        dayData.hours += 2; // Estimate 2 hours per assessment
-      }
-    });
-
-    // Get community posts/comments activity - OPTIMIZED
-    const Post = require('../models/Post');
-    const Comment = require('../models/Comment');
-    
-    // Use Promise.all for parallel queries and lean() for performance
-    const [weeklyPosts, weeklyComments] = await Promise.all([
-      Post.find({
-        author: req.user.id,
-        createdAt: { $gte: sevenDaysAgo }
-      })
-      .select('createdAt')
-      .lean(),
-      Comment.find({
-        author: req.user.id,
-        createdAt: { $gte: sevenDaysAgo }
-      })
-      .select('createdAt')
-      .lean()
-    ]);
-
-    [...weeklyPosts, ...weeklyComments].forEach(item => {
-      const dateKey = item.createdAt.toISOString().split('T')[0]; // YYYY-MM-DD
-      const dayData = activityMap[dateKey];
-      if (dayData) {
-        dayData.community += 1;
-        dayData.hours += 0.5; // Estimate 0.5 hours per community interaction
-      }
-    });
-
-    // Round hours to whole numbers and remove dateKey from response
-    const finalActivityData = activityData.map(({ dateKey, dayIndex, ...rest }) => ({
-      ...rest,
-      hours: Math.round(rest.hours),
-    }));
-
-    // Calculate time spent in each section - REAL DATA from actual activities
-    const UserActivity = require('../models/UserActivity');
-    const mongoose = require('mongoose');
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    
-    // Get time spent data from UserActivity model (if exists) or calculate from activities
-    const timeSpentData = [];
-    
-    // Try to get from UserActivity model first (convert string ID to ObjectId)
-    const userId = mongoose.Types.ObjectId.isValid(req.user.id) 
-      ? new mongoose.Types.ObjectId(req.user.id) 
-      : req.user.id;
-    
-    const activityTimeData = await UserActivity.aggregate([
-      {
-        $match: {
-          user: userId,
-          createdAt: { $gte: thirtyDaysAgo }
-        }
-      },
-      {
-        $group: {
-          _id: '$section',
-          totalMinutes: { $sum: '$duration' }
-        }
-      }
-    ]).catch(() => []); // If UserActivity doesn't exist yet, return empty array
-    
-    // Create a map of section to minutes
-    const sectionMinutes = {};
-    activityTimeData.forEach(item => {
-      sectionMinutes[item._id] = item.totalMinutes;
-    });
-    
-    // Calculate time spent for each section based on REAL activities from database
-    // Get ALL posts and comments (not just weekly) for accurate time calculation
-    const [totalPosts, totalComments] = await Promise.all([
-      Post.countDocuments({ author: req.user.id }).catch(() => 0),
-      Comment.countDocuments({ author: req.user.id }).catch(() => 0)
-    ]);
-    
-    // 1. Community: Based on ALL posts/comments (estimate 15 min per post, 5 min per comment)
-    // Also add UserActivity data if exists
-    const communityMinutes = (totalPosts * 15) + (totalComments * 5);
-    const communityHours = Math.max(0, Math.round((sectionMinutes['Community'] || 0) / 60 + communityMinutes / 60));
-    
-    // 2. University Explorer: Based on saved universities (estimate 10 min per save)
-    // Also add UserActivity data if exists
-    const universityExplorerMinutes = savedUniversitiesCount * 10;
-    const universityExplorerHours = Math.max(0, Math.round((sectionMinutes['University Explorer'] || 0) / 60 + universityExplorerMinutes / 60));
-    
-    // 3. Merit Calculator: Get ALL calculations from UserActivity (real data from database)
-    // Get total minutes from ALL merit calculations (not just last 30 days)
-    const meritCalculatorAggregation = await UserActivity.aggregate([
-      {
-        $match: {
-          user: userId,
-          section: 'Merit Calculator',
-          activityType: 'calculation'
-        }
-      },
-      {
-        $group: {
-          _id: null,
-          totalMinutes: { $sum: '$duration' },
-          totalCalculations: { $sum: 1 }
-        }
-      }
-    ]).catch(() => []);
-    
-    // Get total minutes from all-time calculations
-    const meritCalculatorMinutes = meritCalculatorAggregation.length > 0 
-      ? meritCalculatorAggregation[0].totalMinutes 
-      : 0;
-    
-    // Also add any activity from last 30 days if not already included in all-time sum
-    // (This handles edge cases where aggregation might miss some data)
-    const meritCalculatorHours = Math.max(0, Math.round(meritCalculatorMinutes / 60));
-    
-    // 4. Career Assessment: Based on ALL assessment completions (estimate 30 min per test)
-    // Also add UserActivity data if exists
-    const totalAssessments = await AssessmentResponse.countDocuments({ user: req.user.id }).catch(() => 0);
-    const assessmentMinutes = totalAssessments * 30; // 30 minutes per assessment
-    const careerAssessmentHours = Math.max(0, Math.round((sectionMinutes['Career Assessment'] || 0) / 60 + assessmentMinutes / 60));
-    
-    // Build time spent data array - ensure all 4 categories are included
-    timeSpentData.push(
-      { name: 'Community', hours: communityHours, color: '#1e3a5f' },
-      { name: 'University Explorer', hours: universityExplorerHours, color: '#2563eb' },
-      { name: 'Merit Calculator', hours: meritCalculatorHours, color: '#3b82f6' },
-      { name: 'Career Assessment', hours: careerAssessmentHours, color: '#f59e0b' }
-    );
-
-    // savedUniversitiesCount already fetched above in parallel
-
-    // Calculate universities explored progress (last 8 weeks) - OPTIMIZED
-    const universitiesProgress = [];
-    const now = new Date();
-    now.setHours(23, 59, 59, 999); // End of today
-    
-    // Get all saved universities with timestamps - only select createdAt field for efficiency
-    const allSavedUniversities = await SavedUniversity.find({ user: req.user.id })
-      .select('createdAt')
-      .sort({ createdAt: 1 })
-      .lean(); // Use lean() for faster queries
-    
-    // Calculate this week's increase (universities saved in the last 7 days)
-    const oneWeekAgo = new Date(now);
-    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-    oneWeekAgo.setHours(0, 0, 0, 0);
-    
-    let thisWeekCount = 0;
-    let savedIndex = 0; // Track position in sorted array
-    
-    // Calculate progress for each of the last 8 weeks in one pass
-    for (let week = 7; week >= 0; week--) {
-      const weekEnd = new Date(now);
-      weekEnd.setDate(weekEnd.getDate() - (week * 7));
-      weekEnd.setHours(23, 59, 59, 999);
-      
-      // Count universities saved up to the end of this week
-      // Since array is sorted, we can continue from where we left off
-      while (savedIndex < allSavedUniversities.length && 
-             allSavedUniversities[savedIndex].createdAt <= weekEnd) {
-        // Count this week's additions
-        if (week === 0 && allSavedUniversities[savedIndex].createdAt >= oneWeekAgo) {
-          thisWeekCount++;
-        }
-        savedIndex++;
-      }
-      
-      universitiesProgress.push({
-        week: `Week ${8 - week}`,
-        universities: savedIndex
-      });
-    }
-
-    // applicationsCount already fetched above in parallel
-
-    // Get recent activities (last 10 activities)
-    const recentActivities = [];
-    
-    // Get recently saved universities (last 5) - OPTIMIZED
-    const recentSavedUniversities = await SavedUniversity.find({ user: req.user.id })
-      .populate('university', 'name')
-      .select('university createdAt')
-      .sort({ createdAt: -1 })
-      .limit(5)
-      .lean();
-    
-    recentSavedUniversities.forEach(saved => {
-      if (saved.university) {
-        const nm = sanitizeUniversityFields({ name: saved.university.name }).name || saved.university.name;
-        recentActivities.push({
-          type: 'saved_university',
-          action: 'Saved university',
-          detail: nm,
-          timestamp: saved.createdAt,
-          icon: 'bookmark'
-        });
-      }
-    });
-
-    // Get recent assessments (last 5) - OPTIMIZED
-    const recentAssessments = await AssessmentResponse.find({ user: req.user.id })
-      .select('interestResults createdAt')
-      .sort({ createdAt: -1 })
-      .limit(5)
-      .lean();
-    
-    recentAssessments.forEach(assessment => {
-      let pathway = 'Career Assessment';
-      if (assessment.interestResults?.topPathways && assessment.interestResults.topPathways.length > 0) {
-        pathway = assessment.interestResults.topPathways[0];
-      }
-      recentActivities.push({
-        type: 'assessment',
-        action: 'Completed career assessment',
-        detail: pathway,
-        timestamp: assessment.createdAt,
-        icon: 'check'
-      });
-    });
-
-    // Get recent profile updates (check user updatedAt vs createdAt)
-    if (user.updatedAt && user.updatedAt.getTime() !== user.createdAt.getTime()) {
-      const daysSinceUpdate = Math.floor((Date.now() - user.updatedAt.getTime()) / (1000 * 60 * 60 * 24));
-      if (daysSinceUpdate <= 30) {
-        recentActivities.push({
-          type: 'profile_update',
-          action: 'Updated profile',
-          detail: 'Profile information updated',
-          timestamp: user.updatedAt,
-          icon: 'user'
-        });
-      }
-    }
-
-    // Get recent applications (last 5) - OPTIMIZED
-    const recentApplications = await Application.find({ user: req.user.id })
-      .populate('university', 'name')
-      .select('university createdAt')
-      .sort({ createdAt: -1 })
-      .limit(5)
-      .lean();
-    
-    recentApplications.forEach(application => {
-      if (application.university) {
-        const nm = sanitizeUniversityFields({ name: application.university.name }).name || application.university.name;
-        recentActivities.push({
-          type: 'application',
-          action: 'Submitted application',
-          detail: nm,
-          timestamp: application.createdAt,
-          icon: 'file'
-        });
-      }
-    });
-
-    // Sort all activities by timestamp (most recent first) and take top 10
-    recentActivities.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-    const topRecentActivities = recentActivities.slice(0, 10).map(activity => ({
-      type: activity.type,
-      action: activity.action,
-      detail: activity.detail,
-      timestamp: activity.timestamp,
-      icon: activity.icon
-    }));
 
     // --- Proposal: personalized hub — career suggestions from assessments ---
     const tc = latestAssessment?.aggregatedResults?.topCareers || [];
@@ -633,15 +468,16 @@ exports.getDashboard = async (req, res) => {
       universitiesProgress: universitiesProgress
     };
 
-    // Sync upcoming test/admission milestones into in-app notifications (throttled per user / 24h)
-    await ensureTestCalendarNotifications(req.user.id).catch((err) => {
+    // Fire-and-forget: sync upcoming test/admission milestones into in-app notifications.
+    // Not awaited so it never blocks the response.
+    ensureTestCalendarNotifications(req.user.id).catch((err) => {
       console.warn('[dashboard] test calendar notifications:', err?.message || err);
     });
 
-    res.status(200).json({
-      success: true,
-      dashboard: dashboardData
-    });
+    const payload = { success: true, dashboard: dashboardData };
+    // Cache per user for 30 s — matches the frontend polling interval
+    setCached(cacheKey, payload, 30_000);
+    res.status(200).json(payload);
   } catch (error) {
     res.status(500).json({
       success: false,

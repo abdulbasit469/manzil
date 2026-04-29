@@ -7,6 +7,7 @@ const {
   sanitizeProgramForResponse,
 } = require('../utils/sanitizeUniversityStrings');
 const { generateUniversityComparisonInsights } = require('../services/universityComparisonAI');
+const { generateProgramComparisonInsights } = require('../services/programComparisonAI');
 const { sanitizeFacilityMicroBlurb, sanitizeInsightSnippet } = require('../utils/comparisonTextGuards');
 const { pickFlagshipProgram } = require('../utils/flagshipProgram');
 const {
@@ -351,7 +352,39 @@ exports.compare = async (req, res) => {
       ordered.push({ ...prog, meritCriteria });
     }
 
-    return res.status(200).json({ success: true, type, items: ordered });
+    // Build AI input for program comparison
+    const aiInput = ordered.map((p) => ({
+      id: String(p._id),
+      name: p.name || '',
+      degree: p.degree || '',
+      category: p.category || '',
+      programGroup: p.programGroup || '',
+      duration: p.duration || '',
+      feePerSemester: p.feePerSemester || 0,
+      totalFee: p.totalFee || 0,
+      eligibility: p.eligibility || '',
+      description: (p.description || '').slice(0, 400),
+      careerScope: (p.careerScope || '').slice(0, 400),
+      university: p.university
+        ? { name: p.university.name, city: p.university.city, type: p.university.type }
+        : {},
+    }));
+
+    const aiMap = await generateProgramComparisonInsights(aiInput);
+
+    const withAi = ordered.map((p) => {
+      const ai = aiMap?.get(String(p._id));
+      return {
+        ...p,
+        aiCareerOutlook: ai?.careerOutlook || '',
+        aiSalaryRange: ai?.salaryRange || '',
+        aiIndustryLinkages: ai?.industryLinkages || '',
+        aiAdmissionDifficulty: ai?.admissionDifficulty || '',
+        aiProgramStrengths: ai?.programStrengths || '',
+      };
+    });
+
+    return res.status(200).json({ success: true, type, items: withAi, aiUsed: !!aiMap });
   } catch (error) {
     console.error('Comparison error:', error);
     res.status(500).json({ success: false, message: error.message || 'Comparison failed' });
