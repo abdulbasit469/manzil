@@ -1,13 +1,8 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { grokChatCompletion, getApiKey, maskApiKeyForLog, getComparisonJsonBudget } = require('./grokClient');
 const { sanitizeFacilityMicroBlurb, sanitizeInsightSnippet } = require('../utils/comparisonTextGuards');
 
-function getApiKey() {
-  return (
-    process.env.GEMINI_API_KEY ||
-    process.env.GOOGLE_AI_API_KEY ||
-    process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
-    ''
-  ).trim();
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
 }
 
 function stripCodeFence(text) {
@@ -28,43 +23,28 @@ function normalizeType(type) {
   return '';
 }
 
-function maskApiKeyForLog(key) {
-  const k = String(key || '').trim();
-  if (!k) return 'empty';
-  const head = k.slice(0, 6);
-  const tail = k.slice(-4);
-  return `${head}...${tail} (len:${k.length})`;
-}
-
-/** Brief pause before trying the next model (helps 503 / short 429 bursts). */
-async function backoffBeforeNextModel(err, isLastModel) {
-  if (isLastModel) return;
-  const msg = String(err?.message || err || '');
-  const m = msg.match(/retry in ([\d.]+)\s*s/i);
-  let ms = m ? Math.round(parseFloat(m[1], 10) * 1000) : 0;
-  if (ms <= 0 && /503|Service Unavailable|high demand/i.test(msg)) ms = 3500;
-  if (ms <= 0 && /429|Too Many Requests/i.test(msg)) ms = 4000;
-  ms = Math.min(ms, 12000);
-  if (ms > 0) await new Promise((r) => setTimeout(r, ms));
-}
-
 /**
- * Ask Gemini to produce concise comparison-friendly fields.
+ * Ask Grok to produce concise comparison-friendly fields.
  * Returns Map<string, object> by university id.
  */
 async function generateUniversityComparisonInsights(universities) {
-  const apiKey = getApiKey();
-  if (!apiKey) return null;
-  console.log(`[UniversityComparisonAI] api key fingerprint: ${maskApiKeyForLog(apiKey)}`);
-
-  const genAI = new GoogleGenerativeAI(apiKey);
-  const preferred = (process.env.GEMINI_MODEL || 'gemini-2.5-flash').trim();
-  // Only ids that still exist on the Generative Language API for most keys (1.5 bare names often 404 on v1beta).
-  const fallbacks = ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.0-flash'];
-  const modelsToTry = [preferred, ...fallbacks.filter((m) => m !== preferred)];
+  if (!getApiKey()) {
+    console.warn(
+      '[UniversityComparisonAI] Skipping Grok (no API key). Set XAI_API_KEY or GROK_API_KEY in .env next to package.json, then restart the server.'
+    );
+    if (process.env.GEMINI_API_KEY?.trim()) {
+      console.warn(
+        '[UniversityComparisonAI] GEMINI_API_KEY is set but the backend no longer uses Gemini; use XAI_API_KEY from https://console.x.ai'
+      );
+    }
+    return null;
+  }
+  console.log(`[UniversityComparisonAI] api key fingerprint: ${maskApiKeyForLog(getApiKey())}`);
 
   const systemInstruction =
     'You are a strict JSON generator for university comparison. Return only valid JSON. No markdown, no asterisks.';
+
+  const budget = getComparisonJsonBudget();
 
   const prompt = `Task: Generate concise comparison fields for each university (Pakistan-focused, practical for applicants).
 
@@ -99,21 +79,32 @@ Rules:
 - Keep website unchanged (do not output website).
 
 Input universities JSON:
-${JSON.stringify(universities).slice(0, 18000)}
+${JSON.stringify(universities).slice(0, budget.universityInputChars)}
 `;
 
+  const messages = [
+    { role: 'system', content: systemInstruction },
+    { role: 'user', content: prompt },
+  ];
+
   let lastErr = null;
-  for (let i = 0; i < modelsToTry.length; i++) {
-    const modelName = modelsToTry[i];
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const { text, error } = await grokChatCompletion({
+      messages,
+      temperature: 0.2,
+      maxCompletionTokens: budget.maxOutputTokens,
+    });
+    if (error) lastErr = error;
+    if (!text) {
+      const msg = String(error || '');
+      if (/429|rate|Too Many Requests/i.test(msg) && attempt === 0) {
+        await sleep(4000);
+        continue;
+      }
+      break;
+    }
     try {
-      const model = genAI.getGenerativeModel({
-        model: modelName,
-        systemInstruction,
-        generationConfig: { temperature: 0.2, maxOutputTokens: 4096 },
-      });
-      const result = await model.generateContent(prompt);
-      const raw = typeof result?.response?.text === 'function' ? result.response.text() : '';
-      const cleaned = stripCodeFence(raw);
+      const cleaned = stripCodeFence(text);
       const parsed = JSON.parse(cleaned);
       const out = new Map();
       for (const item of parsed?.items || []) {
@@ -138,19 +129,15 @@ ${JSON.stringify(universities).slice(0, 18000)}
       return out;
     } catch (err) {
       lastErr = err;
-      const msg = String(err?.message || err || '');
-      if (/429|quota|Too Many Requests/i.test(msg)) {
-        console.error(`[UniversityComparisonAI] ❌ QUOTA EXCEEDED on model ${modelName} — free tier limit hit. Upgrade your Gemini API plan at https://ai.google.dev or wait for daily reset.`);
-      } else if (/503|Service Unavailable|high demand/i.test(msg)) {
-        console.warn(`[UniversityComparisonAI] ⚠️  model ${modelName} overloaded (503), retrying next...`);
-      } else {
-        console.warn(`[UniversityComparisonAI] model ${modelName} failed:`, msg);
-      }
-      await backoffBeforeNextModel(err, i >= modelsToTry.length - 1);
+      console.warn('[UniversityComparisonAI] JSON parse failed:', err?.message || err);
     }
   }
+
   if (lastErr) {
-    console.error('[UniversityComparisonAI] ❌ All models failed — falling back to estimated data. Last error:', lastErr?.message || lastErr);
+    console.error(
+      '[UniversityComparisonAI] Grok failed — falling back to estimated data. Last error:',
+      String(lastErr?.message || lastErr)
+    );
   }
   return null;
 }

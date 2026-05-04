@@ -1,5 +1,5 @@
 /**
- * When Gemini is unavailable or returns empty fields, build per-university
+ * When Grok is unavailable or returns empty fields, build per-university
  * comparison copy from programme list and basic university facts (not identical static strings).
  */
 

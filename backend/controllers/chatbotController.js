@@ -35,7 +35,7 @@ exports.getStatus = (req, res) => {
 /**
  * POST /api/chatbot/ask
  * Body: { message: string }
- * Pipeline: (1) FAQ + keyword + token-overlap NLP → (2) Google Gemini career counselor if no good match and API key set.
+ * Pipeline: (1) FAQ + keyword + token-overlap NLP → (2) Grok career counselor if no good match and API key set.
  */
 exports.ask = async (req, res) => {
   try {
@@ -65,11 +65,11 @@ exports.ask = async (req, res) => {
           suggestedQuestions: meta.suggested || [],
           source: 'ai',
           confidence: null,
-          matchedBy: 'gemini',
+          matchedBy: 'grok',
           aiAvailable: true,
         });
       }
-      console.warn('[chatbot] Gemini returned empty; falling back to generic FAQ text.');
+      console.warn('[chatbot] Grok returned empty; falling back to generic FAQ text.');
     }
 
     const legacy = getAnswer(message);

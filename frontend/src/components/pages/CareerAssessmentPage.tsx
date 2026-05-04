@@ -173,7 +173,7 @@ export function CareerAssessmentPage({ onPageChange }: CareerAssessmentPageProps
       }
       return;
     }
-    // If it's MBTI test, fetch details from Gemini API
+    // If it's MBTI test, fetch details from the API
     if (assessment.isMBTI && mbtiType) {
       setLoadingDetails(true);
       setSelectedTest({ ...assessment, details: null }); // Set test but no details yet

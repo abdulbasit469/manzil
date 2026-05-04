@@ -7,7 +7,10 @@ const {
   sanitizeProgramForResponse,
 } = require('../utils/sanitizeUniversityStrings');
 const { generateUniversityComparisonInsights } = require('../services/universityComparisonAI');
-const { generateProgramComparisonInsights } = require('../services/programComparisonAI');
+const {
+  generateProgramComparisonInsights,
+  mergeProgramComparisonInsights,
+} = require('../services/programComparisonAI');
 const { sanitizeFacilityMicroBlurb, sanitizeInsightSnippet } = require('../utils/comparisonTextGuards');
 const { pickFlagshipProgram } = require('../utils/flagshipProgram');
 const {
@@ -25,6 +28,121 @@ const DEFAULT_FACILITY_MICRO = [
 ];
 
 const INSIGHT_LEN = 200;
+
+/** Program comparison table: numeric PKR range only (no prose). */
+function formatCompareSemesterFeePkr(min, max) {
+  if (!Number.isFinite(min) || min <= 0) return '';
+  const maxSafe = Number.isFinite(max) && max >= min ? max : min;
+  const a = Math.round(min).toLocaleString('en-PK');
+  const b = Math.round(maxSafe).toLocaleString('en-PK');
+  return min === maxSafe ? `Rs. ${a}` : `Rs. ${a} - ${b}`;
+}
+
+function parseTwoPkrNumbersFromText(s) {
+  if (!s || typeof s !== 'string') return null;
+  const nums = String(s).replace(/,/g, '').match(/\d{3,9}/g);
+  if (!nums || !nums.length) return null;
+  const a = parseInt(nums[0], 10);
+  const b = nums.length >= 2 ? parseInt(nums[1], 10) : a;
+  if (!Number.isFinite(a) || a <= 0) return null;
+  const min = Math.min(a, b);
+  const max = Math.max(a, b);
+  return { min, max };
+}
+
+/**
+ * Min/max semester fee (PKR) from other active programmes at the same university.
+ * Prefers same category when any programmes in that category have fees.
+ */
+async function listedSemesterFeeRangeAtUniversity(uniId, category) {
+  const oid =
+    uniId && typeof uniId === 'object' && uniId._id
+      ? uniId._id
+      : uniId;
+  if (!oid) return null;
+  const programs = await Program.find({
+    university: oid,
+    isActive: { $ne: false },
+    $or: [{ feePerSemester: { $gt: 0 } }, { totalFee: { $gt: 0 } }],
+  })
+    .select('feePerSemester totalFee duration category')
+    .lean();
+  const cat = String(category || '').trim();
+  let pool = programs;
+  if (cat) {
+    const sameCat = programs.filter((p) => String(p.category || '').trim() === cat);
+    if (sameCat.length > 0) pool = sameCat;
+  }
+  const fees = pool
+    .map((p) => {
+      const sem = Number(p.feePerSemester);
+      if (Number.isFinite(sem) && sem > 0) return sem;
+      const total = Number(p.totalFee);
+      if (Number.isFinite(total) && total > 0) {
+        const nSem = parseSemesters(p.duration);
+        const v = total / nSem;
+        if (Number.isFinite(v) && v > 0) return v;
+      }
+      return 0;
+    })
+    .filter((n) => Number.isFinite(n) && n > 0);
+  if (!fees.length) return null;
+  return { min: Math.min(...fees), max: Math.max(...fees) };
+}
+
+function heuristicSemesterFeeRangePkr(univName, univCity, type, degree, category) {
+  const name = String(univName || '');
+  const n = `${name} ${univCity || ''}`.toLowerCase();
+  const t = String(type || '').toLowerCase();
+  const isPrivate = /private/i.test(t);
+  const deg = String(degree || '').toLowerCase();
+  const cat = String(category || '').toLowerCase();
+  const text = `${deg} ${cat}`;
+  const premium =
+    /lums|\blahore university of management|iba\s|ghulam|iqbal|fast|nid|szabist|itu\b|institute of business administration/i.test(
+      n
+    );
+  if (premium && isPrivate) {
+    if (/bba|business|finance|economics|account|commerce|management/i.test(text)) {
+      return { min: 350_000, max: 600_000 };
+    }
+    if (/be\b|engineering|computer|software|electrical|mechanical|civil/i.test(text)) {
+      return { min: 400_000, max: 650_000 };
+    }
+    return { min: 200_000, max: 450_000 };
+  }
+  if (isPrivate) {
+    if (/bba|mba|business/i.test(text)) return { min: 90_000, max: 220_000 };
+    if (/be\b|bsc|engineering|computer|software|electrical|cs\b|it\b/i.test(text)) {
+      return { min: 110_000, max: 260_000 };
+    }
+    if (/mbbs|bds|medicine|medical|pharm/i.test(text)) return { min: 900_000, max: 1_800_000 };
+    return { min: 70_000, max: 180_000 };
+  }
+  if (/bba|mba|business/i.test(text)) return { min: 20_000, max: 100_000 };
+  if (/be\b|engineering|computer|software/i.test(text)) return { min: 25_000, max: 120_000 };
+  return { min: 8_000, max: 80_000 };
+}
+
+function computeProgramFeeSemesterDisplay(prog, listedRange, aiRow) {
+  const fee = Number(prog.feePerSemester);
+  if (Number.isFinite(fee) && fee > 0) {
+    return formatCompareSemesterFeePkr(fee, fee);
+  }
+  if (listedRange && listedRange.min > 0 && listedRange.max > 0) {
+    return formatCompareSemesterFeePkr(listedRange.min, listedRange.max);
+  }
+  const amin = Number(aiRow?.feeSemesterMinPkr);
+  const amax = Number(aiRow?.feeSemesterMaxPkr);
+  if (Number.isFinite(amin) && Number.isFinite(amax) && amin > 0 && amax >= amin) {
+    return formatCompareSemesterFeePkr(amin, amax);
+  }
+  const parsed = parseTwoPkrNumbersFromText(aiRow?.feeGuidance);
+  if (parsed) return formatCompareSemesterFeePkr(parsed.min, parsed.max);
+  const u = prog.university && typeof prog.university === 'object' ? prog.university : {};
+  const h = heuristicSemesterFeeRangePkr(u.name, u.city, u.type, prog.degree, prog.category);
+  return formatCompareSemesterFeePkr(h.min, h.max);
+}
 
 function formatPkrRange(min, max) {
   if (!Number.isFinite(min) || min <= 0) return '';
@@ -95,16 +213,21 @@ function buildFeesRange(u, programs) {
   const businessDerived = deriveRangeFromPrograms(programs, /(bba|business|finance|account|commerce|management|mba|economics)/i);
   const defaults = defaultFeesByType(u.type);
 
+  const feeFallback =
+    'Typical ranges vary by programme and year; confirm amounts on the official fee schedule.';
+  const computerEngineering = (
+    u.feeComputingEngSemester ||
+    computingDerived ||
+    u.feeBsTypicalSemester ||
+    defaults.computerEngineering ||
+    ''
+  ).trim();
+  const medical = (u.feeMbbsPerYear || medicalDerived || defaults.medical || '').trim();
+  const businessFinance = (u.feeBusinessSocialSemester || businessDerived || defaults.businessFinance || '').trim();
   return {
-    computerEngineering: (
-      u.feeComputingEngSemester ||
-      computingDerived ||
-      u.feeBsTypicalSemester ||
-      defaults.computerEngineering ||
-      ''
-    ).trim(),
-    medical: (u.feeMbbsPerYear || medicalDerived || defaults.medical || '').trim(),
-    businessFinance: (u.feeBusinessSocialSemester || businessDerived || defaults.businessFinance || '').trim(),
+    computerEngineering: computerEngineering || feeFallback,
+    medical: medical || feeFallback,
+    businessFinance: businessFinance || feeFallback,
   };
 }
 
@@ -171,8 +294,30 @@ function meritCriteriaSummary(criteria) {
     minimumMatricMarks: criteria.minimumMatricMarks,
     minimumIntermediateMarks: criteria.minimumIntermediateMarks,
     lastClosingMerit: lastClosing
-      ? { year: lastClosing.year, closingMerit: lastClosing.closingMerit, programName: lastClosing.programName }
+      ? lastClosing.closingMerit == null && lastClosing.year == null
+        ? null
+        : {
+            year: lastClosing.year,
+            closingMerit: lastClosing.closingMerit,
+            programName: lastClosing.programName,
+          }
       : null,
+  };
+}
+
+/**
+ * Must match frontend Closing merit column: treat as "no DB merit" unless year or closingMerit is set.
+ * Otherwise meritFromDatabase is a truthy {} and the model always returns empty closingMeritGuidance.
+ */
+function meritForAiInput(lastClosingMerit) {
+  if (!lastClosingMerit || typeof lastClosingMerit !== 'object') return null;
+  if (lastClosingMerit.closingMerit == null && lastClosingMerit.year == null) return null;
+  return {
+    year: lastClosingMerit.year ?? null,
+    closingMerit: lastClosingMerit.closingMerit ?? null,
+    ...(lastClosingMerit.programName != null && lastClosingMerit.programName !== ''
+      ? { programName: lastClosingMerit.programName }
+      : {}),
   };
 }
 
@@ -290,7 +435,7 @@ exports.compare = async (req, res) => {
 
         const typeResolved =
           ai?.type ||
-          (/public/i.test(String(u.type || '')) ? 'Public' : /private/i.test(String(u.type || '')) ? 'Private' : '—');
+          (/public/i.test(String(u.type || '')) ? 'Public' : /private/i.test(String(u.type || '')) ? 'Private' : 'Not specified in directory');
 
         const feeComputingEngSemester = (ai?.feeComputingEngSemester || u.feeComputingEngSemester || '').trim();
         const feeBusinessSocialSemester = (ai?.feeBusinessSocialSemester || u.feeBusinessSocialSemester || '').trim();
@@ -305,12 +450,13 @@ exports.compare = async (req, res) => {
           myPrograms
         );
 
+        const addressLine = (ai?.addressShort || u.address || '').trim();
         const base = stripUniversityForCompare({
           ...u,
           type: typeResolved,
           hecRanking: ai?.hecRanking ?? u.hecRanking ?? null,
           programsOffer: ai?.programsOffer ?? u.programCount ?? null,
-          address: (ai?.addressShort || u.address || '').trim(),
+          address: addressLine || 'Not listed in directory; use the university website or a maps search.',
           feeComputingEngSemester,
           feeBusinessSocialSemester,
           facilitiesStructured: buildFacilitiesStructured(ai, String(u._id), myPrograms, flagship),
@@ -321,6 +467,9 @@ exports.compare = async (req, res) => {
         return base;
       });
 
+      if (!aiMap) {
+        console.warn(`[comparison] universities — aiUsed=false (see Grok logs above if any)`);
+      }
       return res.status(200).json({ success: true, type, items: withAi, aiUsed: !!aiMap });
     }
 
@@ -352,6 +501,13 @@ exports.compare = async (req, res) => {
       ordered.push({ ...prog, meritCriteria });
     }
 
+    const listedFeeRangeByProgramId = new Map();
+    for (const p of ordered) {
+      const uniRef = p.university && typeof p.university === 'object' ? p.university._id : p.university;
+      const range = await listedSemesterFeeRangeAtUniversity(uniRef, p.category);
+      listedFeeRangeByProgramId.set(String(p._id), range);
+    }
+
     // Build AI input for program comparison
     const aiInput = ordered.map((p) => ({
       id: String(p._id),
@@ -368,23 +524,35 @@ exports.compare = async (req, res) => {
       university: p.university
         ? { name: p.university.name, city: p.university.city, type: p.university.type }
         : {},
+      meritFromDatabase: meritForAiInput(p.meritCriteria?.lastClosingMerit),
+      listedSemesterFeeRangePkr: listedFeeRangeByProgramId.get(String(p._id)) || null,
     }));
 
-    const aiMap = await generateProgramComparisonInsights(aiInput);
+    const rawProgramAiMap = await generateProgramComparisonInsights(aiInput);
+    const programAiMerged = mergeProgramComparisonInsights(aiInput, rawProgramAiMap);
 
     const withAi = ordered.map((p) => {
-      const ai = aiMap?.get(String(p._id));
+      const ai = programAiMerged.get(String(p._id));
+      const listed = listedFeeRangeByProgramId.get(String(p._id));
+      const feeSemesterDisplay = computeProgramFeeSemesterDisplay(p, listed, ai);
       return {
         ...p,
+        feeSemesterDisplay,
         aiCareerOutlook: ai?.careerOutlook || '',
         aiSalaryRange: ai?.salaryRange || '',
         aiIndustryLinkages: ai?.industryLinkages || '',
         aiAdmissionDifficulty: ai?.admissionDifficulty || '',
         aiProgramStrengths: ai?.programStrengths || '',
+        aiEligibilityHint: ai?.eligibilityHint || '',
+        aiFeeGuidance: '',
+        aiClosingMeritGuidance: ai?.closingMeritGuidance || '',
       };
     });
 
-    return res.status(200).json({ success: true, type, items: withAi, aiUsed: !!aiMap });
+    if (!rawProgramAiMap) {
+      console.warn('[comparison] programs — aiUsed=false (see Grok / ProgramComparisonAI logs above)');
+    }
+    return res.status(200).json({ success: true, type, items: withAi, aiUsed: !!rawProgramAiMap });
   } catch (error) {
     console.error('Comparison error:', error);
     res.status(500).json({ success: false, message: error.message || 'Comparison failed' });

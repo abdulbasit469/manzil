@@ -1,6 +1,53 @@
 const dotenv = require('dotenv');
-// Load .env before anything that reads process.env (Mongo URI, etc.)
-dotenv.config();
+const path = require('path');
+const fs = require('fs');
+
+const rootEnvPath = path.join(__dirname, '..', '.env');
+const backendEnvPath = path.join(__dirname, '.env');
+
+// Primary: project root (same folder as package.json)
+dotenv.config({ path: rootEnvPath });
+
+/**
+ * If root .env leaves a key blank, fill it from backend/.env (some editors open that file by mistake).
+ * Does not overwrite non-empty values from root.
+ */
+function mergeBackendEnvForEmptyKeys() {
+  try {
+    if (!fs.existsSync(backendEnvPath)) return;
+    const parsed = dotenv.parse(fs.readFileSync(backendEnvPath));
+    for (const [key, val] of Object.entries(parsed)) {
+      const cur = process.env[key];
+      if (cur !== undefined && String(cur).trim() !== '') continue;
+      if (val === undefined || String(val).trim() === '') continue;
+      process.env[key] = val;
+    }
+  } catch (e) {
+    console.warn('[env] Could not merge backend/.env:', e.message);
+  }
+}
+
+mergeBackendEnvForEmptyKeys();
+
+if (!process.env.MONGODB_URI && !process.env.MONGO_URI) {
+  dotenv.config();
+}
+
+const { getApiKey, maskApiKeyForLog, providerLabel } = require('./services/grokClient');
+const llmKeyRaw = getApiKey();
+const llmKeyLen = llmKeyRaw.length;
+if (!llmKeyLen) {
+  console.warn(
+    `[env] Chat AI disabled: set GROQ_API_KEY (Groq, gsk_…) and/or XAI_API_KEY (xai-…) in:\n` +
+      `    ${rootEnvPath}\n` +
+      `    (Groq key is used first if GROQ_API_KEY is set.)`
+  );
+} else {
+  console.log(
+    `[env] ${providerLabel(llmKeyRaw)} API key loaded (${llmKeyLen} chars, fingerprint ${maskApiKeyForLog(llmKeyRaw)})`
+  );
+  console.log(`[env] Resolved .env file: ${rootEnvPath}`);
+}
 
 const dns = require('dns');
 // Helps Node resolve mongodb+srv on some Windows/network setups (querySrv issues)
@@ -11,7 +58,6 @@ if (typeof dns.setDefaultResultOrder === 'function') {
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
-const path = require('path');
 const os = require('os');
 const connectDB = require('./config/db');
 

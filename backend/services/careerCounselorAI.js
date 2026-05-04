@@ -1,9 +1,12 @@
 /**
- * Generative AI layer for Manzil career counselor (Google Gemini).
- * Requires GEMINI_API_KEY or GOOGLE_AI_API_KEY in environment.
- * Optional: GEMINI_MODEL (default: gemini-2.5-flash)
+ * Generative AI layer for Manzil career counselor (xAI Grok).
+ * Set XAI_API_KEY or GROK_API_KEY. Optional: GROK_MODEL / XAI_MODEL (default grok-4.20-reasoning).
  */
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const {
+  grokChatCompletion,
+  getApiKey,
+  isGrokConfigured,
+} = require('./grokClient');
 const { MANZIL_CONTEXT } = require('../data/chatbotKnowledgeBase');
 
 const SYSTEM_INSTRUCTION = `You are Manzil AI Career Counselor, a concise assistant for Pakistani students after intermediate.
@@ -18,65 +21,34 @@ RULES — follow every rule without exception:
 5. ACCURACY: Never guess. If you do not know the exact answer, say: "I don't have that information. Please check the official university website."
 6. LANGUAGE: Match the student's language (English or Roman Urdu). Keep the same tone — no formal essay style.`;
 
-
-function getApiKey() {
-  return (
-    process.env.GEMINI_API_KEY ||
-    process.env.GOOGLE_AI_API_KEY ||
-    process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
-    ''
-  ).trim();
-}
-
 /**
  * @param {string} userMessage
  * @returns {Promise<string|null>} reply text, or null if no key / error
  */
 async function generateCounselorReply(userMessage) {
-  const apiKey = getApiKey();
-  if (!apiKey) return null;
+  if (!getApiKey()) return null;
 
-  const preferred = (process.env.GEMINI_MODEL || 'gemini-2.5-flash').trim();
-  const fallbacks = ['gemini-2.5-pro', 'gemini-2.0-flash', 'gemini-2.5-flash'];
-  const modelsToTry = [preferred, ...fallbacks.filter((m) => m !== preferred)];
+  const { text, error } = await grokChatCompletion({
+    messages: [
+      { role: 'system', content: SYSTEM_INSTRUCTION },
+      {
+        role: 'user',
+        content: `Student question: "${String(userMessage).slice(0, 2000)}"\n\nAnswer in 1–3 sentences only. If out of scope, say the exact refusal sentence from the rules.`,
+      },
+    ],
+    temperature: 0.2,
+    maxCompletionTokens: parseInt(process.env.GROK_CHAT_MAX_TOKENS || '8192', 10) || 8192,
+  });
 
-  const genAI = new GoogleGenerativeAI(apiKey);
-  let lastErr = null;
-
-  for (const modelName of modelsToTry) {
-    try {
-      const model = genAI.getGenerativeModel({
-        model: modelName,
-        systemInstruction: SYSTEM_INSTRUCTION,
-        generationConfig: {
-          maxOutputTokens: 180,
-          temperature: 0.2,
-        },
-      });
-      const prompt = `Student question: "${String(userMessage).slice(0, 2000)}"\n\nAnswer in 1–3 sentences only. If out of scope, say the exact refusal sentence from the rules.`;
-      const result = await model.generateContent(prompt);
-      const text = typeof result?.response?.text === 'function' ? result.response.text() : '';
-      if (text && text.trim()) {
-        return text.trim();
-      }
-    } catch (err) {
-      lastErr = err;
-      console.warn(`[CareerCounselorAI] Model ${modelName} failed:`, err?.message || err);
-    }
-  }
-
-  if (lastErr) {
-    console.error('[CareerCounselorAI] All models failed:', lastErr.message);
+  if (text) return text;
+  if (error) {
+    console.error('[CareerCounselorAI] Grok failed:', error);
   }
   return null;
 }
 
-function isAIConfigured() {
-  return Boolean(getApiKey());
-}
-
 module.exports = {
   generateCounselorReply,
-  isAIConfigured,
+  isAIConfigured: isGrokConfigured,
   getApiKey: () => (getApiKey() ? '***' : ''),
 };
