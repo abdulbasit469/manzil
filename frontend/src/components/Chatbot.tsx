@@ -195,7 +195,7 @@ export function Chatbot() {
                 }}>
                   {m.role === 'bot' && m.source === 'ai' && (
                     <span style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#F58220', marginBottom: 4, letterSpacing: '0.04em' }}>
-                      ✦ Gemini AI
+                      ✦ Grok AI
                     </span>
                   )}
                   <span style={{ whiteSpace: 'pre-wrap' }}>{m.text.replace(/\*\*(.*?)\*\*/g, '$1')}</span>

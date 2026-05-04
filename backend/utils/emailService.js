@@ -1,43 +1,77 @@
 const nodemailer = require('nodemailer');
+const { google } = require('googleapis');
+
+function isGmailApiConfigured() {
+  const id = process.env.GOOGLE_CLIENT_ID?.trim();
+  const secret = process.env.GOOGLE_CLIENT_SECRET?.trim();
+  const refresh = process.env.GOOGLE_REFRESH_TOKEN?.trim();
+  const from =
+    process.env.GMAIL_FROM_EMAIL?.trim() ||
+    process.env.EMAIL_USER?.trim();
+  return Boolean(id && secret && refresh && from);
+}
+
+function isSmtpConfigured() {
+  return Boolean(process.env.EMAIL_USER?.trim() && process.env.EMAIL_PASS?.trim());
+}
+
+function getSenderEmail() {
+  return (
+    process.env.GMAIL_FROM_EMAIL?.trim() ||
+    process.env.EMAIL_USER?.trim() ||
+    ''
+  );
+}
+
+async function getGmailOAuthClient() {
+  const clientId = process.env.GOOGLE_CLIENT_ID.trim();
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET.trim();
+  const refreshToken = process.env.GOOGLE_REFRESH_TOKEN.trim();
+  const redirectUri =
+    process.env.GOOGLE_OAUTH_REDIRECT_URI?.trim() ||
+    'https://developers.google.com/oauthplayground';
+
+  const oauth2Client = new google.auth.OAuth2(clientId, clientSecret, redirectUri);
+  oauth2Client.setCredentials({ refresh_token: refreshToken });
+  return oauth2Client;
+}
+
+function rfc2047Subject(subject) {
+  if (/^[\x00-\x7F]*$/.test(subject)) return subject;
+  return `=?UTF-8?B?${Buffer.from(subject, 'utf8').toString('base64')}?=`;
+}
 
 /**
- * Send OTP email to user
- * For testing: Logs to console if email config not available
+ * Send MIME email via Gmail API (HTTPS — works on hosts that block SMTP).
  */
-const sendOTPEmail = async (email, otp, name) => {
-  try {
-    // Check if email configuration exists
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-      // For testing without email setup - just log to console
-      console.log('\n📧 ====== OTP EMAIL (Development Mode) ======');
-      console.log(`To: ${email}`);
-      console.log(`Name: ${name}`);
-      console.log(`OTP: ${otp}`);
-      console.log('OTP will expire in 10 minutes');
-      console.log('⚠️  Email credentials not configured. Check server console for OTP.');
-      console.log('==========================================\n');
-      // Throw error so frontend knows email wasn't actually sent
-      throw new Error('Email service not configured. OTP logged to server console. Please check backend terminal for OTP.');
-    }
+async function sendViaGmailApi({ to, subject, html }) {
+  const fromEmail = getSenderEmail();
+  const auth = await getGmailOAuthClient();
+  const gmail = google.gmail({ version: 'v1', auth });
+  const fromHeader = `Manzil Career Portal <${fromEmail}>`;
+  const raw = [
+    `From: ${fromHeader}`,
+    `To: ${to}`,
+    `Subject: ${rfc2047Subject(subject)}`,
+    'MIME-Version: 1.0',
+    'Content-Type: text/html; charset=UTF-8',
+    '',
+    html,
+  ].join('\r\n');
+  const encoded = Buffer.from(raw)
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+  const res = await gmail.users.messages.send({
+    userId: 'me',
+    requestBody: { raw: encoded },
+  });
+  return res.data;
+}
 
-    // Create transporter with Gmail
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS // App Password, not regular password
-      },
-      tls: {
-        rejectUnauthorized: false // Allow self-signed certificates (for development)
-      }
-    });
-
-    // Email content
-    const mailOptions = {
-      from: `Manzil Career Portal <${process.env.EMAIL_USER}>`,
-      to: email,
-      subject: 'Verify Your Email - Manzil',
-      html: `
+function otpEmailHtml(otp, name) {
+  return `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #000000;">Welcome to Manzil!</h2>
           <p>Hi ${name},</p>
@@ -54,75 +88,11 @@ const sendOTPEmail = async (email, otp, name) => {
             Please do not reply to this email.
           </p>
         </div>
-      `
-    };
+      `;
+}
 
-    // Send email
-    const info = await transporter.sendMail(mailOptions);
-    console.log(`✅ OTP email sent to ${email}`);
-    return { success: true, mode: 'email', messageId: info.messageId };
-
-  } catch (error) {
-    console.error('❌ Email sending error:', error.message);
-    
-    // If it's a configuration error (missing credentials), re-throw it
-    if (error.message.includes('Email service not configured')) {
-      throw error;
-    }
-    
-    // For other errors (invalid credentials, network issues, etc.), log to console as fallback
-    console.log('\n📧 ====== OTP EMAIL (Fallback Mode) ======');
-    console.log(`To: ${email}`);
-    console.log(`Name: ${name}`);
-    console.log(`OTP: ${otp}`);
-    console.log(`Error: ${error.message}`);
-    console.log('⚠️  Email sending failed. OTP logged above.');
-    console.log('==========================================\n');
-    // Throw a specific error that will be caught and handled gracefully
-    throw new Error('EMAIL_SEND_FAILED');
-  }
-};
-
-/**
- * Send password reset email to user
- * For testing: Logs to console if email config not available
- */
-const sendPasswordResetEmail = async (email, resetToken, name) => {
-  const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password/${resetToken}`;
-  
-  try {
-    // Check if email configuration exists
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-      // For testing without email setup - just log to console
-      console.log('\n📧 ====== PASSWORD RESET EMAIL (Development Mode) ======');
-      console.log(`To: ${email}`);
-      console.log(`Name: ${name}`);
-      console.log(`Reset Link: ${resetUrl}`);
-      console.log('Reset link will expire in 30 minutes');
-      console.log('⚠️  Email credentials not configured. Check server console for reset link.');
-      console.log('==========================================\n');
-      // Throw error so frontend knows email wasn't actually sent
-      throw new Error('Email service not configured. Reset link logged to server console. Please check backend terminal for reset link.');
-    }
-
-    // Create transporter with Gmail
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS // App Password, not regular password
-      },
-      tls: {
-        rejectUnauthorized: false // Allow self-signed certificates (for development)
-      }
-    });
-
-    // Email content
-    const mailOptions = {
-      from: `Manzil Career Portal <${process.env.EMAIL_USER}>`,
-      to: email,
-      subject: 'Password Reset Request - Manzil',
-      html: `
+function passwordResetHtml(resetUrl, name) {
+  return `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #000000;">Password Reset Request</h2>
           <p>Hi ${name},</p>
@@ -145,23 +115,137 @@ const sendPasswordResetEmail = async (email, resetToken, name) => {
             Please do not reply to this email.
           </p>
         </div>
-      `
+      `;
+}
+
+/**
+ * Send OTP email to user
+ * For testing: Logs to console if email config not available
+ */
+const sendOTPEmail = async (email, otp, name) => {
+  try {
+    if (!isGmailApiConfigured() && !isSmtpConfigured()) {
+      console.log('\n📧 ====== OTP EMAIL (Development Mode) ======');
+      console.log(`To: ${email}`);
+      console.log(`Name: ${name}`);
+      console.log(`OTP: ${otp}`);
+      console.log('OTP will expire in 10 minutes');
+      console.log(
+        '⚠️  Email not configured (need Gmail API OAuth vars or EMAIL_USER+EMAIL_PASS). OTP logged here.'
+      );
+      console.log('==========================================\n');
+      throw new Error(
+        'Email service not configured. OTP logged to server console. Please check backend terminal for OTP.'
+      );
+    }
+
+    const subject = 'Verify Your Email - Manzil';
+    const html = otpEmailHtml(otp, name);
+
+    if (isGmailApiConfigured()) {
+      const data = await sendViaGmailApi({ to: email, subject, html });
+      console.log(`✅ OTP email sent via Gmail API to ${email} id=${data?.id || 'n/a'}`);
+      return { success: true, mode: 'gmail_api', messageId: data?.id };
+    }
+
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+      tls: {
+        rejectUnauthorized: false,
+      },
+    });
+
+    const mailOptions = {
+      from: `Manzil Career Portal <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject,
+      html,
     };
 
-    // Send email
     const info = await transporter.sendMail(mailOptions);
-    console.log(`✅ Password reset email sent to ${email}`);
-    return { success: true, mode: 'email', messageId: info.messageId };
-
+    console.log(`✅ OTP email sent to ${email}`);
+    return { success: true, mode: 'smtp', messageId: info.messageId };
   } catch (error) {
     console.error('❌ Email sending error:', error.message);
-    
-    // If it's a configuration error (missing credentials), re-throw it
+
     if (error.message.includes('Email service not configured')) {
       throw error;
     }
-    
-    // For other errors (invalid credentials, network issues, etc.), log to console as fallback
+
+    console.log('\n📧 ====== OTP EMAIL (Fallback Mode) ======');
+    console.log(`To: ${email}`);
+    console.log(`Name: ${name}`);
+    console.log(`OTP: ${otp}`);
+    console.log(`Error: ${error.message}`);
+    console.log('⚠️  Sending failed. OTP logged above.');
+    console.log('==========================================\n');
+    throw new Error('EMAIL_SEND_FAILED');
+  }
+};
+
+/**
+ * Send password reset email to user
+ */
+const sendPasswordResetEmail = async (email, resetToken, name) => {
+  const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password/${resetToken}`;
+
+  try {
+    if (!isGmailApiConfigured() && !isSmtpConfigured()) {
+      console.log('\n📧 ====== PASSWORD RESET EMAIL (Development Mode) ======');
+      console.log(`To: ${email}`);
+      console.log(`Name: ${name}`);
+      console.log(`Reset Link: ${resetUrl}`);
+      console.log('Reset link will expire in 30 minutes');
+      console.log(
+        '⚠️  Email not configured (need Gmail API OAuth vars or EMAIL_USER+EMAIL_PASS). Link logged here.'
+      );
+      console.log('==========================================\n');
+      throw new Error(
+        'Email service not configured. Reset link logged to server console. Please check backend terminal for reset link.'
+      );
+    }
+
+    const subject = 'Password Reset Request - Manzil';
+    const html = passwordResetHtml(resetUrl, name);
+
+    if (isGmailApiConfigured()) {
+      const data = await sendViaGmailApi({ to: email, subject, html });
+      console.log(`✅ Password reset email sent via Gmail API to ${email} id=${data?.id || 'n/a'}`);
+      return { success: true, mode: 'gmail_api', messageId: data?.id };
+    }
+
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+      tls: {
+        rejectUnauthorized: false,
+      },
+    });
+
+    const mailOptions = {
+      from: `Manzil Career Portal <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject,
+      html,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`✅ Password reset email sent to ${email}`);
+    return { success: true, mode: 'smtp', messageId: info.messageId };
+  } catch (error) {
+    console.error('❌ Email sending error:', error.message);
+
+    if (error.message.includes('Email service not configured')) {
+      throw error;
+    }
+
     console.log('\n📧 ====== PASSWORD RESET EMAIL (Fallback Mode) ======');
     console.log(`To: ${email}`);
     console.log(`Name: ${name}`);
@@ -169,10 +253,8 @@ const sendPasswordResetEmail = async (email, resetToken, name) => {
     console.log(`Error: ${error.message}`);
     console.log('⚠️  Email sending failed. Reset link logged above.');
     console.log('==========================================\n');
-    // Throw a specific error that will be caught and handled gracefully
     throw new Error('EMAIL_SEND_FAILED');
   }
 };
 
 module.exports = { sendOTPEmail, sendPasswordResetEmail };
-

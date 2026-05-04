@@ -77,40 +77,78 @@ interface ComparedProgram {
   aiIndustryLinkages?: string;
   aiAdmissionDifficulty?: string;
   aiProgramStrengths?: string;
+  aiEligibilityHint?: string;
+  aiFeeGuidance?: string;
+  aiClosingMeritGuidance?: string;
+  /** Server-computed PKR range for display, e.g. "Rs. 80,000 - 150,000" */
+  feeSemesterDisplay?: string;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/** Shown instead of a bare em dash so every cell has readable guidance */
+const COPY = {
+  duration:
+    'Not specified in listing. Most undergraduate degrees run about 4 years; confirm in the prospectus.',
+  uniType: 'Not specified in directory.',
+  hecRank: '-',
+  websiteProg: 'Not in listing — search the university name for the official site.',
+  websiteUni: 'Not in listing — search the university name for the official site.',
+  city: 'Location not listed',
+  feeUnable: 'Rs. 8,000 - 80,000',
+  closingMerit: 'Confirm latest merit on the university admissions page.',
+};
+
+function typicalDuration(degree?: string): string {
+  const d = (degree || '').toLowerCase();
+  if (/ph\.?d|doctorate/i.test(d)) {
+    return 'Usually 3–5 years after relevant prior degree; confirm with the department.';
+  }
+  if (/m\.?phil|msc|m\.s\.?\b|ms\b/i.test(d)) {
+    return 'Typically ~2 years; confirm credits and thesis requirements.';
+  }
+  if (/mba/i.test(d)) {
+    return 'Often 1.5–2 years; executive formats may differ.';
+  }
+  if (/mbbs|bds|md\b/i.test(d)) {
+    return 'Professional clinical programme; duration set by regulator and university.';
+  }
+  return COPY.duration;
+}
 
 function cleanAiText(s: string | undefined): string {
   return String(s || '').replace(/\*/g, '').trim();
 }
 
-function truncate(text: string | undefined, max = 180): string {
+function truncate(text: string | undefined, max = 180, emptyFallback?: string): string {
   const t = cleanAiText(text);
-  if (!t) return '—';
+  if (!t) return emptyFallback ?? 'Not provided in listing; check the official site.';
   return t.length <= max ? t : `${t.slice(0, max)}…`;
 }
 
 function fmtFee(n?: number): string {
-  if (!n || !Number.isFinite(n) || n <= 0) return '—';
+  if (!n || !Number.isFinite(n) || n <= 0) return COPY.feeUnable;
   return `Rs. ${Math.round(n).toLocaleString('en-PK')}`;
 }
 
 function feesRangeCell(u: ComparedUniversity): ReactNode {
   const f = u.feesRange;
+  const fb =
+    'Typical ranges vary by programme; confirm on the official fee schedule.';
   const rows = [
-    { label: 'Computer / Engineering', value: cleanAiText(f?.computerEngineering) },
-    { label: 'Medical', value: cleanAiText(f?.medical) },
-    { label: 'Business / Finance', value: cleanAiText(f?.businessFinance) },
+    {
+      label: 'Computer / Engineering',
+      value: cleanAiText(f?.computerEngineering) || fb,
+    },
+    { label: 'Medical', value: cleanAiText(f?.medical) || fb },
+    { label: 'Business / Finance', value: cleanAiText(f?.businessFinance) || fb },
   ];
-  const hasAny = rows.some((r) => r.value);
-  if (!hasAny) return <span className="text-slate-400">—</span>;
   return (
     <ul className="list-none space-y-1.5 text-xs text-slate-800">
       {rows.map((r) => (
         <li key={r.label}>
           <span className="text-slate-500 font-medium">{r.label}: </span>
-          {r.value || '—'}
+          {r.value}
         </li>
       ))}
     </ul>
@@ -118,9 +156,9 @@ function feesRangeCell(u: ComparedUniversity): ReactNode {
 }
 
 function programUniName(p: ComparedProgram): string {
-  if (!p.university) return '—';
+  if (!p.university) return 'University not linked in listing';
   if (typeof p.university === 'string') return p.university;
-  return universityNameLabel(p.university.name);
+  return universityNameLabel(p.university.name) || 'University not linked in listing';
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -332,7 +370,7 @@ export function ComparisonPage() {
                 <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
                 <p className="text-sm text-blue-900">
                   Pick <strong>2 or 3</strong> universities to compare side by side. AI-powered insights are generated
-                  via Gemini when available.
+                  via Grok when available.
                 </p>
               </div>
 
@@ -409,10 +447,10 @@ export function ComparisonPage() {
           <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
             <Info className="h-4 w-4 mt-0.5 shrink-0 text-amber-500" />
             <span>
-              <strong>AI insights unavailable</strong> — your Gemini API free-tier quota is currently exhausted.
-              The data shown is from our database. Quota resets daily, or upgrade at{' '}
-              <a href="https://ai.google.dev" target="_blank" rel="noreferrer" className="underline font-medium">
-                ai.google.dev
+              <strong>AI insights unavailable</strong> — the Grok API did not return insights (quota, network, or key issue).
+              The data shown is from our database. Check your x.ai API key and usage at{' '}
+              <a href="https://console.x.ai" target="_blank" rel="noreferrer" className="underline font-medium">
+                console.x.ai
               </a>.
             </span>
           </div>
@@ -439,7 +477,7 @@ export function ComparisonPage() {
                           <div>
                             <div className="font-bold text-slate-900 leading-tight">{universityNameLabel(u.name)}</div>
                             <div className="text-xs text-slate-500 mt-0.5">
-                              {stripUnknownUniversityText(u.city) || '—'}
+                              {stripUnknownUniversityText(u.city) || COPY.city}
                             </div>
                           </div>
                         </div>
@@ -449,9 +487,22 @@ export function ComparisonPage() {
                 </thead>
                 <tbody className="divide-y divide-slate-200">
                   {[
-                    { label: 'Type', fn: (u: ComparedUniversity) => cleanAiText(u.type) || '—' },
-                    { label: 'HEC ranking', fn: (u: ComparedUniversity) => u.hecRanking != null ? String(u.hecRanking) : '—' },
-                    { label: 'Programs offer', fn: (u: ComparedUniversity) => u.programsOffer != null ? String(u.programsOffer) : '—' },
+                    {
+                      label: 'Type',
+                      fn: (u: ComparedUniversity) => cleanAiText(u.type) || 'Not specified in directory',
+                    },
+                    {
+                      label: 'HEC ranking',
+                      fn: (u: ComparedUniversity) =>
+                        u.hecRanking != null ? String(u.hecRanking) : COPY.hecRank,
+                    },
+                    {
+                      label: 'Programs offer',
+                      fn: (u: ComparedUniversity) =>
+                        u.programsOffer != null
+                          ? String(u.programsOffer)
+                          : 'Count not in listing; browse programmes on the university site',
+                    },
                     {
                       label: 'Website',
                       fn: (u: ComparedUniversity) =>
@@ -463,21 +514,34 @@ export function ComparisonPage() {
                           >
                             Link <ExternalLink className="w-3 h-3" />
                           </a>
-                        ) : '—',
+                        ) : (
+                          <span className="text-slate-600">{COPY.websiteUni}</span>
+                        ),
                     },
-                    { label: 'Address', fn: (u: ComparedUniversity) => truncate(u.address, 60) },
+                    {
+                      label: 'Address',
+                      fn: (u: ComparedUniversity) =>
+                        truncate(u.address, 60, 'Not listed; try the website or a maps search.'),
+                    },
                     ...(resultUnis[0]?.facilitiesStructured ?? []).map((f) => ({
                       label: f.label,
                       fn: (u: ComparedUniversity) => {
                         const row = u.facilitiesStructured?.find((x) => x.label === f.label);
-                        return cleanAiText(row?.blurb) || '—';
+                        return (
+                          cleanAiText(row?.blurb) ||
+                          'Details not in listing; check the campus or official website.'
+                        );
                       },
                     })),
                     ...(resultUnis[0]?.studentInsights ?? []).map((f) => ({
                       label: f.label,
                       fn: (u: ComparedUniversity) => {
                         const row = u.studentInsights?.find((x) => x.label === f.label);
-                        return truncate(row?.value, 200);
+                        return truncate(
+                          row?.value,
+                          200,
+                          'Contact the university for updated information.',
+                        );
                       },
                     })),
                     { label: 'Fees range', fn: (u: ComparedUniversity) => feesRangeCell(u) },
@@ -528,33 +592,56 @@ export function ComparisonPage() {
                   {([
                     {
                       label: 'Duration',
-                      fn: (p: ComparedProgram) => p.duration || '—',
+                      fn: (p: ComparedProgram) => {
+                        const d = cleanAiText(p.duration);
+                        if (d) return d;
+                        return typicalDuration(p.degree);
+                      },
                     },
                     {
                       label: 'Fee / semester',
-                      fn: (p: ComparedProgram) => fmtFee(p.feePerSemester),
+                      fn: (p: ComparedProgram) => {
+                        const display = cleanAiText(p.feeSemesterDisplay);
+                        if (display) return display;
+                        const n = p.feePerSemester;
+                        if (n != null && Number.isFinite(Number(n)) && Number(n) > 0) {
+                          return fmtFee(Number(n));
+                        }
+                        return COPY.feeUnable;
+                      },
                     },
                     {
                       label: 'Eligibility',
-                      fn: (p: ComparedProgram) => truncate(p.eligibility, 120),
+                      fn: (p: ComparedProgram) => {
+                        const e = cleanAiText(p.eligibility);
+                        if (e) return truncate(e, 120);
+                        const h = cleanAiText(p.aiEligibilityHint);
+                        return truncate(
+                          h,
+                          120,
+                          'See the official admissions page for entry requirements.',
+                        );
+                      },
                     },
                     {
                       label: 'University type',
                       fn: (p: ComparedProgram) =>
-                        p.university && typeof p.university === 'object' ? (p.university.type || '—') : '—',
+                        p.university && typeof p.university === 'object'
+                          ? p.university.type || COPY.uniType
+                          : COPY.uniType,
                     },
                     {
                       label: 'HEC ranking',
                       fn: (p: ComparedProgram) =>
                         p.university && typeof p.university === 'object' && p.university.hecRanking != null
                           ? String(p.university.hecRanking)
-                          : '—',
+                          : COPY.hecRank,
                     },
                     {
                       label: 'University website',
                       fn: (p: ComparedProgram) => {
                         const site = typeof p.university === 'object' ? p.university?.website : undefined;
-                        if (!site) return '—' as ReactNode;
+                        if (!site) return <span className="text-slate-600">{COPY.websiteProg}</span>;
                         return (
                           <a
                             href={site.startsWith('http') ? site : `https://${site}`}
@@ -570,25 +657,55 @@ export function ComparisonPage() {
                       label: 'Closing merit (last)',
                       fn: (p: ComparedProgram) => {
                         const lc = p.meritCriteria?.lastClosingMerit;
-                        if (!lc) return '—';
-                        return `${lc.closingMerit ?? '—'}%${lc.year ? ` (${lc.year})` : ''}`;
+                        if (lc && (lc.closingMerit != null || lc.year != null)) {
+                          const pct =
+                            lc.closingMerit != null
+                              ? `${lc.closingMerit}%`
+                              : 'Percentage not in listing';
+                          const yr = lc.year != null ? ` (${lc.year})` : '';
+                          return `${pct}${yr}`;
+                        }
+                        const g = cleanAiText(p.aiClosingMeritGuidance);
+                        return truncate(g, 200, COPY.closingMerit);
                       },
                     },
                     {
                       label: 'Salary range',
-                      fn: (p: ComparedProgram) => p.aiSalaryRange || '—',
+                      fn: (p: ComparedProgram) =>
+                        cleanAiText(p.aiSalaryRange) ||
+                        'Varies widely; ask the department or review graduate surveys.',
                     },
                     {
                       label: 'Industry linkages',
-                      fn: (p: ComparedProgram) => truncate(p.aiIndustryLinkages, 150),
+                      fn: (p: ComparedProgram) =>
+                        truncate(
+                          p.aiIndustryLinkages,
+                          150,
+                          'Varies by city and sector; confirm with alumni or careers office.',
+                        ),
                     },
                     {
                       label: 'Program strengths',
-                      fn: (p: ComparedProgram) => truncate(p.aiProgramStrengths, 200),
+                      fn: (p: ComparedProgram) =>
+                        truncate(
+                          p.aiProgramStrengths,
+                          200,
+                          'Compare curriculum, labs, and accreditation on the programme page.',
+                        ),
+                    },
+                    {
+                      label: 'Admission difficulty',
+                      fn: (p: ComparedProgram) =>
+                        truncate(p.aiAdmissionDifficulty, 100, 'Varies by year; no fixed label in listing.'),
                     },
                     {
                       label: 'Career scope',
-                      fn: (p: ComparedProgram) => truncate(p.careerScope, 200),
+                      fn: (p: ComparedProgram) =>
+                        truncate(
+                          cleanAiText(p.aiCareerOutlook) || cleanAiText(p.careerScope),
+                          220,
+                          'Scope depends on specialisation; see the department’s graduate pathways.',
+                        ),
                     },
                   ] as { label: string; fn: (p: ComparedProgram) => ReactNode }[]).map((row) => (
                     <tr key={row.label} className="hover:bg-slate-50/80">

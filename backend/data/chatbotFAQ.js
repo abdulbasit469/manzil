@@ -1,6 +1,6 @@
 /**
  * Manzil Student Chatbot – FAQ + keyword / token overlap for fast answers.
- * When confidence is low, backend may call Gemini (see chatbotController).
+ * When confidence is low, backend may call Grok (see chatbotController).
  */
 const FAQ = [
   // --- Registration & Account (1–8) ---
