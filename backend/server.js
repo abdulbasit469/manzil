@@ -273,9 +273,9 @@ function getLanIpv4s() {
   return out;
 }
 
-// Start server — in production/PaaS always bind to all interfaces for platform healthchecks.
+// Start server — always bind to all interfaces for platform healthchecks and LAN access.
 const PORT = Number(process.env.PORT) || 5000;
-const HOST = process.env.NODE_ENV === 'production' ? '0.0.0.0' : (process.env.HOST || '0.0.0.0');
+const HOST = '0.0.0.0';
 const server = app.listen(PORT, HOST, () => {
   console.log(`\n🚀 Manzil Server is running on ${HOST}:${PORT}`);
   console.log(`📍 Environment: ${process.env.NODE_ENV}`);
