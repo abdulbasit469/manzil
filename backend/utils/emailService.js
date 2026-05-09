@@ -257,4 +257,9 @@ const sendPasswordResetEmail = async (email, resetToken, name) => {
   }
 };
 
-module.exports = { sendOTPEmail, sendPasswordResetEmail };
+module.exports = {
+  sendOTPEmail,
+  sendPasswordResetEmail,
+  isGmailApiConfigured,
+  isSmtpConfigured,
+};

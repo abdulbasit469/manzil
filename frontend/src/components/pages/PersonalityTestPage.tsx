@@ -262,19 +262,19 @@ export function PersonalityTestPage({ onPageChange }: PersonalityTestPageProps =
                         const isNeutral = value === 2; // Center circle (2) is Neutral
 
                         let circleColor = 'border-slate-400';
-                        let fillColor = 'bg-transparent';
+                        let selectedBgColor = 'transparent';
                         
                         if (isSelected) {
                           if (isAgreeSide) {
                             circleColor = 'border-green-500';
-                            fillColor = 'bg-green-500';
+                            selectedBgColor = '#22c55e';
                           } else if (isDisagreeSide) {
                             circleColor = 'border-purple-500';
-                            fillColor = 'bg-purple-500';
+                            selectedBgColor = '#a855f7';
                           } else {
-                            // Center circle - grey fill and amber/yellow border when selected
+                            // Center circle - amber fill with amber border for clear visibility.
                             circleColor = 'border-amber-500';
-                            fillColor = 'bg-slate-600'; // Darker grey for better visibility
+                            selectedBgColor = '#f59e0b';
                           }
                         } else {
                           if (isAgreeSide) {
@@ -294,7 +294,6 @@ export function PersonalityTestPage({ onPageChange }: PersonalityTestPageProps =
                             className={`
                               rounded-full border-2 transition-all duration-200 relative
                               ${circleColor}
-                              ${isSelected ? fillColor : 'bg-transparent'}
                               hover:scale-105 active:scale-95
                               focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500
                               group
@@ -302,6 +301,7 @@ export function PersonalityTestPage({ onPageChange }: PersonalityTestPageProps =
                             style={{
                               width: `${size}px`,
                               height: `${size}px`,
+                              backgroundColor: isSelected ? selectedBgColor : 'transparent',
                             }}
                             aria-label={`Select option ${value}`}
                           >

@@ -456,7 +456,7 @@ exports.compare = async (req, res) => {
           type: typeResolved,
           hecRanking: ai?.hecRanking ?? u.hecRanking ?? null,
           programsOffer: ai?.programsOffer ?? u.programCount ?? null,
-          address: addressLine || 'Not listed in directory; use the university website or a maps search.',
+          address: addressLine || 'Use the university website or a maps search.',
           feeComputingEngSemester,
           feeBusinessSocialSemester,
           facilitiesStructured: buildFacilitiesStructured(ai, String(u._id), myPrograms, flagship),

@@ -329,10 +329,6 @@ export function ComparisonPage() {
               <GitCompareArrows className="w-9 h-9 md:w-10 md:h-10" />
               Comparison Tool
             </h1>
-            <p className="text-blue-100 max-w-3xl">
-              Compare two or three universities or degree programs side by side — fees, merit criteria (when available),
-              facilities, rankings, and scope — to make a clearer choice.
-            </p>
           </motion.div>
         </div>
       </div>
@@ -366,14 +362,6 @@ export function ComparisonPage() {
           {/* ── UNIVERSITIES TAB ── */}
           {tab === 'universities' && (
             <div className="flex flex-col gap-6">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex gap-2">
-                <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-blue-900">
-                  Pick <strong>2 or 3</strong> universities to compare side by side. AI-powered insights are generated
-                  via Grok when available.
-                </p>
-              </div>
-
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {renderUniSelect(uniSlot1, setUniSlot1, 'Option A')}
                 {renderUniSelect(uniSlot2, setUniSlot2, 'Option B')}

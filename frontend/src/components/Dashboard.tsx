@@ -1,25 +1,25 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense, lazy } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
-import { DashboardContent } from './DashboardContent';
-import { UniversitiesPage } from './pages/UniversitiesPage';
-import { CareerAssessmentPage } from './pages/CareerAssessmentPage';
-import { PersonalityTestPage } from './pages/PersonalityTestPage';
-import { BrainHemisphereTestPage } from './pages/BrainHemisphereTestPage';
-import { InterestTestPage } from './pages/InterestTestPage';
-import { MeritCalculatorPage } from './pages/MeritCalculatorPage';
-import { CommunityPage } from './pages/CommunityPage';
-import { PostDetailPage } from './pages/PostDetailPage';
-import { CreatePostPage } from './pages/CreatePostPage';
-import { ProfilePage } from './pages/ProfilePage';
-import { MockTestPage } from './pages/MockTestPage';
-import { MockTestRunPage } from './pages/MockTestRunPage';
-import { DegreeScopePage } from './pages/DegreeScopePage';
-import { DegreeScopeDetailPage } from './pages/DegreeScopeDetailPage';
-import { UniversityDetailPage } from './pages/UniversityDetailPage';
-import { ComparisonPage } from './pages/ComparisonPage';
+const DashboardContent = lazy(() => import('./DashboardContent').then((m) => ({ default: m.DashboardContent })));
+const UniversitiesPage = lazy(() => import('./pages/UniversitiesPage').then((m) => ({ default: m.UniversitiesPage })));
+const CareerAssessmentPage = lazy(() => import('./pages/CareerAssessmentPage').then((m) => ({ default: m.CareerAssessmentPage })));
+const PersonalityTestPage = lazy(() => import('./pages/PersonalityTestPage').then((m) => ({ default: m.PersonalityTestPage })));
+const BrainHemisphereTestPage = lazy(() => import('./pages/BrainHemisphereTestPage').then((m) => ({ default: m.BrainHemisphereTestPage })));
+const InterestTestPage = lazy(() => import('./pages/InterestTestPage').then((m) => ({ default: m.InterestTestPage })));
+const MeritCalculatorPage = lazy(() => import('./pages/MeritCalculatorPage').then((m) => ({ default: m.MeritCalculatorPage })));
+const CommunityPage = lazy(() => import('./pages/CommunityPage').then((m) => ({ default: m.CommunityPage })));
+const PostDetailPage = lazy(() => import('./pages/PostDetailPage').then((m) => ({ default: m.PostDetailPage })));
+const CreatePostPage = lazy(() => import('./pages/CreatePostPage').then((m) => ({ default: m.CreatePostPage })));
+const ProfilePage = lazy(() => import('./pages/ProfilePage').then((m) => ({ default: m.ProfilePage })));
+const MockTestPage = lazy(() => import('./pages/MockTestPage').then((m) => ({ default: m.MockTestPage })));
+const MockTestRunPage = lazy(() => import('./pages/MockTestRunPage').then((m) => ({ default: m.MockTestRunPage })));
+const DegreeScopePage = lazy(() => import('./pages/DegreeScopePage').then((m) => ({ default: m.DegreeScopePage })));
+const DegreeScopeDetailPage = lazy(() => import('./pages/DegreeScopeDetailPage').then((m) => ({ default: m.DegreeScopeDetailPage })));
+const UniversityDetailPage = lazy(() => import('./pages/UniversityDetailPage').then((m) => ({ default: m.UniversityDetailPage })));
+const ComparisonPage = lazy(() => import('./pages/ComparisonPage').then((m) => ({ default: m.ComparisonPage })));
 import { TopNavbar } from './TopNavbar';
-import { Chatbot } from './Chatbot';
+const Chatbot = lazy(() => import('./Chatbot').then((m) => ({ default: m.Chatbot })));
 import { useAuth } from '../context/AuthContext';
 import { Target, BookOpen, Users } from 'lucide-react';
 
@@ -289,11 +289,13 @@ export function Dashboard() {
   if (currentPage === 'mocktest-run' && mockRunSession) {
     return (
       <div className="fixed inset-0 z-50 flex flex-col bg-slate-100">
-        <MockTestRunPage
-          testName={mockRunSession.name}
-          gradientClass={mockRunSession.color}
-          onBack={handleBackFromMockRun}
-        />
+        <Suspense fallback={<div className="flex-1 bg-slate-100" />}>
+          <MockTestRunPage
+            testName={mockRunSession.name}
+            gradientClass={mockRunSession.color}
+            onBack={handleBackFromMockRun}
+          />
+        </Suspense>
       </div>
     );
   }
@@ -316,9 +318,13 @@ export function Dashboard() {
           onPageChange={handlePageChange}
           onLogout={handleLogout}
         />
-        {renderPage()}
+        <Suspense fallback={<div className="flex-1 bg-slate-50" />}>
+          {renderPage()}
+        </Suspense>
       </div>
-      <Chatbot />
+      <Suspense fallback={null}>
+        <Chatbot />
+      </Suspense>
     </div>
   );
 }

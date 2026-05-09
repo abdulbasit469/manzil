@@ -49,6 +49,19 @@ if (!llmKeyLen) {
   console.log(`[env] Resolved .env file: ${rootEnvPath}`);
 }
 
+const { isGmailApiConfigured, isSmtpConfigured } = require('./utils/emailService');
+const gmailReady = isGmailApiConfigured();
+const smtpReady = isSmtpConfigured();
+if (gmailReady) {
+  console.log('[env] Gmail API for OTP: configured (OAuth + sender email)');
+} else if (smtpReady) {
+  console.log('[env] Email for OTP: SMTP (EMAIL_USER + EMAIL_PASS)');
+} else {
+  console.warn(
+    '[env] Gmail API for OTP: NOT configured — set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN, GMAIL_FROM_EMAIL on this service (Railway Variables), then redeploy.'
+  );
+}
+
 const dns = require('dns');
 // Helps Node resolve mongodb+srv on some Windows/network setups (querySrv issues)
 if (typeof dns.setDefaultResultOrder === 'function') {

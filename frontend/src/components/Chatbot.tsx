@@ -193,11 +193,6 @@ export function Chatbot() {
                     ? '0 2px 8px rgba(245,130,32,0.3)'
                     : '0 1px 4px rgba(0,0,0,0.08)',
                 }}>
-                  {m.role === 'bot' && m.source === 'ai' && (
-                    <span style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#F58220', marginBottom: 4, letterSpacing: '0.04em' }}>
-                      ✦ Grok AI
-                    </span>
-                  )}
                   <span style={{ whiteSpace: 'pre-wrap' }}>{m.text.replace(/\*\*(.*?)\*\*/g, '$1')}</span>
                 </div>
               </div>

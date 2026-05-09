@@ -2,7 +2,7 @@ import { motion } from 'motion/react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Search, MapPin, Bookmark, ChevronRight } from 'lucide-react';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import { toast } from 'sonner';
@@ -25,6 +25,9 @@ interface UniversitiesPageProps {
   onOpenUniversityDetail?: (universityId: string) => void;
 }
 
+const UNIVERSITIES_CACHE_TTL_MS = 60_000;
+const UNIVERSITIES_CACHE_STORAGE_KEY = 'universities-page-cache-v1';
+
 export function UniversitiesPage({ onOpenUniversityDetail }: UniversitiesPageProps) {
   const { isAuthenticated } = useAuth();
   const [universities, setUniversities] = useState<University[]>([]);
@@ -37,10 +40,25 @@ export function UniversitiesPage({ onOpenUniversityDetail }: UniversitiesPagePro
   const [cities, setCities] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const universitiesCacheRef = useRef<Map<string, { universities: University[]; totalPages: number }>>(new Map());
 
   // Declared before useEffects so dependency arrays can reference them safely
   const fetchUniversities = useCallback(async () => {
     try {
+      const cacheKey = JSON.stringify({
+        page: currentPage,
+        search: debouncedSearch,
+        city: selectedCity,
+        type: selectedType,
+      });
+      const cached = universitiesCacheRef.current.get(cacheKey);
+      if (cached) {
+        setUniversities(cached.universities);
+        setTotalPages(cached.totalPages);
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       const params: any = {
         page: currentPage,
@@ -72,16 +90,18 @@ export function UniversitiesPage({ onOpenUniversityDetail }: UniversitiesPagePro
         
         setUniversities(universitiesWithType);
         setTotalPages(response.data.totalPages || 1);
-        
-        // Add cities from current results to the list (if not already fetched)
-        if (cities.length === 0) {
-          const uniqueCities = new Set<string>();
-          universitiesWithType.forEach((uni: University) => {
-            if (uni.city) uniqueCities.add(uni.city);
-          });
-          if (uniqueCities.size > 0) {
-            setCities(Array.from(uniqueCities).sort());
-          }
+        universitiesCacheRef.current.set(cacheKey, {
+          universities: universitiesWithType,
+          totalPages: response.data.totalPages || 1,
+        });
+        try {
+          const entries = Array.from(universitiesCacheRef.current.entries());
+          sessionStorage.setItem(
+            UNIVERSITIES_CACHE_STORAGE_KEY,
+            JSON.stringify({ at: Date.now(), entries })
+          );
+        } catch {
+          // Ignore session storage failures to keep page resilient.
         }
       } else {
         throw new Error(response.data.message || 'Failed to fetch universities');
@@ -111,6 +131,35 @@ export function UniversitiesPage({ onOpenUniversityDetail }: UniversitiesPagePro
   // Fetch all cities on mount
   useEffect(() => {
     fetchCities();
+  }, []);
+
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(UNIVERSITIES_CACHE_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as {
+        at?: number;
+        entries?: [string, { universities: University[]; totalPages: number }][];
+      };
+      const isFresh =
+        typeof parsed?.at === 'number' && Date.now() - parsed.at < UNIVERSITIES_CACHE_TTL_MS;
+      if (!isFresh || !Array.isArray(parsed?.entries)) return;
+      universitiesCacheRef.current = new Map(parsed.entries);
+      const initialKey = JSON.stringify({
+        page: 1,
+        search: '',
+        city: 'All Cities',
+        type: 'All Types',
+      });
+      const initialCached = universitiesCacheRef.current.get(initialKey);
+      if (initialCached) {
+        setUniversities(initialCached.universities);
+        setTotalPages(initialCached.totalPages);
+        setLoading(false);
+      }
+    } catch {
+      // Ignore malformed cache entries.
+    }
   }, []);
 
   useEffect(() => {
@@ -229,7 +278,6 @@ export function UniversitiesPage({ onOpenUniversityDetail }: UniversitiesPagePro
                 value={selectedCity}
                 onChange={(e) => {
                   setSelectedCity(e.target.value);
-                  setCurrentPage(1);
                 }}
                 className="px-3 md:px-4 py-2 md:py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm md:text-base min-w-[140px] md:min-w-[150px] bg-white cursor-pointer h-[42px] md:h-[48px]"
               >
@@ -244,7 +292,6 @@ export function UniversitiesPage({ onOpenUniversityDetail }: UniversitiesPagePro
                 value={selectedType}
                 onChange={(e) => {
                   setSelectedType(e.target.value);
-                  setCurrentPage(1);
                 }}
                 className="px-3 md:px-4 py-2 md:py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm md:text-base min-w-[140px] md:min-w-[150px] bg-white cursor-pointer h-[42px] md:h-[48px]"
               >
