@@ -51,18 +51,18 @@ export function LoginPage() {
   };
 
   return (
-    <div className="min-h-dvh max-h-dvh h-dvh max-w-full overflow-x-hidden overflow-y-auto bg-gradient-to-br from-[#0f1f3a] via-[#1e3a5f] to-[#2d4a6f] flex items-center justify-center p-4 sm:p-6">
-      <div className="w-full max-w-6xl min-w-0 grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center py-4">
+    <div className="min-h-screen h-screen overflow-hidden bg-gradient-to-br from-[#0f1f3a] via-[#1e3a5f] to-[#2d4a6f] flex items-center justify-center p-6">
+      <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
         {/* Left Side - Branding */}
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.8 }}
-          className="text-center px-1"
+          className="text-center"
         >
-          <img src={manzilLogo} alt="Manzil Logo" className="w-44 h-44 sm:w-56 sm:h-56 lg:w-64 lg:h-64 mx-auto mb-4 sm:mb-6" />
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl text-white mb-3 sm:mb-4 font-bold">MANZIL</h1>
-          <p className="text-lg sm:text-xl lg:text-2xl text-blue-100 max-w-md mx-auto px-2">
+          <img src={manzilLogo} alt="Manzil Logo" className="w-64 h-64 mx-auto mb-6" />
+          <h1 className="text-6xl text-white mb-4"><span className="font-bold">MANZIL</span></h1>
+          <p className="text-2xl text-blue-100 max-w-md mx-auto">
             Your journey to academic excellence starts here
           </p>
         </motion.div>
@@ -74,7 +74,7 @@ export function LoginPage() {
           transition={{ duration: 0.8 }}
           className="w-full"
         >
-          <div className="bg-white rounded-2xl shadow-2xl p-5 sm:p-8 max-w-md mx-auto w-full min-w-0">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md mx-auto">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <input

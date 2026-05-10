@@ -1,3 +1,4 @@
+import { motion } from 'motion/react';
 import {
   LayoutDashboard,
   GraduationCap,
@@ -10,10 +11,9 @@ import {
   TrendingUp,
   GitCompareArrows,
 } from 'lucide-react';
-import { cn } from './ui/utils';
-
 interface SidebarProps {
   isOpen: boolean;
+  onToggle: () => void;
   currentPage: string;
   onPageChange: (page: string) => void;
   onLogout: () => void;
@@ -31,74 +31,60 @@ const menuItems = [
   { icon: User, label: 'Profile', page: 'profile' },
 ];
 
-export function Sidebar({ isOpen, currentPage, onPageChange, onLogout }: SidebarProps) {
+export function Sidebar({ isOpen, onToggle, currentPage, onPageChange, onLogout }: SidebarProps) {
   return (
-    <aside
-      className={cn(
-        'bg-[#0f1f3a] text-white flex flex-col shadow-2xl shrink-0 z-30',
-        // Mobile drawer (under 56px top bar)
-        'fixed left-0 top-14 h-[calc(100dvh-3.5rem)] w-[min(280px,88vw)] max-w-[280px] transition-transform duration-300 ease-out',
-        isOpen ? 'translate-x-0' : '-translate-x-full',
-        // Desktop: in document flow, width toggles
-        'lg:relative lg:left-auto lg:top-auto lg:z-0 lg:h-auto lg:max-w-none lg:translate-x-0',
-        'lg:transition-[width] lg:duration-300 lg:ease-out',
-        isOpen ? 'lg:w-[280px]' : 'lg:w-20',
-      )}
+    <motion.div
+      initial={false}
+      animate={{ width: isOpen ? 280 : 80 }}
+      transition={{ duration: 0.3 }}
+      className="bg-[#0f1f3a] text-white flex flex-col relative shadow-2xl"
     >
-      <nav className="flex-1 p-3 space-y-1 pt-4 overflow-y-auto min-h-0">
-        {menuItems.map((item) => {
-          const active =
-            currentPage === item.page ||
-            (item.page === 'universities' && currentPage === 'university-detail');
-          return (
-            <button
-              key={item.page}
-              type="button"
-              onClick={() => onPageChange(item.page)}
-              title={item.label}
-              className={cn(
-                'w-full flex items-center rounded-lg transition-all duration-200 gap-3',
-                isOpen ? 'px-4 py-3 justify-start' : 'max-lg:px-4 max-lg:py-3 max-lg:justify-start lg:px-2 lg:py-3 lg:justify-center',
-                active
-                  ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-500/30'
-                  : 'text-blue-200 hover:bg-[#1a2d4a] hover:text-white',
-              )}
+      {/* Navigation */}
+      <nav className="flex-1 p-3 space-y-1 pt-4">
+        {menuItems.map((item, index) => (
+          <motion.button
+            key={item.label}
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: index * 0.05 }}
+            onClick={() => onPageChange(item.page)}
+            title={!isOpen ? item.label : ''}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
+              currentPage === item.page ||
+              (item.page === 'universities' && currentPage === 'university-detail')
+                ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-500/30'
+                : 'text-blue-200 hover:bg-[#1a2d4a] hover:text-white'
+            }`}
+          >
+            <item.icon className="w-5 h-5 flex-shrink-0" />
+            <motion.span
+              animate={{ opacity: isOpen ? 1 : 0, width: isOpen ? 'auto' : 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden whitespace-nowrap"
             >
-              <item.icon className="w-5 h-5 flex-shrink-0" />
-              <span
-                className={cn(
-                  'overflow-hidden whitespace-nowrap transition-opacity duration-200',
-                  isOpen ? 'opacity-100 max-w-[220px]' : 'max-lg:opacity-100 max-lg:max-w-[220px] lg:opacity-0 lg:max-w-0',
-                )}
-              >
-                {item.label}
-              </span>
-            </button>
-          );
-        })}
+              {item.label}
+            </motion.span>
+          </motion.button>
+        ))}
       </nav>
 
-      <div className="p-3 border-t border-[#1a2d4a] shrink-0">
+      {/* Logout */}
+      <div className="p-3 border-t border-[#1a2d4a]">
         <button
-          type="button"
           onClick={onLogout}
-          title="Logout"
-          className={cn(
-            'w-full flex items-center rounded-lg text-blue-200 hover:bg-[#1a2d4a] hover:text-white transition-all duration-200 gap-3',
-            isOpen ? 'px-4 py-3 justify-start' : 'max-lg:px-4 max-lg:py-3 max-lg:justify-start lg:px-2 lg:py-3 lg:justify-center',
-          )}
+          title={!isOpen ? 'Logout' : ''}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-blue-200 hover:bg-[#1a2d4a] hover:text-white transition-all duration-200"
         >
           <LogOut className="w-5 h-5 flex-shrink-0" />
-          <span
-            className={cn(
-              'overflow-hidden whitespace-nowrap transition-opacity duration-200',
-              isOpen ? 'opacity-100 max-w-[220px]' : 'max-lg:opacity-100 max-lg:max-w-[220px] lg:opacity-0 lg:max-w-0',
-            )}
+          <motion.span
+            animate={{ opacity: isOpen ? 1 : 0, width: isOpen ? 'auto' : 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden whitespace-nowrap"
           >
             Logout
-          </span>
+          </motion.span>
         </button>
       </div>
-    </aside>
+    </motion.div>
   );
 }

@@ -47,26 +47,24 @@ export function TopNavbar({ onMenuClick, userName, onProfileClick }: TopNavbarPr
     .toUpperCase();
 
   return (
-    <div className="relative z-40 shrink-0 bg-[#0f1f3a] text-white h-14 flex items-center justify-between gap-2 px-3 sm:px-4 shadow-lg min-w-0">
-      <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
+    <div className="bg-[#0f1f3a] text-white h-14 flex items-center justify-between px-4 shadow-lg">
+      <div className="flex items-center gap-2">
         <Button
           variant="ghost"
           size="icon"
           onClick={onMenuClick}
-          className="text-white hover:bg-[#1a2d4a] shrink-0"
+          className="text-white hover:bg-[#1a2d4a]"
         >
           <Menu className="w-5 h-5" />
         </Button>
-        <div className="flex items-center gap-1 min-w-0">
-          <img src={logo} alt="" className="w-10 h-10 sm:w-12 sm:h-12 rounded-full brightness-125 shrink-0" />
-          <span className="text-base sm:text-xl font-bold truncate">
-            MANZIL
-          </span>
+        <div className="flex items-center gap-1">
+          <img src={logo} alt="Manzil Logo" className="w-14 h-14 rounded-full brightness-125" />
+          <span className="text-xl"><strong>MANZIL</strong></span>
         </div>
       </div>
       
-      <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 shrink-0 max-w-[45%]">
-        <span className="text-white text-xs sm:text-sm truncate max-w-[6rem] sm:max-w-[12rem]">{userName}</span>
+      <div className="flex items-center gap-2">
+        <span className="text-white">{userName}</span>
         <div 
           onClick={onProfileClick}
           className="cursor-pointer"

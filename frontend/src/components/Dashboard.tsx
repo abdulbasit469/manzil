@@ -122,7 +122,6 @@ export function Dashboard() {
       localStorage.removeItem('studentMockRunSession');
     }
     setCurrentPage(page);
-    setSidebarOpen(false);
     sessionStorage.setItem(STUDENT_PAGE_KEY, page);
     if (page === 'degree-scope-detail') {
       setSelectedDegreeScopeId(postId || null);
@@ -162,25 +161,39 @@ export function Dashboard() {
   };
 
   const handleBackToCommunity = () => {
-    handlePageChange('community');
+    setCurrentPage('community');
+    setSelectedPostId(null);
+    setSelectedUniversityId(null);
+    sessionStorage.setItem(STUDENT_PAGE_KEY, 'community');
+    localStorage.removeItem('studentSelectedPostId');
+    localStorage.removeItem('studentSelectedUniversityId');
   };
 
   const handleBackToDegreeScope = () => {
-    handlePageChange('degree-scope');
+    setCurrentPage('degree-scope');
+    setSelectedDegreeScopeId(null);
+    sessionStorage.setItem(STUDENT_PAGE_KEY, 'degree-scope');
   };
 
   const handleBackToUniversities = () => {
-    handlePageChange('universities');
+    setCurrentPage('universities');
+    setSelectedUniversityId(null);
+    sessionStorage.setItem(STUDENT_PAGE_KEY, 'universities');
+    localStorage.removeItem('studentSelectedUniversityId');
   };
 
   const startMockTestRun = (config: { name: string; color: string }) => {
     setMockRunSession(config);
     localStorage.setItem('studentMockRunSession', JSON.stringify(config));
-    handlePageChange('mocktest-run');
+    setCurrentPage('mocktest-run');
+    sessionStorage.setItem(STUDENT_PAGE_KEY, 'mocktest-run');
   };
 
   const handleBackFromMockRun = () => {
-    handlePageChange('mocktest');
+    setMockRunSession(null);
+    localStorage.removeItem('studentMockRunSession');
+    setCurrentPage('mocktest');
+    sessionStorage.setItem(STUDENT_PAGE_KEY, 'mocktest');
   };
 
   useEffect(() => {
@@ -189,7 +202,8 @@ export function Dashboard() {
 
   useEffect(() => {
     if (currentPage === 'mocktest-run' && !mockRunSession) {
-      handlePageChange('mocktest');
+      setCurrentPage('mocktest');
+      sessionStorage.setItem(STUDENT_PAGE_KEY, 'mocktest');
     }
   }, [currentPage, mockRunSession]);
 
@@ -232,13 +246,13 @@ export function Dashboard() {
           <UniversityDetailPage universityId={selectedUniversityId} onBack={handleBackToUniversities} />
         );
       case 'career':
-        return <CareerAssessmentPage onPageChange={handlePageChange} />;
+        return <CareerAssessmentPage onPageChange={setCurrentPage} />;
       case 'personality-test':
-        return <PersonalityTestPage onPageChange={handlePageChange} />;
+        return <PersonalityTestPage onPageChange={setCurrentPage} />;
       case 'brain-test':
-        return <BrainHemisphereTestPage onPageChange={handlePageChange} />;
+        return <BrainHemisphereTestPage onPageChange={setCurrentPage} />;
       case 'interest-test':
-        return <InterestTestPage onPageChange={handlePageChange} />;
+        return <InterestTestPage onPageChange={setCurrentPage} />;
       case 'compare':
         return <ComparisonPage />;
       case 'merit':
@@ -268,14 +282,15 @@ export function Dashboard() {
             onBack={handleBackToCommunity}
             onPostCreated={() => {
               handleBackToCommunity();
+              // Force refresh of community page
               setTimeout(() => {
-                handlePageChange('community');
+                setCurrentPage('community');
               }, 100);
             }}
           />
         );
       case 'profile':
-        return <ProfilePage onPageChange={handlePageChange} />;
+        return <ProfilePage onPageChange={setCurrentPage} />;
       case 'mocktest':
         return <MockTestPage onStartPractice={startMockTestRun} />;
       case 'mocktest-run':
@@ -326,30 +341,26 @@ export function Dashboard() {
   }
 
   return (
-    <div className="flex flex-col h-dvh max-h-dvh min-h-0 w-full max-w-full bg-slate-50 overflow-hidden">
+    <div className="flex flex-col h-screen bg-slate-50">
       <TopNavbar
-        onMenuClick={() => setSidebarOpen((o) => !o)}
+        onMenuClick={() => setSidebarOpen(!sidebarOpen)}
         userName={user?.name || 'User'}
-        onProfileClick={() => handlePageChange('profile')}
+        onProfileClick={() => {
+          setCurrentPage('profile');
+          sessionStorage.setItem(STUDENT_PAGE_KEY, 'profile');
+        }}
       />
-      {sidebarOpen && (
-        <button
-          type="button"
-          aria-label="Close navigation menu"
-          className="fixed inset-x-0 bottom-0 top-14 z-20 bg-black/50 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-      <div className="flex flex-1 min-h-0 min-w-0 overflow-hidden relative">
+      <div className="flex flex-1 overflow-hidden">
         <Sidebar
           isOpen={sidebarOpen}
+          onToggle={() => setSidebarOpen(!sidebarOpen)}
           currentPage={currentPage}
           onPageChange={handlePageChange}
           onLogout={handleLogout}
         />
-        <main className="flex flex-1 min-h-0 min-w-0 flex-col overflow-y-auto overflow-x-hidden">
-          <Suspense fallback={<div className="flex-1 bg-slate-50 min-h-[12rem]" />}>{renderPage()}</Suspense>
-        </main>
+        <Suspense fallback={<div className="flex-1 bg-slate-50" />}>
+          {renderPage()}
+        </Suspense>
       </div>
       <Suspense fallback={null}>
         <Chatbot />

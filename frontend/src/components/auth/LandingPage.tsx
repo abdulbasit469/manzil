@@ -84,7 +84,7 @@ export function LandingPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   return (
-    <div className="min-h-dvh max-w-full overflow-x-hidden bg-gradient-to-br from-[#0f1f3a] via-[#1e3a5f] to-[#2d4a6f] relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-[#0f1f3a] via-[#1e3a5f] to-[#2d4a6f] relative overflow-hidden">
       {/* Animated Background Elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <motion.div

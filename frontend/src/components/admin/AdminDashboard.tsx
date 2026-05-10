@@ -161,26 +161,25 @@ export function AdminDashboard() {
   ];
 
   return (
-    <div className="min-h-dvh max-w-full overflow-x-hidden bg-slate-50 flex flex-col">
+    <div className="min-h-screen bg-slate-50">
       {/* Top Navigation Bar */}
-      <nav className="bg-gradient-to-r from-[#1e3a5f] to-[#2d4a6f] text-white shadow-lg sticky top-0 z-40 shrink-0">
-        <div className="px-4 sm:px-6 py-3 sm:py-4">
-          <div className="flex items-center justify-between gap-3 min-w-0">
-            <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+      <nav className="bg-gradient-to-r from-[#1e3a5f] to-[#2d4a6f] text-white shadow-lg sticky top-0 z-40">
+        <div className="px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
               <button
-                type="button"
                 onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="lg:hidden p-2 hover:bg-white/10 rounded-lg transition-colors shrink-0"
+                className="lg:hidden p-2 hover:bg-white/10 rounded-lg transition-colors"
               >
                 {sidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
               </button>
-              <img src={manzilLogo} alt="" className="w-14 h-14 sm:w-16 sm:h-16 shrink-0 rounded-full" />
-              <div className="min-w-0">
-                <h1 className="text-lg sm:text-xl font-bold truncate">MANZIL</h1>
-                <p className="text-[10px] sm:text-xs text-blue-200 truncate">Administrator Dashboard</p>
+              <img src={manzilLogo} alt="Manzil Logo" className="w-20 h-20" />
+              <div>
+                <h1 className="text-xl"><span className="font-bold">MANZIL</span></h1>
+                <p className="text-xs text-blue-200">Administrator Dashboard</p>
               </div>
             </div>
-            <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+            <div className="flex items-center gap-4">
               <div className="hidden md:flex items-center gap-2 bg-white/10 px-4 py-2 rounded-lg">
                 <Shield className="w-4 h-4" />
                 <span className="text-sm">Admin Portal</span>
@@ -196,23 +195,23 @@ export function AdminDashboard() {
                     window.scrollTo({ top: 0, behavior: 'instant' });
                   }, 100);
                 }}
-                className="bg-white/10 hover:bg-white/20 text-white border border-white/20 text-xs sm:text-sm px-2 sm:px-4"
+                className="bg-white/10 hover:bg-white/20 text-white border border-white/20"
               >
-                <LogOut className="w-4 h-4 sm:mr-2" />
-                <span className="hidden sm:inline">Logout</span>
+                <LogOut className="w-4 h-4 mr-2" />
+                Logout
               </Button>
             </div>
           </div>
         </div>
       </nav>
 
-      <div className="flex flex-1 min-h-0 min-w-0">
+      <div className="flex">
         {/* Sidebar */}
         <aside
-          className={`fixed lg:static inset-y-0 left-0 z-30 w-[min(16rem,88vw)] max-w-[16rem] bg-white border-r border-slate-200 transition-transform duration-300 ${
+          className={`fixed lg:static inset-y-0 left-0 z-30 w-64 bg-white border-r border-slate-200 transition-transform duration-300 ${
             sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
           }`}
-          style={{ top: '72px' }}
+          style={{ top: '80px' }}
         >
           <div className="p-6 space-y-2">
             {menuItems.map((item) => (
@@ -238,8 +237,8 @@ export function AdminDashboard() {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 min-w-0 overflow-x-hidden overflow-y-auto p-4 sm:p-6">
-          <div className="max-w-7xl mx-auto w-full min-w-0">
+        <main className="flex-1 p-6">
+          <div className="max-w-7xl mx-auto">
             {currentSection === 'overview' && (
               <>
                 {/* Welcome Section */}
