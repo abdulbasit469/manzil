@@ -109,11 +109,11 @@ export function TestCalendar2026({ calendar }: Props) {
           </details>
         )}
 
-        {/* LAT + LAW-GAT */}
+        {/* LAT + law graduate admission cycles */}
         <details className="group border border-slate-200 rounded-lg">
           <summary className="cursor-pointer px-4 py-3 font-medium text-slate-800 bg-slate-50 hover:bg-slate-100 rounded-lg list-none flex items-center gap-2 [&::-webkit-details-marker]:hidden">
             <Scale className="w-4 h-4 text-violet-600" />
-            LAT & LAW-GAT (2026)
+            LAT & law graduate admissions (2026)
           </summary>
           <div className="p-4 border-t border-slate-100 space-y-6">
             <div>

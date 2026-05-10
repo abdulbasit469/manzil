@@ -173,28 +173,6 @@ export function MockTestPage() {
       }
     },
     {
-      name: 'GAT',
-      fullName: 'Graduate Assessment Test (NTS)',
-      description: 'Required for MS/MPhil admissions across Pakistan',
-      duration: '120 minutes',
-      questions: 100,
-      sections: ['Verbal Reasoning', 'Quantitative Reasoning', 'Analytical Reasoning'],
-      color: 'from-orange-500 to-red-500',
-      universities: ['Required by HEC for all MS/MPhil programs in Pakistani universities', 'NUST', 'PIEAS', 'GIKI', 'All public sector universities', 'Most private universities'],
-      universityCount: '100+',
-      paperPattern: {
-        totalMarks: 100,
-        totalTime: '120 minutes (2 hours)',
-        sections: [
-          { name: 'Verbal Reasoning', questions: 30, marks: '30%', time: '36 minutes' },
-          { name: 'Quantitative Reasoning', questions: 30, marks: '30%', time: '36 minutes' },
-          { name: 'Analytical Reasoning', questions: 40, marks: '40%', time: '48 minutes' }
-        ],
-        negativeMarking: 'No negative marking',
-        format: 'Multiple Choice Questions (MCQs)'
-      }
-    },
-    {
       name: 'SAT',
       fullName: 'Scholastic Assessment Test',
       description: 'International test for college admissions worldwide',
@@ -290,9 +268,6 @@ export function MockTestPage() {
   ];
 
   const [selectedTest, setSelectedTest] = useState<typeof mockTests[0] | null>(null);
-  
-  // Filter out GAT test
-  const filteredTests = mockTests.filter(test => test.name !== 'GAT');
 
   return (
     <div className="flex-1 overflow-auto bg-slate-50">
@@ -315,7 +290,7 @@ export function MockTestPage() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto p-8">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {filteredTests.map((test, index) => (
+          {mockTests.map((test, index) => (
             <motion.div
               key={test.name}
               initial={{ opacity: 0, y: 20 }}

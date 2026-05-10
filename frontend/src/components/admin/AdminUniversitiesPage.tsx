@@ -26,6 +26,28 @@ interface University {
   feeMbbsPerYear?: string;
   feePublicRegularSemester?: string;
   feePublicSelfFinanceSemester?: string;
+  scholarshipsOffer?: string[];
+}
+
+/** One scholarship name per line; dedupe and cap for MongoDB validator. */
+function scholarshipsOfferFromLines(text: string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const line of String(text || '').split(/\r?\n/)) {
+    const s = line.trim().slice(0, 200);
+    if (!s) continue;
+    const k = s.toLowerCase();
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(s);
+    if (out.length >= 30) break;
+  }
+  return out;
+}
+
+function scholarshipsOfferToLines(arr: string[] | undefined): string {
+  if (!Array.isArray(arr) || !arr.length) return '';
+  return arr.slice(0, 30).join('\n');
 }
 
 interface EditProgramRow {
@@ -81,6 +103,7 @@ export function AdminUniversitiesPage() {
     feeMbbsPerYear: '',
     feePublicRegularSemester: '',
     feePublicSelfFinanceSemester: '',
+    scholarshipsOfferText: '',
   });
   const [universityImage, setUniversityImage] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
@@ -200,6 +223,9 @@ export function AdminUniversitiesPage() {
       universityData.feePublicRegularSemester = formData.feePublicRegularSemester.trim();
       universityData.feePublicSelfFinanceSemester = formData.feePublicSelfFinanceSemester.trim();
 
+      const schAdd = scholarshipsOfferFromLines(formData.scholarshipsOfferText);
+      if (schAdd.length) universityData.scholarshipsOffer = schAdd;
+
       const response = await api.post('/admin/universities', universityData);
       
       if (response.data.success) {
@@ -223,6 +249,7 @@ export function AdminUniversitiesPage() {
           feeMbbsPerYear: '',
           feePublicRegularSemester: '',
           feePublicSelfFinanceSemester: '',
+          scholarshipsOfferText: '',
         });
         setUniversityImage('');
         setShowAddModal(false);
@@ -316,6 +343,7 @@ export function AdminUniversitiesPage() {
       feeMbbsPerYear: '',
       feePublicRegularSemester: '',
       feePublicSelfFinanceSemester: '',
+      scholarshipsOfferText: '',
     });
     setUniversityImage('');
   };
@@ -340,6 +368,7 @@ export function AdminUniversitiesPage() {
       feeMbbsPerYear: university.feeMbbsPerYear || '',
       feePublicRegularSemester: university.feePublicRegularSemester || '',
       feePublicSelfFinanceSemester: university.feePublicSelfFinanceSemester || '',
+      scholarshipsOfferText: scholarshipsOfferToLines(university.scholarshipsOffer),
     });
     // Set image preview if university has an image
     if (university.image) {
@@ -369,6 +398,7 @@ export function AdminUniversitiesPage() {
           feeMbbsPerYear: u.feeMbbsPerYear ?? prev.feeMbbsPerYear,
           feePublicRegularSemester: u.feePublicRegularSemester ?? prev.feePublicRegularSemester,
           feePublicSelfFinanceSemester: u.feePublicSelfFinanceSemester ?? prev.feePublicSelfFinanceSemester,
+          scholarshipsOfferText: scholarshipsOfferToLines(u.scholarshipsOffer),
         }));
         if (u.image && !university.image) {
           setUniversityImage(u.image);
@@ -440,6 +470,8 @@ export function AdminUniversitiesPage() {
       universityData.feeMbbsPerYear = formData.feeMbbsPerYear.trim();
       universityData.feePublicRegularSemester = formData.feePublicRegularSemester.trim();
       universityData.feePublicSelfFinanceSemester = formData.feePublicSelfFinanceSemester.trim();
+
+      universityData.scholarshipsOffer = scholarshipsOfferFromLines(formData.scholarshipsOfferText);
 
       // Include image if it was uploaded (base64 string)
       if (formData.image && formData.image.startsWith('data:image')) {
@@ -729,6 +761,20 @@ export function AdminUniversitiesPage() {
                       className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                       placeholder="Brief description about the university..."
                     />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Scholarships offered (names)
+                    </label>
+                    <textarea
+                      value={formData.scholarshipsOfferText}
+                      onChange={(e) => setFormData({ ...formData, scholarshipsOfferText: e.target.value })}
+                      rows={3}
+                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono text-sm"
+                      placeholder={'One name per line, e.g.\nHEC Need-Based Scholarship\nUniversity Merit Award'}
+                    />
+                    <p className="text-xs text-slate-500 mt-1">Shown in university comparison. Confirm details on the official site.</p>
                   </div>
                 </div>
               </div>
@@ -1048,6 +1094,20 @@ export function AdminUniversitiesPage() {
                       className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                       placeholder="Brief description about the university..."
                     />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Scholarships offered (names)
+                    </label>
+                    <textarea
+                      value={formData.scholarshipsOfferText}
+                      onChange={(e) => setFormData({ ...formData, scholarshipsOfferText: e.target.value })}
+                      rows={3}
+                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono text-sm"
+                      placeholder={'One name per line, e.g.\nHEC Need-Based Scholarship\nUniversity Merit Award'}
+                    />
+                    <p className="text-xs text-slate-500 mt-1">Shown in university comparison. Confirm details on the official site.</p>
                   </div>
 
                   {/* University Image Upload */}

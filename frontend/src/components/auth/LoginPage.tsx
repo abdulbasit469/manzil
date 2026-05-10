@@ -25,10 +25,15 @@ export function LoginPage() {
     try {
       await login(email, password);
       toast.success('Login successful!');
-      // Clear any saved page and always redirect to dashboard
-      localStorage.removeItem('studentCurrentPage');
+      // Clear any saved subpage and always open the main dashboard after login
+      try {
+        sessionStorage.removeItem('studentCurrentPage');
+        localStorage.removeItem('studentCurrentPage');
+      } catch {
+        /* ignore */
+      }
       localStorage.removeItem('studentSelectedPostId');
-      localStorage.setItem('studentCurrentPage', 'dashboard');
+      sessionStorage.setItem('studentCurrentPage', 'dashboard');
       navigate('/dashboard');
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || error.message || 'Login failed. Please try again.';

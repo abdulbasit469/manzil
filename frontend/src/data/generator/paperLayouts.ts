@@ -113,19 +113,6 @@ export const PAPER_LAYOUTS: Record<string, PaperLayout> = {
       { name: 'Logical Reasoning', count: 10, genre: 'iq' },
     ],
   },
-  GAT: {
-    testName: 'GAT',
-    officialTotalQuestions: 100,
-    officialDurationMinutes: 120,
-    officialDurationLabel: '120 minutes (2 hours)',
-    negativeMarking: 'none',
-    negativeMarkingLabel: 'No negative marking',
-    sections: [
-      { name: 'Verbal Reasoning', count: 30, genre: 'verbal' },
-      { name: 'Quantitative Reasoning', count: 30, genre: 'quant' },
-      { name: 'Analytical Reasoning', count: 40, genre: 'analytical' },
-    ],
-  },
   SAT: {
     testName: 'SAT',
     officialTotalQuestions: 98,

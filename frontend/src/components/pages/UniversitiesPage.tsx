@@ -2,7 +2,7 @@ import { motion } from 'motion/react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Search, MapPin, Bookmark, ChevronRight } from 'lucide-react';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import { toast } from 'sonner';
@@ -25,7 +25,7 @@ interface UniversitiesPageProps {
   onOpenUniversityDetail?: (universityId: string) => void;
 }
 
-const UNIVERSITIES_CACHE_TTL_MS = 60_000;
+const UNIVERSITIES_CACHE_TTL_MS = 120_000;
 const UNIVERSITIES_CACHE_STORAGE_KEY = 'universities-page-cache-v1';
 
 export function UniversitiesPage({ onOpenUniversityDetail }: UniversitiesPageProps) {
@@ -128,12 +128,12 @@ export function UniversitiesPage({ onOpenUniversityDetail }: UniversitiesPagePro
     }
   };
 
-  // Fetch all cities on mount
+  // Cities list — parallel with universities (same mount); do not block the grid
   useEffect(() => {
     fetchCities();
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     try {
       const raw = sessionStorage.getItem(UNIVERSITIES_CACHE_STORAGE_KEY);
       if (!raw) return;
@@ -169,7 +169,7 @@ export function UniversitiesPage({ onOpenUniversityDetail }: UniversitiesPagePro
         if (prev !== next) setCurrentPage(1);
         return next;
       });
-    }, 400);
+    }, 280);
     return () => clearTimeout(t);
   }, [searchQuery]);
 
@@ -281,7 +281,7 @@ export function UniversitiesPage({ onOpenUniversityDetail }: UniversitiesPagePro
                 }}
                 className="px-3 md:px-4 py-2 md:py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm md:text-base min-w-[140px] md:min-w-[150px] bg-white cursor-pointer h-[42px] md:h-[48px]"
               >
-                <option value="">All Cities</option>
+                <option value="All Cities">All Cities</option>
                 {cities.map(city => (
                   <option key={city} value={city}>{city}</option>
                 ))}
@@ -295,7 +295,7 @@ export function UniversitiesPage({ onOpenUniversityDetail }: UniversitiesPagePro
                 }}
                 className="px-3 md:px-4 py-2 md:py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm md:text-base min-w-[140px] md:min-w-[150px] bg-white cursor-pointer h-[42px] md:h-[48px]"
               >
-                <option value="">All Types</option>
+                <option value="All Types">All Types</option>
                 <option value="Public">Public</option>
                 <option value="Private">Private</option>
               </select>

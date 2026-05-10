@@ -1,3 +1,5 @@
+const { normalizeProgramFieldsForApi } = require('./programDisplayNormalize');
+
 /**
  * Removes placeholder "Unknown" from university fields (CSV/import/scrape leftovers).
  * - Leading "Unknown " on name/city is stripped.
@@ -40,6 +42,10 @@ function sanitizeProgramForResponse(program) {
   if (plain.university && typeof plain.university === 'object') {
     plain.university = sanitizeUniversityFields(plain.university);
   }
+  const norm = normalizeProgramFieldsForApi(plain.degree, plain.name);
+  plain.degree = norm.degree;
+  plain.name = norm.name;
+  plain.displayTitle = norm.displayTitle;
   return plain;
 }
 

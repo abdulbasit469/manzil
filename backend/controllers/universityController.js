@@ -118,13 +118,16 @@ exports.getAllUniversities = async (req, res) => {
     // Don't filter by isActive unless explicitly requested
     // This ensures we get all universities from database
     
+    // Exact city match — matches /universities/cities values and uses { city, name } index
     if (city && city.trim() && city !== 'All Cities') {
-      query.city = { $regex: city.trim(), $options: 'i' };
+      query.city = city.trim();
     }
-    
+
     if (type && type.trim() && type !== 'All Types') {
-      // Handle both capitalized and lowercase type
-      query.type = { $regex: new RegExp(`^${type.trim()}$`, 'i') };
+      const t = type.trim().toLowerCase();
+      if (t === 'public') query.type = 'Public';
+      else if (t === 'private') query.type = 'Private';
+      else query.type = { $regex: new RegExp(`^${type.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
     }
     
     const omitPlaceholder =
@@ -190,19 +193,37 @@ exports.getAllUniversities = async (req, res) => {
     }
 
     /** List view only — omit large text fields (scrapedSummary etc.) for fast JSON + smaller payloads */
-    const pageNum = parseInt(page, 10);
-    const limitNum = parseInt(limit, 10);
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const rawLimit = parseInt(limit, 10);
+    const limitNum = Math.min(Math.max(Number.isFinite(rawLimit) && rawLimit > 0 ? rawLimit : 12, 1), 48);
+    const skip = (pageNum - 1) * limitNum;
 
-    // Run data fetch and count in parallel — cuts round-trip time in half
-    const [universities, count] = await Promise.all([
-      University.find(query)
-        .select('name city type website image logo hecRanking establishedYear isActive')
-        .limit(limitNum)
-        .skip((pageNum - 1) * limitNum)
-        .sort({ name: 1 })
-        .lean(),
-      University.countDocuments(query),
+    const listProjection = {
+      _id: 1,
+      name: 1,
+      city: 1,
+      type: 1,
+      website: 1,
+      image: 1,
+      logo: 1,
+      hecRanking: 1,
+      establishedYear: 1,
+      isActive: 1,
+    };
+
+    // Single aggregation: one DB round-trip vs find + count (lower latency on Atlas / cold pool)
+    const agg = await University.aggregate([
+      { $match: query },
+      {
+        $facet: {
+          data: [{ $sort: { name: 1 } }, { $skip: skip }, { $limit: limitNum }, { $project: listProjection }],
+          total: [{ $count: 'count' }],
+        },
+      },
     ]);
+
+    const universities = agg[0]?.data || [];
+    const count = agg[0]?.total?.[0]?.count ?? 0;
 
     const { getUniversityImage } = require('../utils/universityImages');
 
@@ -221,11 +242,11 @@ exports.getAllUniversities = async (req, res) => {
       success: true,
       count: universitiesWithImages.length,
       total: count,
-      totalPages: Math.ceil(count / limitNum),
+      totalPages: Math.max(1, Math.ceil(count / limitNum) || 1),
       currentPage: pageNum,
       universities: universitiesWithImages,
     };
-    setCached(cacheKey, payload, 120_000); // 2 min TTL for the list view
+    setCached(cacheKey, payload, 300_000); // 5 min — browse list is mostly static between admin edits
     res.status(200).json(payload);
   } catch (error) {
     console.error('❌ Error fetching universities:', error);

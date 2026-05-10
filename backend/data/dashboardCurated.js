@@ -70,10 +70,10 @@ const UPCOMING_ENTRY_TESTS = [
   },
   {
     id: 'lat-law',
-    name: 'LAT & LAW-GAT',
+    name: 'LAT & law graduate admission',
     typicalPeriod: 'Multiple cycles in 2026 (dashboard tables)',
-    body: 'Law admission & graduation assessment tests',
-    manzilTip: 'See LAT / LAW-GAT sections on dashboard; verify on official legal education portals.',
+    body: 'Law admission tests (undergraduate LAT and graduate law intake cycles)',
+    manzilTip: 'See LAT and law graduate tables on the dashboard; verify on official legal education portals.',
   },
 ];
 

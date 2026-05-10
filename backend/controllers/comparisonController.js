@@ -17,6 +17,10 @@ const {
   buildHeuristicFacilityBlurbs,
   buildHeuristicStudentInsights,
 } = require('../utils/comparisonHeuristics');
+const {
+  uniquifyUniversityComparisonItems,
+  uniquifyProgramComparisonItems,
+} = require('../utils/comparisonColumnUniqueness');
 
 const FACILITY_HEADINGS = ['Library', 'Career Center', 'Health Center', 'Student Union', 'IT Services'];
 const DEFAULT_FACILITY_MICRO = [
@@ -273,6 +277,30 @@ function stripUniversityForCompare(u) {
   return rest;
 }
 
+/** Dedupe case-insensitive; cap length for API payload. */
+function normalizeScholarshipNameList(arr) {
+  if (!Array.isArray(arr)) return [];
+  const seen = new Set();
+  const out = [];
+  for (const x of arr) {
+    const s = String(x || '').trim().slice(0, 200);
+    if (!s) continue;
+    const k = s.toLowerCase();
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(s);
+    if (out.length >= 30) break;
+  }
+  return out;
+}
+
+/** Prefer admin-maintained DB list; else names extracted by AI from listing text only. */
+function scholarshipsOfferForCompare(u, ai) {
+  const db = normalizeScholarshipNameList(u.scholarshipsOffer);
+  if (db.length) return db;
+  return normalizeScholarshipNameList(ai?.scholarshipOfferNames);
+}
+
 function meritCriteriaSummary(criteria) {
   if (!criteria) return null;
   const parts = [];
@@ -462,6 +490,7 @@ exports.compare = async (req, res) => {
           facilitiesStructured: buildFacilitiesStructured(ai, String(u._id), myPrograms, flagship),
           studentInsights: buildStudentInsights(ai, u, myPrograms),
           feesRange,
+          scholarshipsOffer: scholarshipsOfferForCompare(u, ai),
         });
 
         return base;
@@ -470,6 +499,7 @@ exports.compare = async (req, res) => {
       if (!aiMap) {
         console.warn(`[comparison] universities — aiUsed=false (see Grok logs above if any)`);
       }
+      uniquifyUniversityComparisonItems(withAi);
       return res.status(200).json({ success: true, type, items: withAi, aiUsed: !!aiMap });
     }
 
@@ -552,6 +582,7 @@ exports.compare = async (req, res) => {
     if (!rawProgramAiMap) {
       console.warn('[comparison] programs — aiUsed=false (see Grok / ProgramComparisonAI logs above)');
     }
+    uniquifyProgramComparisonItems(withAi);
     return res.status(200).json({ success: true, type, items: withAi, aiUsed: !!rawProgramAiMap });
   } catch (error) {
     console.error('Comparison error:', error);

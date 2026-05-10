@@ -20,6 +20,8 @@ interface ProgramOption {
   _id: string;
   name: string;
   degree: string;
+  /** Server-normalized title (single degree token + name); prefer over degree+name. */
+  displayTitle?: string;
   category: string;
   university: { _id: string; name: string; city: string } | string;
 }
@@ -43,6 +45,8 @@ interface ComparedUniversity {
   website?: string;
   address?: string;
   programsOffer?: number;
+  /** Admin DB list and/or AI-extracted names from listing text */
+  scholarshipsOffer?: string[];
   facilitiesStructured?: FacilityBlurb[];
   studentInsights?: StudentInsightRow[];
   feesRange?: FeesRange;
@@ -62,6 +66,7 @@ interface ComparedProgram {
   _id: string;
   name: string;
   degree: string;
+  displayTitle?: string;
   category?: string;
   programGroup?: string;
   duration?: string;
@@ -131,6 +136,21 @@ function fmtFee(n?: number): string {
   return `Rs. ${Math.round(n).toLocaleString('en-PK')}`;
 }
 
+function scholarshipsOfferCell(u: ComparedUniversity): ReactNode {
+  const raw = Array.isArray(u.scholarshipsOffer) ? u.scholarshipsOffer : [];
+  const list = raw.map((s) => cleanAiText(s)).filter(Boolean);
+  if (!list.length) {
+    return <span className="text-slate-400">—</span>;
+  }
+  return (
+    <ul className="list-disc pl-4 space-y-1 m-0 text-slate-800">
+      {list.map((name, i) => (
+        <li key={`${u._id}-sch-${i}`}>{name}</li>
+      ))}
+    </ul>
+  );
+}
+
 function feesRangeCell(u: ComparedUniversity): ReactNode {
   const f = u.feesRange;
   const fb =
@@ -159,6 +179,12 @@ function programUniName(p: ComparedProgram): string {
   if (!p.university) return 'University not linked in listing';
   if (typeof p.university === 'string') return p.university;
   return universityNameLabel(p.university.name) || 'University not linked in listing';
+}
+
+function programTitleLine(p: Pick<ComparedProgram, 'displayTitle' | 'degree' | 'name'>): string {
+  const t = cleanAiText(p.displayTitle);
+  if (t) return t;
+  return cleanAiText(`${p.degree || ''} ${p.name || ''}`.trim());
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -309,9 +335,10 @@ export function ComparisonPage() {
           const uniName = typeof p.university === 'object' && p.university
             ? universityNameLabel((p.university as { name: string }).name)
             : '';
+          const title = (p.displayTitle && p.displayTitle.trim()) || `${p.degree || ''} ${p.name || ''}`.trim();
           return (
             <option key={p._id} value={p._id} disabled={usedProgIds.has(p._id) && value !== p._id}>
-              {p.degree} {p.name}{uniName ? ` — ${uniName}` : ''}
+              {title}{uniName ? ` ${uniName}` : ''}
             </option>
           );
         })}
@@ -492,6 +519,10 @@ export function ComparisonPage() {
                           : 'Count not in listing; browse programmes on the university site',
                     },
                     {
+                      label: 'Scholarships offer',
+                      fn: (u: ComparedUniversity) => scholarshipsOfferCell(u),
+                    },
+                    {
                       label: 'Website',
                       fn: (u: ComparedUniversity) =>
                         u.website ? (
@@ -565,7 +596,7 @@ export function ComparisonPage() {
                       <th key={p._id} className="p-3 md:p-4 text-left align-top min-w-[210px] max-w-[290px]">
                         <div>
                           <div className="font-bold text-slate-900 leading-tight">
-                            {p.degree} {p.name}
+                            {programTitleLine(p)}
                           </div>
                           <div className="text-xs text-amber-700 font-medium mt-0.5">{programUniName(p)}</div>
                           {p.university && typeof p.university === 'object' && p.university.city && (

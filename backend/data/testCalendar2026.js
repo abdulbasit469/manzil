@@ -1,6 +1,6 @@
 /**
  * 2026 Pakistan entry-test & admission milestones (curated from public notices:
- * UET Admissions ECAT, NTS NAT, HEC-style USAT/HAT tables, LAT/LAW-GAT schedules).
+ * UET Admissions ECAT, NTS NAT, HEC-style USAT/HAT tables, LAT / law graduate schedules).
  * NET-3 / NET-4 windows per user note. MDCAT date per user note (verify PMC).
  * ALWAYS confirm on official portals before acting.
  */
@@ -194,7 +194,7 @@ const LAT_2026 = [
   { cycle: 5, announcement: '04.10.2026', registrationLast: '20.10.2026', rollSlip: '06.11.2026', testDate: '15.11.2026', resultDate: '24.12.2026' },
 ];
 
-const LAW_GAT_2026 = [
+const LAW_GRAD_2026 = [
   { cycle: 1, announcement: '15.02.2026', registrationLast: '03.03.2026', rollSlip: '25.03.2026', testDate: '05.04.2026', resultDate: '23.04.2026' },
   { cycle: 2, announcement: '05.07.2026', registrationLast: '19.07.2026', rollSlip: '31.07.2026', testDate: '09.08.2026', resultDate: '28.08.2026' },
   { cycle: 3, announcement: '13.09.2026', registrationLast: '27.09.2026', rollSlip: '09.10.2026', testDate: '18.10.2026', resultDate: '06.11.2026' },
@@ -251,7 +251,7 @@ const TEST_CALENDAR_2026 = {
     rows: LAT_2026,
   },
   lawGat: {
-    title: 'LAW-GAT 2026',
+    title: 'Law graduate admission test 2026',
     columnLabels: {
       announcement: 'Announcement',
       registrationLast: 'Registration last',
@@ -260,7 +260,7 @@ const TEST_CALENDAR_2026 = {
       resultDate: 'Result',
     },
     labels: LAT_LABELS,
-    rows: LAW_GAT_2026,
+    rows: LAW_GRAD_2026,
   },
   usat: {
     title: 'USAT (undergraduate) 2026 — HEC schedule',

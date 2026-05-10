@@ -30,7 +30,7 @@ function normalizeType(type) {
 async function generateUniversityComparisonInsights(universities) {
   if (!getApiKey()) {
     console.warn(
-      '[UniversityComparisonAI] Skipping Grok (no API key). Set XAI_API_KEY or GROK_API_KEY in .env next to package.json, then restart the server.'
+      '[UniversityComparisonAI] Skipping AI (no API key). Set GROQ_API_KEY (Groq) or XAI_API_KEY / GROK_API_KEY in .env next to package.json, then restart the server.'
     );
     if (process.env.GEMINI_API_KEY?.trim()) {
       console.warn(
@@ -65,11 +65,13 @@ Rules:
       "labFacilitiesShort": "one short phrase, max ~18 words",
       "studentLifeShort": "one short phrase, max ~18 words",
       "feeComputingEngSemester": "string or empty",
-      "feeBusinessSocialSemester": "string or empty"
+      "feeBusinessSocialSemester": "string or empty",
+      "scholarshipOfferNames": ["string", "string", "string"]
     }
   ]
 }
 - facilityMicroBlurbs: exactly 5 strings in this order — (1) Library (2) Career Center (3) Health Center (4) Student Union (5) IT Services. Each string must be only 2 or 3 words (no commas), plain student benefit tone, not marketing slogans, not website UI text.
+- For universities in this comparison together: no two universities may share the exact same string in any facilityMicroBlurbs slot or in industryLinkages, financialSupport, labFacilitiesShort, or studentLifeShort — vary wording per campus even if facts are similar.
 - industryLinkages: name realistic sectors or employer types graduates often join (banks, telecom, public sector, engineering firms, software houses, hospitals for medical). Do not invent a fake list of five exact company names unless you are certain from input.
 - financialSupport: mention scholarships / HEC / need-based / on-campus aid in general terms if unknown from input.
 - labFacilitiesShort: mention lab types or counts only if inferable; otherwise say to confirm on site.
@@ -77,6 +79,7 @@ Rules:
 - No bullet markers, no markdown, no asterisks, no exclamation marks.
 - Never copy navigation or accessibility widget text (screen reader, color switcher, language toggle, help desk phone lines).
 - Keep website unchanged (do not output website).
+- scholarshipOfferNames: **exactly 3** short strings (each max 72 characters), no duplicates inside one university. Use this university's name, city, type (Public/Private), and programme mix from the input to propose **distinct, plausible financial-aid / scholarship search labels** a Pakistani applicant might check for **this** campus (e.g. provincial merit wording for that province, HEC undergraduate support patterns, campus merit or need-based phrasing). If the input text explicitly names a real scheme, prefer that exact name for one slot. **Critical:** in this single JSON response, **no two universities may share the same exact string** in any scholarshipOfferNames slot — if two campuses would look the same, rewrite one using city or institution type. Never output fewer than 3 strings and never output an empty array for this field.
 
 Input universities JSON:
 ${JSON.stringify(universities).slice(0, budget.universityInputChars)}
@@ -112,6 +115,19 @@ ${JSON.stringify(universities).slice(0, budget.universityInputChars)}
         const blurbsIn = Array.isArray(item.facilityMicroBlurbs) ? item.facilityMicroBlurbs : [];
         const facilityMicroBlurbs = [0, 1, 2, 3, 4].map((j) => sanitizeFacilityMicroBlurb(blurbsIn[j] || ''));
 
+        const rawSch = Array.isArray(item.scholarshipOfferNames) ? item.scholarshipOfferNames : [];
+        const scholarshipOfferNames = [];
+        const seenSch = new Set();
+        for (const x of rawSch) {
+          const s = removeAsterisks(String(x || '').trim()).slice(0, 200);
+          if (!s) continue;
+          const k = s.toLowerCase();
+          if (seenSch.has(k)) continue;
+          seenSch.add(k);
+          scholarshipOfferNames.push(s);
+          if (scholarshipOfferNames.length >= 3) break;
+        }
+
         out.set(String(item.id), {
           type: normalizeType(item.type),
           hecRanking: Number.isFinite(item.hecRanking) ? Number(item.hecRanking) : null,
@@ -124,6 +140,7 @@ ${JSON.stringify(universities).slice(0, budget.universityInputChars)}
           studentLifeShort: sanitizeInsightSnippet(removeAsterisks(item.studentLifeShort), 140),
           feeComputingEngSemester: removeAsterisks(item.feeComputingEngSemester),
           feeBusinessSocialSemester: removeAsterisks(item.feeBusinessSocialSemester),
+          scholarshipOfferNames,
         });
       }
       return out;

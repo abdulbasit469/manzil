@@ -109,12 +109,26 @@ const universitySchema = new mongoose.Schema({
     trim: true,
     maxlength: 500,
   },
+  /** Short labels for comparison tool & listings (admin-maintained); confirm on official site */
+  scholarshipsOffer: {
+    type: [String],
+    default: undefined,
+    validate: {
+      validator(arr) {
+        if (!arr || !arr.length) return true;
+        return arr.length <= 30 && arr.every((s) => typeof s === 'string' && s.trim().length <= 200);
+      },
+      message: 'At most 30 scholarship names, each max 200 characters.',
+    },
+  },
 }, {
   timestamps: true
 });
 
 // Compound index speeds up city+type filter combinations used on the list page
 universitySchema.index({ city: 1, type: 1 });
+// List page: city filter then sort by name
+universitySchema.index({ city: 1, name: 1 });
 // Speeds up name-based text search
 universitySchema.index({ name: 1 });
 

@@ -118,7 +118,7 @@ function collectCalendarEvents() {
     if (reg) {
       out.push({
         id: `cal_lawgat_${r.cycle}_reg_2026`,
-        title: `LAW-GAT — cycle ${r.cycle} registration ends`,
+        title: `Law graduate admission — cycle ${r.cycle} registration ends`,
         message: `Last registration ${r.registrationLast}. Test ${r.testDate}.`,
         date: reg,
         urgent: true,
@@ -127,7 +127,7 @@ function collectCalendarEvents() {
     if (test) {
       out.push({
         id: `cal_lawgat_${r.cycle}_test_2026`,
-        title: `LAW-GAT — cycle ${r.cycle} test`,
+        title: `Law graduate admission — cycle ${r.cycle} test`,
         message: `Test ${r.testDate}. Result ${r.resultDate}.`,
         date: test,
         urgent: false,

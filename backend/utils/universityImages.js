@@ -4,6 +4,10 @@
  * Using reliable image sources
  */
 
+/** Avoid repeated O(n) scans over the map for the same name (list pages hit this per row). */
+const universityImageMemo = new Map();
+const MEMO_CAP = 3000;
+
 const universityImageMap = {
   // Major Universities with specific images
   'NUST': 'https://images.unsplash.com/photo-1562774053-701939374585?w=800&h=500&fit=crop',
@@ -41,20 +45,32 @@ const universityImageMap = {
  * @returns {String} Image URL
  */
 function getUniversityImage(universityName) {
+  const memoKey = String(universityName || '')
+    .trim()
+    .toLowerCase();
+  if (memoKey && universityImageMemo.has(memoKey)) {
+    return universityImageMemo.get(memoKey);
+  }
+
   if (!universityName) {
-    return 'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=800&h=500&fit=crop';
+    const def = 'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=800&h=500&fit=crop';
+    if (memoKey) bumpMemo(memoKey, def);
+    return def;
   }
 
   const name = universityName.trim();
   
   // Try exact match first
   if (universityImageMap[name]) {
-    return universityImageMap[name];
+    const u = universityImageMap[name];
+    bumpMemo(memoKey, u);
+    return u;
   }
 
   // Try partial match for common patterns
   for (const [key, imageUrl] of Object.entries(universityImageMap)) {
     if (name.toLowerCase().includes(key.toLowerCase()) || key.toLowerCase().includes(name.toLowerCase())) {
+      bumpMemo(memoKey, imageUrl);
       return imageUrl;
     }
   }
@@ -65,6 +81,7 @@ function getUniversityImage(universityName) {
     if (word.length > 3) {
       for (const [key, imageUrl] of Object.entries(universityImageMap)) {
         if (key.toLowerCase().includes(word)) {
+          bumpMemo(memoKey, imageUrl);
           return imageUrl;
         }
       }
@@ -72,7 +89,15 @@ function getUniversityImage(universityName) {
   }
 
   // Default university image
-  return 'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=800&h=500&fit=crop';
+  const fallback = 'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=800&h=500&fit=crop';
+  bumpMemo(memoKey || name.toLowerCase(), fallback);
+  return fallback;
+}
+
+function bumpMemo(key, url) {
+  if (!key) return;
+  if (universityImageMemo.size >= MEMO_CAP) universityImageMemo.clear();
+  universityImageMemo.set(key, url);
 }
 
 module.exports = {

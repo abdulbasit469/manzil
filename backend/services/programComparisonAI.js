@@ -148,6 +148,7 @@ Rules:
   * feeSemesterMaxPkr must be >= feeSemesterMinPkr.
 - closingMeritGuidance must be empty only when meritFromDatabase is non-null (official lastClosingMerit with year or closingMerit in input). When meritFromDatabase is null, you MUST output one non-empty sentence. Never output a fake precise merit number as if it were official.
 - Never use asterisks or markdown formatting in any field.
+- Each program in this list must have different wording from the others in careerOutlook, salaryRange, industryLinkages, admissionDifficulty, programStrengths, eligibilityHint (when non-empty), and closingMeritGuidance (when non-empty); never copy the same sentence across two programs.
 
 Input programs JSON:
 ${JSON.stringify(programs).slice(0, budget.programInputChars)}

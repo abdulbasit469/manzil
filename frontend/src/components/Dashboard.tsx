@@ -23,18 +23,54 @@ const Chatbot = lazy(() => import('./Chatbot').then((m) => ({ default: m.Chatbot
 import { useAuth } from '../context/AuthContext';
 import { Target, BookOpen, Users } from 'lucide-react';
 
+/** Keys used in Dashboard switch (renderPage). */
+const VALID_STUDENT_PAGES = new Set([
+  'dashboard',
+  'universities',
+  'university-detail',
+  'career',
+  'personality-test',
+  'brain-test',
+  'interest-test',
+  'compare',
+  'merit',
+  'degree-scope',
+  'degree-scope-detail',
+  'community',
+  'community-post-detail',
+  'community-new-post',
+  'profile',
+  'mocktest',
+  'mocktest-run',
+]);
+
+const STUDENT_PAGE_KEY = 'studentCurrentPage';
+
+function readInitialStudentPage(): string {
+  if (typeof window === 'undefined') return 'dashboard';
+  // Per-tab session only — avoids opening Compare (or any subpage) on every new visit / deploy tab.
+  const saved = sessionStorage.getItem(STUDENT_PAGE_KEY);
+  const uni = localStorage.getItem('studentSelectedUniversityId');
+  if (saved === 'university-detail' && !uni) return 'universities';
+  if (saved && VALID_STUDENT_PAGES.has(saved)) return saved;
+  return 'dashboard';
+}
+
 export function Dashboard() {
   const { logout, user } = useAuth();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  
-  // Load saved page from localStorage or default to 'dashboard'
-  const [currentPage, setCurrentPage] = useState(() => {
-    const saved = localStorage.getItem('studentCurrentPage');
-    const uni = localStorage.getItem('studentSelectedUniversityId');
-    if (saved === 'university-detail' && !uni) return 'universities';
-    return saved || 'dashboard';
-  });
+
+  // Drop legacy localStorage page (used before sessionStorage); it caused /dashboard to reopen Compare forever.
+  useEffect(() => {
+    try {
+      localStorage.removeItem(STUDENT_PAGE_KEY);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const [currentPage, setCurrentPage] = useState(readInitialStudentPage);
   
   // Load saved post ID from localStorage if viewing post detail
   const [selectedPostId, setSelectedPostId] = useState<string | null>(() => {
@@ -92,7 +128,7 @@ export function Dashboard() {
     setCurrentPage('community');
     setSelectedPostId(null);
     setSelectedUniversityId(null);
-    localStorage.setItem('studentCurrentPage', 'community');
+    sessionStorage.setItem(STUDENT_PAGE_KEY, 'community');
     localStorage.removeItem('studentSelectedPostId');
     localStorage.removeItem('studentSelectedUniversityId');
   };
@@ -103,7 +139,7 @@ export function Dashboard() {
       localStorage.removeItem('studentMockRunSession');
     }
     setCurrentPage(page);
-    localStorage.setItem('studentCurrentPage', page);
+    sessionStorage.setItem(STUDENT_PAGE_KEY, page);
     if (page === 'degree-scope-detail') {
       setSelectedDegreeScopeId(postId || null);
       setSelectedPostId(null);
@@ -136,13 +172,13 @@ export function Dashboard() {
   const handleBackToDegreeScope = () => {
     setCurrentPage('degree-scope');
     setSelectedDegreeScopeId(null);
-    localStorage.setItem('studentCurrentPage', 'degree-scope');
+    sessionStorage.setItem(STUDENT_PAGE_KEY, 'degree-scope');
   };
 
   const handleBackToUniversities = () => {
     setCurrentPage('universities');
     setSelectedUniversityId(null);
-    localStorage.setItem('studentCurrentPage', 'universities');
+    sessionStorage.setItem(STUDENT_PAGE_KEY, 'universities');
     localStorage.removeItem('studentSelectedUniversityId');
   };
 
@@ -150,25 +186,24 @@ export function Dashboard() {
     setMockRunSession(config);
     localStorage.setItem('studentMockRunSession', JSON.stringify(config));
     setCurrentPage('mocktest-run');
-    localStorage.setItem('studentCurrentPage', 'mocktest-run');
+    sessionStorage.setItem(STUDENT_PAGE_KEY, 'mocktest-run');
   };
 
   const handleBackFromMockRun = () => {
     setMockRunSession(null);
     localStorage.removeItem('studentMockRunSession');
     setCurrentPage('mocktest');
-    localStorage.setItem('studentCurrentPage', 'mocktest');
+    sessionStorage.setItem(STUDENT_PAGE_KEY, 'mocktest');
   };
 
-  // Save current page to localStorage whenever it changes
   useEffect(() => {
-    localStorage.setItem('studentCurrentPage', currentPage);
+    sessionStorage.setItem(STUDENT_PAGE_KEY, currentPage);
   }, [currentPage]);
 
   useEffect(() => {
     if (currentPage === 'mocktest-run' && !mockRunSession) {
       setCurrentPage('mocktest');
-      localStorage.setItem('studentCurrentPage', 'mocktest');
+      sessionStorage.setItem(STUDENT_PAGE_KEY, 'mocktest');
     }
   }, [currentPage, mockRunSession]);
 
@@ -275,7 +310,12 @@ export function Dashboard() {
 
   const handleLogout = () => {
     logout();
-    localStorage.removeItem('studentCurrentPage');
+    sessionStorage.removeItem(STUDENT_PAGE_KEY);
+    try {
+      localStorage.removeItem(STUDENT_PAGE_KEY);
+    } catch {
+      /* ignore */
+    }
     localStorage.removeItem('studentSelectedPostId');
     localStorage.removeItem('studentSelectedUniversityId');
     localStorage.removeItem('studentMockRunSession');
@@ -307,7 +347,7 @@ export function Dashboard() {
         userName={user?.name || 'User'}
         onProfileClick={() => {
           setCurrentPage('profile');
-          localStorage.setItem('studentCurrentPage', 'profile');
+          sessionStorage.setItem(STUDENT_PAGE_KEY, 'profile');
         }}
       />
       <div className="flex flex-1 overflow-hidden">
