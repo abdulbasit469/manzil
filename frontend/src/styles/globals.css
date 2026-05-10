@@ -188,6 +188,20 @@ html {
   font-size: var(--font-size);
 }
 
+/* App-wide mobile: prevent horizontal bleed; flex pages need min-w-0 on children */
+#root {
+  min-height: 100dvh;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+  display: flex;
+  flex-direction: column;
+}
+
+body {
+  overflow-x: clip;
+}
+
 /* Dashboard notifications panel — always show a visible scrollbar (Win/Chrome/Firefox) */
 .notification-panel-scroll {
   overflow-x: hidden !important;

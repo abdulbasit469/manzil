@@ -116,29 +116,13 @@ export function Dashboard() {
     },
   ];
 
-  const handleNavigateToPost = (postId: string) => {
-    handlePageChange('community-post-detail', postId);
-  };
-
-  const handleNavigateToNewPost = () => {
-    handlePageChange('community-new-post');
-  };
-
-  const handleBackToCommunity = () => {
-    setCurrentPage('community');
-    setSelectedPostId(null);
-    setSelectedUniversityId(null);
-    sessionStorage.setItem(STUDENT_PAGE_KEY, 'community');
-    localStorage.removeItem('studentSelectedPostId');
-    localStorage.removeItem('studentSelectedUniversityId');
-  };
-
   const handlePageChange = (page: string, postId?: string) => {
     if (page !== 'mocktest-run') {
       setMockRunSession(null);
       localStorage.removeItem('studentMockRunSession');
     }
     setCurrentPage(page);
+    setSidebarOpen(false);
     sessionStorage.setItem(STUDENT_PAGE_KEY, page);
     if (page === 'degree-scope-detail') {
       setSelectedDegreeScopeId(postId || null);
@@ -169,31 +153,34 @@ export function Dashboard() {
     }
   };
 
+  const handleNavigateToPost = (postId: string) => {
+    handlePageChange('community-post-detail', postId);
+  };
+
+  const handleNavigateToNewPost = () => {
+    handlePageChange('community-new-post');
+  };
+
+  const handleBackToCommunity = () => {
+    handlePageChange('community');
+  };
+
   const handleBackToDegreeScope = () => {
-    setCurrentPage('degree-scope');
-    setSelectedDegreeScopeId(null);
-    sessionStorage.setItem(STUDENT_PAGE_KEY, 'degree-scope');
+    handlePageChange('degree-scope');
   };
 
   const handleBackToUniversities = () => {
-    setCurrentPage('universities');
-    setSelectedUniversityId(null);
-    sessionStorage.setItem(STUDENT_PAGE_KEY, 'universities');
-    localStorage.removeItem('studentSelectedUniversityId');
+    handlePageChange('universities');
   };
 
   const startMockTestRun = (config: { name: string; color: string }) => {
     setMockRunSession(config);
     localStorage.setItem('studentMockRunSession', JSON.stringify(config));
-    setCurrentPage('mocktest-run');
-    sessionStorage.setItem(STUDENT_PAGE_KEY, 'mocktest-run');
+    handlePageChange('mocktest-run');
   };
 
   const handleBackFromMockRun = () => {
-    setMockRunSession(null);
-    localStorage.removeItem('studentMockRunSession');
-    setCurrentPage('mocktest');
-    sessionStorage.setItem(STUDENT_PAGE_KEY, 'mocktest');
+    handlePageChange('mocktest');
   };
 
   useEffect(() => {
@@ -202,8 +189,7 @@ export function Dashboard() {
 
   useEffect(() => {
     if (currentPage === 'mocktest-run' && !mockRunSession) {
-      setCurrentPage('mocktest');
-      sessionStorage.setItem(STUDENT_PAGE_KEY, 'mocktest');
+      handlePageChange('mocktest');
     }
   }, [currentPage, mockRunSession]);
 
@@ -246,13 +232,13 @@ export function Dashboard() {
           <UniversityDetailPage universityId={selectedUniversityId} onBack={handleBackToUniversities} />
         );
       case 'career':
-        return <CareerAssessmentPage onPageChange={setCurrentPage} />;
+        return <CareerAssessmentPage onPageChange={handlePageChange} />;
       case 'personality-test':
-        return <PersonalityTestPage onPageChange={setCurrentPage} />;
+        return <PersonalityTestPage onPageChange={handlePageChange} />;
       case 'brain-test':
-        return <BrainHemisphereTestPage onPageChange={setCurrentPage} />;
+        return <BrainHemisphereTestPage onPageChange={handlePageChange} />;
       case 'interest-test':
-        return <InterestTestPage onPageChange={setCurrentPage} />;
+        return <InterestTestPage onPageChange={handlePageChange} />;
       case 'compare':
         return <ComparisonPage />;
       case 'merit':
@@ -282,15 +268,14 @@ export function Dashboard() {
             onBack={handleBackToCommunity}
             onPostCreated={() => {
               handleBackToCommunity();
-              // Force refresh of community page
               setTimeout(() => {
-                setCurrentPage('community');
+                handlePageChange('community');
               }, 100);
             }}
           />
         );
       case 'profile':
-        return <ProfilePage onPageChange={setCurrentPage} />;
+        return <ProfilePage onPageChange={handlePageChange} />;
       case 'mocktest':
         return <MockTestPage onStartPractice={startMockTestRun} />;
       case 'mocktest-run':
@@ -341,26 +326,30 @@ export function Dashboard() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-slate-50">
-      <TopNavbar 
-        onMenuClick={() => setSidebarOpen(!sidebarOpen)} 
+    <div className="flex flex-col h-dvh max-h-dvh min-h-0 w-full max-w-full bg-slate-50 overflow-hidden">
+      <TopNavbar
+        onMenuClick={() => setSidebarOpen((o) => !o)}
         userName={user?.name || 'User'}
-        onProfileClick={() => {
-          setCurrentPage('profile');
-          sessionStorage.setItem(STUDENT_PAGE_KEY, 'profile');
-        }}
+        onProfileClick={() => handlePageChange('profile')}
       />
-      <div className="flex flex-1 overflow-hidden">
-        <Sidebar 
-          isOpen={sidebarOpen} 
-          onToggle={() => setSidebarOpen(!sidebarOpen)}
+      {sidebarOpen && (
+        <button
+          type="button"
+          aria-label="Close navigation menu"
+          className="fixed inset-x-0 bottom-0 top-14 z-20 bg-black/50 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+      <div className="flex flex-1 min-h-0 min-w-0 overflow-hidden relative">
+        <Sidebar
+          isOpen={sidebarOpen}
           currentPage={currentPage}
           onPageChange={handlePageChange}
           onLogout={handleLogout}
         />
-        <Suspense fallback={<div className="flex-1 bg-slate-50" />}>
-          {renderPage()}
-        </Suspense>
+        <main className="flex flex-1 min-h-0 min-w-0 flex-col overflow-y-auto overflow-x-hidden">
+          <Suspense fallback={<div className="flex-1 bg-slate-50 min-h-[12rem]" />}>{renderPage()}</Suspense>
+        </main>
       </div>
       <Suspense fallback={null}>
         <Chatbot />

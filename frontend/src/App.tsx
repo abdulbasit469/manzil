@@ -127,8 +127,10 @@ export default function App() {
   return (
     <AuthProvider>
       <Router>
-        <AppRoutes />
-        <Toaster />
+        <div className="min-h-dvh w-full max-w-full min-w-0 flex flex-col">
+          <AppRoutes />
+          <Toaster />
+        </div>
       </Router>
     </AuthProvider>
   );

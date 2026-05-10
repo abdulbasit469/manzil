@@ -260,9 +260,9 @@ export function UniversitiesPage({ onOpenUniversityDetail }: UniversitiesPagePro
           className="mb-6 md:mb-8"
         >
           <Card className="p-4 md:p-6 bg-white rounded-lg shadow-sm">
-            <div className="flex flex-row gap-3 md:gap-4 items-center">
+            <div className="flex flex-col gap-3 sm:flex-row sm:gap-4 sm:items-stretch md:items-center">
               {/* Search Bar - Takes most of the width */}
-              <div className="flex-1 relative min-w-[200px]">
+              <div className="flex-1 relative min-w-0 w-full sm:min-w-[200px]">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-slate-400 pointer-events-none" />
                 <input
                   type="text"
@@ -279,7 +279,7 @@ export function UniversitiesPage({ onOpenUniversityDetail }: UniversitiesPagePro
                 onChange={(e) => {
                   setSelectedCity(e.target.value);
                 }}
-                className="px-3 md:px-4 py-2 md:py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm md:text-base min-w-[140px] md:min-w-[150px] bg-white cursor-pointer h-[42px] md:h-[48px]"
+                className="w-full sm:w-auto sm:min-w-[140px] px-3 md:px-4 py-2 md:py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm md:text-base md:min-w-[150px] bg-white cursor-pointer h-[42px] md:h-[48px]"
               >
                 <option value="All Cities">All Cities</option>
                 {cities.map(city => (
@@ -293,7 +293,7 @@ export function UniversitiesPage({ onOpenUniversityDetail }: UniversitiesPagePro
                 onChange={(e) => {
                   setSelectedType(e.target.value);
                 }}
-                className="px-3 md:px-4 py-2 md:py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm md:text-base min-w-[140px] md:min-w-[150px] bg-white cursor-pointer h-[42px] md:h-[48px]"
+                className="w-full sm:w-auto sm:min-w-[140px] px-3 md:px-4 py-2 md:py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm md:text-base md:min-w-[150px] bg-white cursor-pointer h-[42px] md:h-[48px]"
               >
                 <option value="All Types">All Types</option>
                 <option value="Public">Public</option>
