@@ -135,7 +135,33 @@ exports.getAllUniversities = async (req, res) => {
 
     const nameClauses = [];
     if (search && search.trim()) {
-      nameClauses.push({ name: { $regex: search.trim(), $options: 'i' } });
+      const term = search.trim();
+      const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const searchOr = [{ name: { $regex: escaped, $options: 'i' } }];
+      try {
+        const progCacheKey = `progUniIds:${escaped.toLowerCase()}`;
+        let programUniIds = getCached(progCacheKey);
+        if (!Array.isArray(programUniIds)) {
+          programUniIds = await Program.distinct('university', {
+            isActive: true,
+            $or: [
+              { name: { $regex: escaped, $options: 'i' } },
+              { programGroup: { $regex: escaped, $options: 'i' } },
+              { degree: { $regex: escaped, $options: 'i' } },
+              { category: { $regex: escaped, $options: 'i' } },
+            ],
+          });
+          setCached(progCacheKey, programUniIds, 300_000);
+        }
+        if (programUniIds.length) {
+          searchOr.push({ _id: { $in: programUniIds } });
+        }
+      } catch (progErr) {
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('[universities] program search fallback:', progErr.message);
+        }
+      }
+      nameClauses.push(searchOr.length > 1 ? { $or: searchOr } : searchOr[0]);
     }
     if (omitPlaceholder) {
       // Name suffix "(Not specified)" OR city placeholders (merit / curated lists)
@@ -211,27 +237,43 @@ exports.getAllUniversities = async (req, res) => {
       isActive: 1,
     };
 
-    // Single aggregation: one DB round-trip vs find + count (lower latency on Atlas / cold pool)
-    const agg = await University.aggregate([
-      { $match: query },
-      {
-        $facet: {
-          data: [{ $sort: { name: 1 } }, { $skip: skip }, { $limit: limitNum }, { $project: listProjection }],
-          total: [{ $count: 'count' }],
+    let universities;
+    let count;
+
+    /** Unfiltered browse: find + cached total count (much faster than $facet on large collections). */
+    const isUnfilteredBrowse = !search?.trim() && Object.keys(query).length === 0;
+    if (isUnfilteredBrowse) {
+      universities = await University.find(query)
+        .select(listProjection)
+        .sort({ name: 1 })
+        .skip(skip)
+        .limit(limitNum)
+        .lean();
+
+      const totalCached = getCached('unis:totalCount');
+      if (typeof totalCached === 'number' && totalCached >= 0) {
+        count = totalCached;
+      } else {
+        count = await University.countDocuments(query);
+        setCached('unis:totalCount', count, 600_000);
+      }
+    } else {
+      const agg = await University.aggregate([
+        { $match: query },
+        {
+          $facet: {
+            data: [{ $sort: { name: 1 } }, { $skip: skip }, { $limit: limitNum }, { $project: listProjection }],
+            total: [{ $count: 'count' }],
+          },
         },
-      },
-    ]);
+      ]);
+      universities = agg[0]?.data || [];
+      count = agg[0]?.total?.[0]?.count ?? 0;
+    }
 
-    const universities = agg[0]?.data || [];
-    const count = agg[0]?.total?.[0]?.count ?? 0;
-
-    const { getUniversityImage } = require('../utils/universityImages');
-
+    // List view: skip server-side image resolution — frontend getUniversityImage() handles fallbacks (faster first paint).
     const universitiesWithImages = universities.map((uni) => {
       const uniObj = sanitizeUniversityFields({ ...uni });
-      if (!uniObj.image) {
-        uniObj.image = getUniversityImage(uniObj.name || uni.name);
-      }
       if (!uniObj.type || (uniObj.type !== 'Public' && uniObj.type !== 'Private')) {
         uniObj.type = 'Public';
       }

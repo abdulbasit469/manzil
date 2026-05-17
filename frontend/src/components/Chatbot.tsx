@@ -13,10 +13,14 @@ const FLOAT_STYLE: React.CSSProperties = {
 
 type Message = { role: 'user' | 'bot'; text: string; source?: 'faq' | 'ai' | 'fallback' };
 
+type ChatbotProps = {
+  onPageChange?: (page: string) => void;
+};
+
 const WELCOME =
   "Hello! I'm your Manzil AI Career Counselor. Ask me anything about admissions, entry tests (MDCAT, ECAT, NTS), universities, or career paths — in English or Roman Urdu.";
 
-export function Chatbot() {
+export function Chatbot({ onPageChange }: ChatbotProps = {}) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -249,6 +253,43 @@ export function Chatbot() {
                   </button>
                 ))}
               </div>
+            </div>
+          )}
+
+          {onPageChange && (
+            <div
+              style={{
+                flexShrink: 0,
+                padding: '8px 12px 0',
+                borderTop: '1px solid #f1f5f9',
+                background: '#fff',
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  onPageChange('universities');
+                }}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  borderRadius: 10,
+                  border: '1.5px solid #fde68a',
+                  background: '#fffbeb',
+                  color: '#92400e',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                }}
+              >
+                <GraduationCap style={{ width: 14, height: 14 }} />
+                Explore universities &amp; programs
+              </button>
             </div>
           )}
 

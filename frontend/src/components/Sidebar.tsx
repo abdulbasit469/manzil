@@ -1,4 +1,5 @@
 import { motion } from 'motion/react';
+import { prefetchUniversitiesList } from '../utils/universitiesListPrefetch';
 import {
   LayoutDashboard,
   GraduationCap,
@@ -48,6 +49,9 @@ export function Sidebar({ isOpen, onToggle, currentPage, onPageChange, onLogout 
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: index * 0.05 }}
             onClick={() => onPageChange(item.page)}
+            onMouseEnter={() => {
+              if (item.page === 'universities') void prefetchUniversitiesList();
+            }}
             title={!isOpen ? item.label : ''}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
               currentPage === item.page ||

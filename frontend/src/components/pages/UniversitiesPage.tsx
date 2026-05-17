@@ -2,12 +2,24 @@ import { motion } from 'motion/react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Search, MapPin, Bookmark, ChevronRight } from 'lucide-react';
-import { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import { toast } from 'sonner';
 import { getUniversityImage } from '../../utils/universityImage';
 import { universityNameLabel, universityCityLabel } from '../../utils/universityDisplay';
+import type { CareerUniversityHint } from '../../utils/careerUniversityNav';
+import {
+  computeUniversitiesPageInit,
+  listCacheKey,
+  persistUniversitiesCacheMap,
+  type UniversitiesListCacheEntry,
+} from '../../utils/universitiesPageCache';
+import {
+  getPrefetchedUniversitiesList,
+  prefetchUniversitiesList,
+  primeUniversitiesListCache,
+} from '../../utils/universitiesListPrefetch';
 
 interface University {
   _id: string;
@@ -25,86 +37,57 @@ interface UniversitiesPageProps {
   onOpenUniversityDetail?: (universityId: string) => void;
 }
 
-const UNIVERSITIES_CACHE_TTL_MS = 120_000;
-const UNIVERSITIES_CACHE_STORAGE_KEY = 'universities-page-cache-v1';
-
 export function UniversitiesPage({ onOpenUniversityDetail }: UniversitiesPageProps) {
   const { isAuthenticated } = useAuth();
-  const [universities, setUniversities] = useState<University[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [initial] = useState(() => computeUniversitiesPageInit());
+  const [universities, setUniversities] = useState<University[]>(
+    () => initial.universities as University[]
+  );
+  const [loading, setLoading] = useState(initial.loading);
   const [savedUniversities, setSavedUniversities] = useState<Set<string>>(new Set());
-  const [searchQuery, setSearchQuery] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [searchQuery, setSearchQuery] = useState(initial.searchQuery);
+  const [debouncedSearch, setDebouncedSearch] = useState(initial.debouncedSearch);
+  const [careerFilterBanner, setCareerFilterBanner] = useState<CareerUniversityHint | null>(
+    initial.careerFilterBanner
+  );
   const [selectedCity, setSelectedCity] = useState('All Cities');
   const [selectedType, setSelectedType] = useState('All Types');
   const [cities, setCities] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const universitiesCacheRef = useRef<Map<string, { universities: University[]; totalPages: number }>>(new Map());
+  const [totalPages, setTotalPages] = useState(initial.totalPages);
+  const universitiesCacheRef = useRef<Map<string, UniversitiesListCacheEntry>>(initial.cacheMap);
 
   // Declared before useEffects so dependency arrays can reference them safely
   const fetchUniversities = useCallback(async () => {
     try {
-      const cacheKey = JSON.stringify({
-        page: currentPage,
-        search: debouncedSearch,
-        city: selectedCity,
-        type: selectedType,
-      });
-      const cached = universitiesCacheRef.current.get(cacheKey);
-      if (cached) {
-        setUniversities(cached.universities);
-        setTotalPages(cached.totalPages);
+      const cacheKey = listCacheKey(currentPage, debouncedSearch, selectedCity, selectedType);
+      const memCached =
+        universitiesCacheRef.current.get(cacheKey) ?? getPrefetchedUniversitiesList(cacheKey);
+      if (memCached) {
+        setUniversities(memCached.universities as University[]);
+        setTotalPages(memCached.totalPages);
+        universitiesCacheRef.current.set(cacheKey, memCached);
         setLoading(false);
         return;
       }
 
-      setLoading(true);
-      const params: any = {
-        page: currentPage,
-        limit: 12
-      };
-      
-      if (debouncedSearch) {
-        params.search = debouncedSearch;
-      }
-      
-      if (selectedCity && selectedCity.trim() !== '' && selectedCity !== 'All Cities') {
-        params.city = selectedCity.trim();
-      }
-      
-      if (selectedType && selectedType.trim() !== '' && selectedType !== 'All Types') {
-        params.type = selectedType.trim();
-      }
+      setLoading((prev) => prev || universities.length === 0);
 
-      const response = await api.get('/universities', { params });
-      
-      if (response.data.success) {
-        const universitiesData = response.data.universities || [];
-        
-        // Ensure each university has a type
-        const universitiesWithType = universitiesData.map((uni: University) => ({
-          ...uni,
-          type: uni.type || 'Public'
-        }));
-        
-        setUniversities(universitiesWithType);
-        setTotalPages(response.data.totalPages || 1);
-        universitiesCacheRef.current.set(cacheKey, {
-          universities: universitiesWithType,
-          totalPages: response.data.totalPages || 1,
-        });
-        try {
-          const entries = Array.from(universitiesCacheRef.current.entries());
-          sessionStorage.setItem(
-            UNIVERSITIES_CACHE_STORAGE_KEY,
-            JSON.stringify({ at: Date.now(), entries })
-          );
-        } catch {
-          // Ignore session storage failures to keep page resilient.
-        }
+      const entry = await prefetchUniversitiesList(
+        currentPage,
+        debouncedSearch,
+        selectedCity,
+        selectedType
+      );
+
+      if (entry) {
+        setUniversities(entry.universities as University[]);
+        setTotalPages(entry.totalPages);
+        universitiesCacheRef.current.set(cacheKey, entry);
+        primeUniversitiesListCache(cacheKey, entry);
+        persistUniversitiesCacheMap(universitiesCacheRef.current);
       } else {
-        throw new Error(response.data.message || 'Failed to fetch universities');
+        throw new Error('Failed to fetch universities');
       }
     } catch (error: any) {
       console.error('Error fetching universities:', error);
@@ -115,7 +98,7 @@ export function UniversitiesPage({ onOpenUniversityDetail }: UniversitiesPagePro
     } finally {
       setLoading(false);
     }
-  }, [currentPage, debouncedSearch, selectedCity, selectedType]);
+  }, [currentPage, debouncedSearch, selectedCity, selectedType, universities.length]);
 
   const fetchCities = async () => {
     try {
@@ -133,35 +116,6 @@ export function UniversitiesPage({ onOpenUniversityDetail }: UniversitiesPagePro
     fetchCities();
   }, []);
 
-  useLayoutEffect(() => {
-    try {
-      const raw = sessionStorage.getItem(UNIVERSITIES_CACHE_STORAGE_KEY);
-      if (!raw) return;
-      const parsed = JSON.parse(raw) as {
-        at?: number;
-        entries?: [string, { universities: University[]; totalPages: number }][];
-      };
-      const isFresh =
-        typeof parsed?.at === 'number' && Date.now() - parsed.at < UNIVERSITIES_CACHE_TTL_MS;
-      if (!isFresh || !Array.isArray(parsed?.entries)) return;
-      universitiesCacheRef.current = new Map(parsed.entries);
-      const initialKey = JSON.stringify({
-        page: 1,
-        search: '',
-        city: 'All Cities',
-        type: 'All Types',
-      });
-      const initialCached = universitiesCacheRef.current.get(initialKey);
-      if (initialCached) {
-        setUniversities(initialCached.universities);
-        setTotalPages(initialCached.totalPages);
-        setLoading(false);
-      }
-    } catch {
-      // Ignore malformed cache entries.
-    }
-  }, []);
-
   useEffect(() => {
     const t = setTimeout(() => {
       const next = searchQuery.trim();
@@ -169,7 +123,7 @@ export function UniversitiesPage({ onOpenUniversityDetail }: UniversitiesPagePro
         if (prev !== next) setCurrentPage(1);
         return next;
       });
-    }, 280);
+    }, 180);
     return () => clearTimeout(t);
   }, [searchQuery]);
 
@@ -237,11 +191,7 @@ export function UniversitiesPage({ onOpenUniversityDetail }: UniversitiesPagePro
       {/* Header */}
       <div className="bg-gradient-to-r from-[#0f1f3a] via-[#1e3a5f] to-amber-500 text-white p-4 md:p-8 shadow-lg">
         <div className="max-w-7xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-          >
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
             <h1 className="text-4xl mb-2 font-bold">Explore Universities</h1>
             <p className="text-sm md:text-base text-blue-100">
               Discover the best universities in Pakistan and find your perfect match
@@ -253,13 +203,32 @@ export function UniversitiesPage({ onOpenUniversityDetail }: UniversitiesPagePro
       {/* Main Content */}
       <div className="max-w-7xl mx-auto p-4 md:p-8">
         {/* Search and Filters */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="mb-6 md:mb-8"
-        >
+        <div className="mb-6 md:mb-8">
           <Card className="p-4 md:p-6 bg-white rounded-lg shadow-sm">
+            {careerFilterBanner && (
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-4 flex flex-col gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <p className="text-sm text-slate-800">
+                  <span className="font-semibold text-amber-900">From your career assessment:</span>{' '}
+                  showing universities that offer programs related to{' '}
+                  <span className="font-medium">{careerFilterBanner.label}</span>.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCareerFilterBanner(null);
+                    setSearchQuery('');
+                    setCurrentPage(1);
+                  }}
+                  className="shrink-0 text-sm font-medium text-amber-800 underline-offset-2 hover:underline"
+                >
+                  Clear filter
+                </button>
+              </motion.div>
+            )}
             <div className="flex flex-row gap-3 md:gap-4 items-center">
               {/* Search Bar - Takes most of the width */}
               <div className="flex-1 relative min-w-[200px]">
@@ -268,7 +237,7 @@ export function UniversitiesPage({ onOpenUniversityDetail }: UniversitiesPagePro
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search universities..."
+                  placeholder="Search universities or programs..."
                   className="w-full pl-10 pr-4 py-2 md:py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm md:text-base bg-white h-full"
                 />
               </div>
@@ -301,7 +270,7 @@ export function UniversitiesPage({ onOpenUniversityDetail }: UniversitiesPagePro
               </select>
             </div>
           </Card>
-        </motion.div>
+        </div>
 
         {/* Loading State — skeleton cards so the grid never goes blank */}
         {loading && universities.length === 0 ? (

@@ -2,7 +2,7 @@ import { useState, useEffect, Suspense, lazy } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 const DashboardContent = lazy(() => import('./DashboardContent').then((m) => ({ default: m.DashboardContent })));
-const UniversitiesPage = lazy(() => import('./pages/UniversitiesPage').then((m) => ({ default: m.UniversitiesPage })));
+import { UniversitiesPage } from './pages/UniversitiesPage';
 const CareerAssessmentPage = lazy(() => import('./pages/CareerAssessmentPage').then((m) => ({ default: m.CareerAssessmentPage })));
 const PersonalityTestPage = lazy(() => import('./pages/PersonalityTestPage').then((m) => ({ default: m.PersonalityTestPage })));
 const BrainHemisphereTestPage = lazy(() => import('./pages/BrainHemisphereTestPage').then((m) => ({ default: m.BrainHemisphereTestPage })));
@@ -21,6 +21,7 @@ const ComparisonPage = lazy(() => import('./pages/ComparisonPage').then((m) => (
 import { TopNavbar } from './TopNavbar';
 const Chatbot = lazy(() => import('./Chatbot').then((m) => ({ default: m.Chatbot })));
 import { useAuth } from '../context/AuthContext';
+import { prefetchUniversitiesList } from '../utils/universitiesListPrefetch';
 import { Target, BookOpen, Users } from 'lucide-react';
 
 /** Keys used in Dashboard switch (renderPage). */
@@ -200,6 +201,11 @@ export function Dashboard() {
     sessionStorage.setItem(STUDENT_PAGE_KEY, currentPage);
   }, [currentPage]);
 
+  // Prefetch first universities page as soon as dashboard loads (shared with Universities page)
+  useEffect(() => {
+    void prefetchUniversitiesList();
+  }, []);
+
   useEffect(() => {
     if (currentPage === 'mocktest-run' && !mockRunSession) {
       setCurrentPage('mocktest');
@@ -246,7 +252,7 @@ export function Dashboard() {
           <UniversityDetailPage universityId={selectedUniversityId} onBack={handleBackToUniversities} />
         );
       case 'career':
-        return <CareerAssessmentPage onPageChange={setCurrentPage} />;
+        return <CareerAssessmentPage onPageChange={handlePageChange} />;
       case 'personality-test':
         return <PersonalityTestPage onPageChange={setCurrentPage} />;
       case 'brain-test':
@@ -363,7 +369,7 @@ export function Dashboard() {
         </Suspense>
       </div>
       <Suspense fallback={null}>
-        <Chatbot />
+        <Chatbot onPageChange={handlePageChange} />
       </Suspense>
     </div>
   );

@@ -1,5 +1,12 @@
 const { getAnswer, FAQ, getAnswerWithMeta } = require('../data/chatbotFAQ');
 const { generateCounselorReply, isAIConfigured } = require('../services/careerCounselorAI');
+const { getCached, setCached } = require('../utils/simpleCache');
+
+const CHATBOT_AI_CACHE_TTL_MS = 30 * 60 * 1000; // 30 min — repeat questions skip external API
+
+function chatbotAiCacheKey(message) {
+  return `chatbot:ai:${String(message).trim().toLowerCase().slice(0, 500)}`;
+}
 
 /**
  * GET /api/chatbot/faq
@@ -56,8 +63,24 @@ exports.ask = async (req, res) => {
     }
 
     if (isAIConfigured()) {
+      const aiCacheKey = chatbotAiCacheKey(message);
+      const cachedAi = getCached(aiCacheKey);
+      if (cachedAi?.answer) {
+        return res.status(200).json({
+          success: true,
+          answer: cachedAi.answer,
+          matchedQuestion: null,
+          suggestedQuestions: meta.suggested || [],
+          source: 'ai',
+          confidence: null,
+          matchedBy: 'grok-cache',
+          aiAvailable: true,
+        });
+      }
+
       const aiReply = await generateCounselorReply(message);
       if (aiReply) {
+        setCached(aiCacheKey, { answer: aiReply }, CHATBOT_AI_CACHE_TTL_MS);
         return res.status(200).json({
           success: true,
           answer: aiReply,

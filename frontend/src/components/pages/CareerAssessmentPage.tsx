@@ -23,6 +23,7 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import api from '../../services/api';
 import { toast } from 'sonner';
+import { navigateToUniversitiesFromCareer } from '../../utils/careerUniversityNav';
 
 interface CareerAssessmentPageProps {
   onPageChange?: (page: string) => void;
@@ -433,12 +434,11 @@ export function CareerAssessmentPage({ onPageChange }: CareerAssessmentPageProps
         </motion.div>
 
         {/* Career Recommendations */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
-        >
-          <h2 className="mb-6">Career fields</h2>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6 }}
+            >
           <Card className="p-6">
             {loading ? (
               <div className="flex items-center justify-center py-12">
@@ -552,13 +552,23 @@ export function CareerAssessmentPage({ onPageChange }: CareerAssessmentPageProps
                             answers)
                           </p>
                           {paths.length > 0 ? (
-                            <ul className="mt-3 space-y-2">
+                            <ul className="mt-3 space-y-3">
                               {paths.map((p) => (
                                 <li
                                   key={p}
                                   className="border-l-2 border-amber-400 pl-3 text-sm text-slate-800"
                                 >
-                                  {p}
+                                  <span className="block font-medium">{p}</span>
+                                  {onPageChange && (
+                                    <button
+                                      type="button"
+                                      onClick={() => navigateToUniversitiesFromCareer(onPageChange, rec.field, p)}
+                                      className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-amber-800 hover:text-amber-900 hover:underline"
+                                    >
+                                      Find universities offering this
+                                      <ArrowRight className="h-3 w-3" aria-hidden />
+                                    </button>
+                                  )}
                                 </li>
                               ))}
                             </ul>
@@ -567,6 +577,17 @@ export function CareerAssessmentPage({ onPageChange }: CareerAssessmentPageProps
                               Explore degree programs and diplomas in this field on the Universities page; your match
                               reflects personality, aptitude, and interest together.
                             </p>
+                          )}
+                          {onPageChange && (
+                            <Button
+                              type="button"
+                              onClick={() => navigateToUniversitiesFromCareer(onPageChange, rec.field)}
+                              className="mt-4 w-full bg-gradient-to-r from-[#1e3a5f] to-[#2d5490] text-white hover:shadow-md sm:w-auto"
+                            >
+                              <GraduationCap className="mr-2 h-4 w-4" aria-hidden />
+                              Explore universities for {rec.field}
+                              <ArrowRight className="ml-2 h-4 w-4" aria-hidden />
+                            </Button>
                           )}
                           <p className="mt-3 text-xs text-slate-500">
                             Confirm entry requirements, quotas, and deadlines on each university’s official prospectus —
@@ -651,10 +672,28 @@ export function CareerAssessmentPage({ onPageChange }: CareerAssessmentPageProps
                 </div>
               )}
             </div>
-            <div className="shrink-0 border-t border-slate-200 bg-slate-50/90 p-3 sm:p-4">
+            <div className="shrink-0 border-t border-slate-200 bg-slate-50/90 p-3 sm:p-4 flex flex-col gap-2 sm:flex-row">
+              {onPageChange && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    if (recommendations.length > 0) {
+                      navigateToUniversitiesFromCareer(onPageChange, recommendations[0].field);
+                    } else {
+                      onPageChange('universities');
+                    }
+                    closeDetailModal();
+                  }}
+                  className="w-full border-amber-300 text-amber-900 hover:bg-amber-50 sm:flex-1"
+                >
+                  <GraduationCap className="mr-2 h-4 w-4" aria-hidden />
+                  Explore universities
+                </Button>
+              )}
               <Button
                 onClick={closeDetailModal}
-                className="w-full bg-gradient-to-r from-[#1e3a5f] to-amber-500 text-white hover:shadow-lg"
+                className="w-full bg-gradient-to-r from-[#1e3a5f] to-amber-500 text-white hover:shadow-lg sm:flex-1"
               >
                 Close
               </Button>
