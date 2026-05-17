@@ -288,7 +288,7 @@ export function ProfilePage({ onPageChange }: ProfilePageProps) {
           >
             <h1 className="text-4xl mb-2">My Profile</h1>
             <p className="text-blue-100">
-              Academic background, preferences, and progress — aligned with your FYP student profile module
+              Academic background, preferences, and progress 
             </p>
           </motion.div>
         </div>
