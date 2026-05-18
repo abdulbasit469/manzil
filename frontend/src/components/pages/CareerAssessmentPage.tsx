@@ -589,10 +589,6 @@ export function CareerAssessmentPage({ onPageChange }: CareerAssessmentPageProps
                               <ArrowRight className="ml-2 h-4 w-4" aria-hidden />
                             </Button>
                           )}
-                          <p className="mt-3 text-xs text-slate-500">
-                            Confirm entry requirements, quotas, and deadlines on each university’s official prospectus —
-                            this list is indicative, not admission advice.
-                          </p>
                         </div>
                       )}
                     </div>

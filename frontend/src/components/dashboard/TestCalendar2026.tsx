@@ -1,9 +1,84 @@
 import { Card } from '../ui/card';
 import { Calendar, GraduationCap, Scale, BookOpen, FileText } from 'lucide-react';
+import { formatCalendarDate } from '../../utils/formatCalendarDate';
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- API-driven nested calendar JSON */
 
 type Props = { calendar: any };
+
+const TABLE_CLASS = 'w-full table-fixed border-collapse text-xs';
+const TH_CLASS =
+  'p-2 text-left text-black font-bold bg-slate-100 border border-slate-200 whitespace-nowrap';
+const TD_CLASS = 'p-2 border border-slate-200 align-top text-slate-800';
+const EMPTY_CELL = '-';
+
+/** Remove em/en dashes from visible copy (reads more natural, less template-like). */
+function cleanDisplayText(value: string | null | undefined): string {
+  if (value == null) return '';
+  return String(value)
+    .replace(/\s*[—–]\s*/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+const MILESTONE_COLGROUP = (
+  <colgroup>
+    <col style={{ width: '4%' }} />
+    <col style={{ width: '19%' }} />
+    <col style={{ width: '19%' }} />
+    <col style={{ width: '19%' }} />
+    <col style={{ width: '19%' }} />
+    <col style={{ width: '20%' }} />
+  </colgroup>
+);
+
+const MILESTONE_HEADERS = [
+  { label: '#', keys: ['cycle'] as const },
+  { label: 'Announcement', keys: ['announcement'] as const },
+  { label: 'Registration last', keys: ['registrationLast', 'col2'] as const },
+  { label: 'Roll slip', keys: ['rollSlip', 'col3'] as const },
+  { label: 'Test date', keys: ['testDate'] as const },
+  { label: 'Result', keys: ['resultDate'] as const },
+];
+
+function cellValue(row: Record<string, string>, keys: readonly string[]): string {
+  for (const k of keys) {
+    if (k === 'cycle') continue;
+    const v = row[k];
+    if (v != null && String(v).trim() !== '') return formatCalendarDate(String(v));
+  }
+  return EMPTY_CELL;
+}
+
+function MilestoneTable({ rows, rowKey }: { rows: any[]; rowKey: 'cycle' }) {
+  if (!rows?.length) return null;
+  return (
+    <table className={TABLE_CLASS}>
+      {MILESTONE_COLGROUP}
+      <thead>
+        <tr>
+          {MILESTONE_HEADERS.map((h) => (
+            <th key={h.label} className={TH_CLASS}>
+              {h.label}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((r: any, i: number) => (
+          <tr key={r[rowKey]} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+            <td className={`${TD_CLASS} font-semibold`}>{r[rowKey]}</td>
+            {MILESTONE_HEADERS.slice(1).map((h) => (
+              <td key={h.label} className={TD_CLASS}>
+                {cellValue(r, h.keys)}
+              </td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
 
 export function TestCalendar2026({ calendar }: Props) {
   if (!calendar?.ecatUet) return null;
@@ -20,36 +95,32 @@ export function TestCalendar2026({ calendar }: Props) {
         <div>
           <h2 className="text-lg md:text-xl font-semibold text-slate-900 flex items-center gap-2">
             <Calendar className="w-6 h-6 text-emerald-600" />
-            2026 test & admission calendar
+            Test and admission calendar ( 2026 Session )
           </h2>
-          <p className="text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded-md p-2 mt-2">
-            {calendar.sourceNote}
-          </p>
         </div>
       </div>
 
       <div className="space-y-4">
-        {/* MDCAT + NUST NET */}
         <details className="group border border-slate-200 rounded-lg open:shadow-sm" open>
           <summary className="cursor-pointer px-4 py-3 font-medium text-slate-800 bg-slate-50 hover:bg-slate-100 rounded-lg list-none flex items-center gap-2 [&::-webkit-details-marker]:hidden">
             <GraduationCap className="w-4 h-4 text-rose-600" />
-            MDCAT & NUST NET (2026)
+            MDCAT and NUST NET ( 2026 Session )
           </summary>
           <div className="p-4 border-t border-slate-100 grid md:grid-cols-2 gap-4">
             <div className="rounded-lg border border-rose-100 bg-rose-50/50 p-3">
-              <p className="font-semibold text-rose-900">MDCAT 2026</p>
+              <p className="font-semibold text-rose-900">MDCAT ( 2026 Session )</p>
               <p className="text-sm text-slate-800 mt-1">
-                Expected test: <strong>{calendar.mdcat?.expectedTestDate}</strong>
+                Expected test:{' '}
+                <strong>{formatCalendarDate(calendar.mdcat?.expectedTestDate)}</strong>
               </p>
-              <p className="text-xs text-slate-600 mt-2">{calendar.mdcat?.note}</p>
             </div>
             <div className="rounded-lg border border-indigo-100 bg-indigo-50/50 p-3">
-              <p className="font-semibold text-indigo-900">NUST NET</p>
+              <p className="font-semibold text-indigo-900">NUST NET ( 2026 Session )</p>
               <ul className="mt-2 space-y-2 text-sm">
                 {(calendar.nustNet || []).map((n: any) => (
                   <li key={n.series}>
-                    <span className="font-medium">{n.series}:</span> {n.window}
-                    <span className="block text-xs text-slate-600">{n.note}</span>
+                    <span className="font-medium">{cleanDisplayText(n.series)}:</span>{' '}
+                    {cleanDisplayText(n.window)}
                   </li>
                 ))}
               </ul>
@@ -57,48 +128,43 @@ export function TestCalendar2026({ calendar }: Props) {
           </div>
         </details>
 
-        {/* ECAT UET */}
         <details className="group border border-slate-200 rounded-lg" open>
           <summary className="cursor-pointer px-4 py-3 font-medium text-slate-800 bg-slate-50 hover:bg-slate-100 rounded-lg list-none flex items-center gap-2 [&::-webkit-details-marker]:hidden">
             <FileText className="w-4 h-4 text-blue-600" />
-            ECAT — {calendar.ecatUet.title}
+            ECAT ( 2026 Session )
           </summary>
           <div className="p-4 border-t border-slate-100">
-            <p className="text-sm font-medium text-slate-900 rounded-lg border border-blue-100 bg-blue-50/80 px-4 py-3">
-              ECAT exam window (2026 session): <span className="text-blue-800">March 30 – April 3</span>
-            </p>
-            <p className="text-xs text-slate-500 mt-2">
-              Confirm exact dates, venues, and steps on the official UET admissions portal.
+            <p className="text-sm font-medium text-slate-900">
+              Test date is <span className="font-semibold text-blue-800">April 3 2026</span>.
             </p>
           </div>
         </details>
 
-        {/* NAT */}
         {nat?.rows?.length > 0 && (
           <details className="group border border-slate-200 rounded-lg">
             <summary className="cursor-pointer px-4 py-3 font-medium text-slate-800 bg-slate-50 hover:bg-slate-100 rounded-lg list-none flex items-center gap-2 [&::-webkit-details-marker]:hidden">
               <BookOpen className="w-4 h-4 text-teal-600" />
-              {nat.title} (NAT-I — NAT-XII)
+              NTS NAT ( 2026 Session )
             </summary>
             <div className="p-2 border-t border-slate-100 overflow-x-auto">
-              <table className="min-w-[900px] w-full text-xs border-collapse">
+              <table className={`${TABLE_CLASS} min-w-[900px]`}>
                 <thead>
-                  <tr className="bg-teal-700 text-white text-left">
-                    <th className="p-2 rounded-tl-lg">Test</th>
+                  <tr>
+                    <th className={`${TH_CLASS} rounded-tl-lg`}>Test</th>
                     {nat.columnKeys?.map((k: string) => (
-                      <th key={k} className="p-2 whitespace-nowrap">
-                        {nat.columnLabels?.[k] || k}
+                      <th key={k} className={TH_CLASS}>
+                        {cleanDisplayText(nat.columnLabels?.[k] || k)}
                       </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {nat.rows.map((row: any, i: number) => (
-                    <tr key={row.name} className={i % 2 === 0 ? 'bg-slate-50' : 'bg-white'}>
-                      <td className="p-2 font-medium border-b border-slate-100">{row.name}</td>
+                    <tr key={row.name} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+                      <td className={`${TD_CLASS} font-semibold`}>{row.name}</td>
                       {nat.columnKeys?.map((k: string) => (
-                        <td key={k} className="p-2 border-b border-slate-100 whitespace-nowrap">
-                          {row[k] || '—'}
+                        <td key={k} className={TD_CLASS}>
+                          {formatCalendarDate(row[k] || EMPTY_CELL)}
                         </td>
                       ))}
                     </tr>
@@ -109,139 +175,43 @@ export function TestCalendar2026({ calendar }: Props) {
           </details>
         )}
 
-        {/* LAT + law graduate admission cycles */}
         <details className="group border border-slate-200 rounded-lg">
           <summary className="cursor-pointer px-4 py-3 font-medium text-slate-800 bg-slate-50 hover:bg-slate-100 rounded-lg list-none flex items-center gap-2 [&::-webkit-details-marker]:hidden">
             <Scale className="w-4 h-4 text-violet-600" />
-            LAT & law graduate admissions (2026)
+            LAT and law graduate admissions ( 2026 Session )
           </summary>
           <div className="p-4 border-t border-slate-100 space-y-6">
             <div>
-              <p className="font-semibold text-slate-800 mb-2">{lat.title}</p>
+              <p className="font-semibold text-slate-800 mb-2">LAT ( 2026 Session )</p>
               <div className="overflow-x-auto">
-                <table className="min-w-[640px] w-full text-xs">
-                  <thead>
-                    <tr className="bg-violet-700 text-white">
-                      <th className="p-2 text-left">#</th>
-                      <th className="p-2 text-left">Announcement</th>
-                      <th className="p-2 text-left">Reg. last</th>
-                      <th className="p-2 text-left">Roll slip</th>
-                      <th className="p-2 text-left">Test</th>
-                      <th className="p-2 text-left">Result</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {lat.rows?.map((r: any) => (
-                      <tr key={r.cycle} className="border-b border-slate-100">
-                        <td className="p-2 font-medium">{r.cycle}</td>
-                        <td className="p-2">{r.announcement}</td>
-                        <td className="p-2">{r.registrationLast}</td>
-                        <td className="p-2">{r.rollSlip}</td>
-                        <td className="p-2">{r.testDate}</td>
-                        <td className="p-2">{r.resultDate}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <MilestoneTable rows={lat.rows} rowKey="cycle" />
               </div>
             </div>
             <div>
-              <p className="font-semibold text-slate-800 mb-2">{lawGat.title}</p>
+              <p className="font-semibold text-slate-800 mb-2">Law graduate admission test ( 2026 Session )</p>
               <div className="overflow-x-auto">
-                <table className="min-w-[640px] w-full text-xs">
-                  <thead>
-                    <tr className="bg-slate-700 text-white">
-                      <th className="p-2 text-left">#</th>
-                      <th className="p-2 text-left">Announcement</th>
-                      <th className="p-2 text-left">Reg. last</th>
-                      <th className="p-2 text-left">Roll slip</th>
-                      <th className="p-2 text-left">Test</th>
-                      <th className="p-2 text-left">Result</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {lawGat.rows?.map((r: any) => (
-                      <tr key={r.cycle} className="border-b border-slate-100">
-                        <td className="p-2 font-medium">{r.cycle}</td>
-                        <td className="p-2">{r.announcement}</td>
-                        <td className="p-2">{r.registrationLast}</td>
-                        <td className="p-2">{r.rollSlip}</td>
-                        <td className="p-2">{r.testDate}</td>
-                        <td className="p-2">{r.resultDate}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <MilestoneTable rows={lawGat.rows} rowKey="cycle" />
               </div>
             </div>
           </div>
         </details>
 
-        {/* USAT + HAT */}
         <details className="group border border-slate-200 rounded-lg">
           <summary className="cursor-pointer px-4 py-3 font-medium text-slate-800 bg-slate-50 hover:bg-slate-100 rounded-lg list-none flex items-center gap-2 [&::-webkit-details-marker]:hidden">
             <BookOpen className="w-4 h-4 text-amber-700" />
-            USAT & HAT — HEC 2026 cycles
+            USAT and HAT ( 2026 Session )
           </summary>
           <div className="p-4 border-t border-slate-100 space-y-6">
             <div>
-              <p className="font-semibold text-slate-800">{usat.title}</p>
-              <p className="text-xs text-slate-600 mb-2">{usat.note}</p>
+              <p className="font-semibold text-slate-800 mb-2">USAT ( 2026 Session )</p>
               <div className="overflow-x-auto">
-                <table className="min-w-[560px] w-full text-xs">
-                  <thead>
-                    <tr className="bg-amber-700 text-white">
-                      <th className="p-2">Cycle</th>
-                      <th className="p-2">Date 1</th>
-                      <th className="p-2">Date 2</th>
-                      <th className="p-2">Date 3</th>
-                      <th className="p-2">Date 4 (test)</th>
-                      <th className="p-2">Date 5 (result)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {usat.rows?.map((r: any) => (
-                      <tr key={r.cycle} className="border-b border-slate-100">
-                        <td className="p-2 font-medium">{r.cycle}</td>
-                        <td className="p-2">{r.announcement}</td>
-                        <td className="p-2">{r.col2}</td>
-                        <td className="p-2">{r.col3}</td>
-                        <td className="p-2">{r.testDate}</td>
-                        <td className="p-2">{r.resultDate}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <MilestoneTable rows={usat.rows} rowKey="cycle" />
               </div>
             </div>
             <div>
-              <p className="font-semibold text-slate-800">{hat.title}</p>
-              <p className="text-xs text-slate-600 mb-2">{hat.note}</p>
+              <p className="font-semibold text-slate-800 mb-2">HAT ( 2026 Session )</p>
               <div className="overflow-x-auto">
-                <table className="min-w-[560px] w-full text-xs">
-                  <thead>
-                    <tr className="bg-amber-900 text-white">
-                      <th className="p-2">Cycle</th>
-                      <th className="p-2">Date 1</th>
-                      <th className="p-2">Date 2</th>
-                      <th className="p-2">Date 3</th>
-                      <th className="p-2">Date 4 (test)</th>
-                      <th className="p-2">Date 5 (result)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {hat.rows?.map((r: any) => (
-                      <tr key={r.cycle} className="border-b border-slate-100">
-                        <td className="p-2 font-medium">{r.cycle}</td>
-                        <td className="p-2">{r.announcement}</td>
-                        <td className="p-2">{r.col2}</td>
-                        <td className="p-2">{r.col3}</td>
-                        <td className="p-2">{r.testDate}</td>
-                        <td className="p-2">{r.resultDate}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <MilestoneTable rows={hat.rows} rowKey="cycle" />
               </div>
             </div>
           </div>
